@@ -265,14 +265,22 @@ class HomeController extends AbstractController
     #[Route('/stats', name: 'app_stats')]
     public function stats(): Response
     {
+        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
         $stats = $this->cigaretteRepository->getDailyStats(30);
         $rank = $this->scoringService->getCurrentRank();
 
+        // Ne calculer les scores que depuis le premier jour
         $weeklyScores = [];
         $date = new \DateTime('-6 days');
+        $firstDateNormalized = $firstDate ? (clone $firstDate)->setTime(0, 0, 0) : null;
+
         for ($i = 0; $i < 7; $i++) {
-            $dailyScore = $this->scoringService->calculateDailyScore($date);
-            $weeklyScores[$date->format('Y-m-d')] = $dailyScore;
+            $currentDateNormalized = (clone $date)->setTime(0, 0, 0);
+            // N'inclure que les jours à partir du premier jour
+            if ($firstDateNormalized && $currentDateNormalized >= $firstDateNormalized) {
+                $dailyScore = $this->scoringService->calculateDailyScore($date);
+                $weeklyScores[$date->format('Y-m-d')] = $dailyScore;
+            }
             $date->modify('+1 day');
         }
 
@@ -290,6 +298,7 @@ class HomeController extends AbstractController
             'weekday_stats' => $weekdayStats,
             'hourly_stats' => $hourlyStats,
             'savings' => $savings,
+            'first_date' => $firstDate,
         ]);
     }
 

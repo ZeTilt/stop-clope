@@ -119,6 +119,7 @@
     </div>
 
     <!-- Graphique clopes/jour -->
+    {% if first_date %}
     <div class="card">
         <h3>Clopes par jour (7 derniers jours)</h3>
         <div class="chart-container">
@@ -132,19 +133,23 @@
 
                 {% for i in 6..0 %}
                     {% set check_date = ("now")|date_modify("-" ~ i ~ " days")|date("Y-m-d") %}
-                    {% set count = monthly_stats[check_date]|default(0) %}
-                    {% set height = max_count > 0 ? (count / max_count * 120) : 0 %}
-                    <div class="bar-wrapper">
-                        <span class="bar-value">{{ count }}</span>
-                        <div class="bar" style="height: {{ height }}px;"></div>
-                        <span class="bar-label">{{ check_date|date("D")|slice(0, 3) }}</span>
-                    </div>
+                    {% if check_date >= first_date|date("Y-m-d") %}
+                        {% set count = monthly_stats[check_date]|default(0) %}
+                        {% set height = max_count > 0 ? (count / max_count * 120) : 0 %}
+                        <div class="bar-wrapper">
+                            <span class="bar-value">{{ count }}</span>
+                            <div class="bar" style="height: {{ height }}px;"></div>
+                            <span class="bar-label">{{ check_date|date("D")|slice(0, 3) }}</span>
+                        </div>
+                    {% endif %}
                 {% endfor %}
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Graphique scores/jour -->
+    {% if weekly_scores|length > 0 %}
     <div class="card">
         <h3>Score par jour (7 derniers jours)</h3>
         <div class="chart-container score-chart">
@@ -173,6 +178,7 @@
             </div>
         </div>
     </div>
+    {% endif %}
 
     <!-- Semaine type -->
     {% if weekday_stats|length > 0 %}
