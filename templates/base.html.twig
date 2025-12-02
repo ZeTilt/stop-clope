@@ -476,6 +476,42 @@
             window.addEventListener('offline', () => {
                 showToast('Mode hors-ligne');
             });
+
+            // ===== Rappel réveil (notifications locales) =====
+            function scheduleWakeupReminderGlobal() {
+                const enabled = localStorage.getItem('wakeupReminderEnabled') === 'true';
+                if (!enabled || !('Notification' in window) || Notification.permission !== 'granted') return;
+
+                const time = localStorage.getItem('wakeupReminderTime') || '08:00';
+                const [hours, minutes] = time.split(':').map(Number);
+
+                const now = new Date();
+                const nextReminder = new Date();
+                nextReminder.setHours(hours, minutes, 0, 0);
+
+                if (nextReminder <= now) {
+                    nextReminder.setDate(nextReminder.getDate() + 1);
+                }
+
+                const delay = nextReminder.getTime() - now.getTime();
+
+                setTimeout(() => {
+                    // Vérifier si le réveil a déjà été noté aujourd'hui
+                    const notification = new Notification('StopClope', {
+                        body: 'N\'oublie pas de noter ton heure de réveil !',
+                        icon: '/icons/icon-192.png',
+                        tag: 'wakeup-reminder',
+                        requireInteraction: true
+                    });
+                    notification.onclick = () => {
+                        window.focus();
+                        window.location.href = '/';
+                        notification.close();
+                    };
+                    scheduleWakeupReminderGlobal();
+                }, delay);
+            }
+            scheduleWakeupReminderGlobal();
         </script>
     </body>
 </html>

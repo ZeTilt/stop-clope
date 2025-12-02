@@ -34,12 +34,34 @@
         </button>
     </div>
 
+    <div class="card">
+        <h3 style="margin-bottom: 20px;">Rappel réveil</h3>
+
+        <div class="input-group">
+            <label style="display: flex; align-items: center; gap: 10px; cursor: pointer;">
+                <input type="checkbox" id="wakeupReminderEnabled" style="width: 20px; height: 20px; accent-color: var(--accent);">
+                <span>Activer le rappel quotidien</span>
+            </label>
+            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 5px;">
+                Notification pour ne pas oublier de noter ton réveil
+            </p>
+        </div>
+
+        <div class="input-group" id="reminderTimeGroup" style="display: none;">
+            <label for="wakeupReminderTime">Heure du rappel</label>
+            <input type="time" id="wakeupReminderTime" value="08:00">
+        </div>
+
+        <div id="notificationStatus" style="padding: 10px; border-radius: 8px; font-size: 0.85rem; margin-top: 10px;"></div>
+    </div>
+
     <a href="{{ path('app_stats') }}" class="secondary-button" style="display: block; text-align: center; text-decoration: none;">
         ← Retour aux stats
     </a>
 </div>
 
 <script>
+    // ===== Paramètres serveur =====
     function saveSettings() {
         const packPrice = document.getElementById('packPrice').value;
         const cigsPerPack = document.getElementById('cigsPerPack').value;
@@ -60,5 +82,174 @@
             }
         });
     }
+
+    // ===== Notifications locales (rappel réveil) =====
+    const enabledCheckbox = document.getElementById('wakeupReminderEnabled');
+    const timeInput = document.getElementById('wakeupReminderTime');
+    const timeGroup = document.getElementById('reminderTimeGroup');
+    const statusDiv = document.getElementById('notificationStatus');
+
+    // Charger les paramètres depuis localStorage
+    function loadReminderSettings() {
+        const enabled = localStorage.getItem('wakeupReminderEnabled') === 'true';
+        const time = localStorage.getItem('wakeupReminderTime') || '08:00';
+
+        enabledCheckbox.checked = enabled;
+        timeInput.value = time;
+        timeGroup.style.display = enabled ? 'block' : 'none';
+
+        updateNotificationStatus();
+    }
+
+    // Mettre à jour l'affichage du statut
+    function updateNotificationStatus() {
+        if (!('Notification' in window)) {
+            statusDiv.textContent = 'Les notifications ne sont pas supportées par ce navigateur';
+            statusDiv.style.background = 'rgba(233, 69, 96, 0.2)';
+            statusDiv.style.color = 'var(--accent)';
+            return;
+        }
+
+        if (Notification.permission === 'denied') {
+            statusDiv.textContent = 'Notifications bloquées. Active-les dans les paramètres du navigateur.';
+            statusDiv.style.background = 'rgba(233, 69, 96, 0.2)';
+            statusDiv.style.color = 'var(--accent)';
+            return;
+        }
+
+        if (enabledCheckbox.checked) {
+            if (Notification.permission === 'granted') {
+                statusDiv.textContent = 'Rappel activé à ' + timeInput.value;
+                statusDiv.style.background = 'rgba(0, 217, 165, 0.2)';
+                statusDiv.style.color = 'var(--success)';
+            } else {
+                statusDiv.textContent = 'Clique pour autoriser les notifications';
+                statusDiv.style.background = 'rgba(255, 193, 7, 0.2)';
+                statusDiv.style.color = 'var(--warning)';
+            }
+        } else {
+            statusDiv.textContent = 'Rappel désactivé';
+            statusDiv.style.background = 'var(--bg-secondary)';
+            statusDiv.style.color = 'var(--text-secondary)';
+        }
+    }
+
+    // Demander la permission et programmer le rappel
+    async function enableReminder() {
+        if (!('Notification' in window)) {
+            showToast('Notifications non supportées');
+            enabledCheckbox.checked = false;
+            return false;
+        }
+
+        if (Notification.permission === 'denied') {
+            showToast('Notifications bloquées par le navigateur');
+            enabledCheckbox.checked = false;
+            return false;
+        }
+
+        if (Notification.permission !== 'granted') {
+            const permission = await Notification.requestPermission();
+            if (permission !== 'granted') {
+                showToast('Permission refusée');
+                enabledCheckbox.checked = false;
+                return false;
+            }
+        }
+
+        localStorage.setItem('wakeupReminderEnabled', 'true');
+        localStorage.setItem('wakeupReminderTime', timeInput.value);
+        scheduleWakeupReminder();
+        showToast('Rappel activé');
+        return true;
+    }
+
+    // Désactiver le rappel
+    function disableReminder() {
+        localStorage.setItem('wakeupReminderEnabled', 'false');
+        clearScheduledReminder();
+        showToast('Rappel désactivé');
+    }
+
+    // Programmer le rappel quotidien
+    function scheduleWakeupReminder() {
+        clearScheduledReminder();
+
+        const enabled = localStorage.getItem('wakeupReminderEnabled') === 'true';
+        if (!enabled) return;
+
+        const time = localStorage.getItem('wakeupReminderTime') || '08:00';
+        const [hours, minutes] = time.split(':').map(Number);
+
+        const now = new Date();
+        const nextReminder = new Date();
+        nextReminder.setHours(hours, minutes, 0, 0);
+
+        // Si l'heure est déjà passée aujourd'hui, programmer pour demain
+        if (nextReminder <= now) {
+            nextReminder.setDate(nextReminder.getDate() + 1);
+        }
+
+        const delay = nextReminder.getTime() - now.getTime();
+
+        const timeoutId = setTimeout(() => {
+            showWakeupNotification();
+            // Reprogrammer pour le lendemain
+            scheduleWakeupReminder();
+        }, delay);
+
+        localStorage.setItem('wakeupReminderTimeout', timeoutId);
+    }
+
+    // Annuler le rappel programmé
+    function clearScheduledReminder() {
+        const timeoutId = localStorage.getItem('wakeupReminderTimeout');
+        if (timeoutId) {
+            clearTimeout(parseInt(timeoutId));
+            localStorage.removeItem('wakeupReminderTimeout');
+        }
+    }
+
+    // Afficher la notification
+    function showWakeupNotification() {
+        if (Notification.permission === 'granted') {
+            const notification = new Notification('StopClope', {
+                body: 'N\'oublie pas de noter ton heure de réveil !',
+                icon: '/icons/icon-192.png',
+                badge: '/icons/icon-96.png',
+                tag: 'wakeup-reminder',
+                requireInteraction: true
+            });
+
+            notification.onclick = () => {
+                window.focus();
+                window.location.href = '/';
+                notification.close();
+            };
+        }
+    }
+
+    // Event listeners
+    enabledCheckbox.addEventListener('change', async () => {
+        if (enabledCheckbox.checked) {
+            const success = await enableReminder();
+            timeGroup.style.display = success ? 'block' : 'none';
+        } else {
+            disableReminder();
+            timeGroup.style.display = 'none';
+        }
+        updateNotificationStatus();
+    });
+
+    timeInput.addEventListener('change', () => {
+        localStorage.setItem('wakeupReminderTime', timeInput.value);
+        scheduleWakeupReminder();
+        updateNotificationStatus();
+        showToast('Heure mise à jour');
+    });
+
+    // Initialisation
+    loadReminderSettings();
+    scheduleWakeupReminder();
 </script>
 {% endblock %}
