@@ -1,0 +1,64 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}StopClope - Paramètres{% endblock %}
+
+{% block body %}
+<div class="container">
+    <header class="header">
+        <h1>Paramètres</h1>
+    </header>
+
+    <div class="card">
+        <h3 style="margin-bottom: 20px;">Calcul des économies</h3>
+
+        <div class="input-group">
+            <label for="packPrice">Prix du paquet (€)</label>
+            <input type="number" step="0.01" id="packPrice" value="{{ pack_price }}">
+        </div>
+
+        <div class="input-group">
+            <label for="cigsPerPack">Cigarettes par paquet</label>
+            <input type="number" id="cigsPerPack" value="{{ cigs_per_pack }}">
+        </div>
+
+        <div class="input-group">
+            <label for="initialDailyCigs">Consommation initiale (clopes/jour)</label>
+            <input type="number" id="initialDailyCigs" value="{{ initial_daily_cigs }}">
+            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 5px;">
+                Ta consommation avant de commencer à réduire
+            </p>
+        </div>
+
+        <button class="big-button" onclick="saveSettings()" style="margin-top: 20px;">
+            Enregistrer
+        </button>
+    </div>
+
+    <a href="{{ path('app_stats') }}" class="secondary-button" style="display: block; text-align: center; text-decoration: none;">
+        ← Retour aux stats
+    </a>
+</div>
+
+<script>
+    function saveSettings() {
+        const packPrice = document.getElementById('packPrice').value;
+        const cigsPerPack = document.getElementById('cigsPerPack').value;
+        const initialDailyCigs = document.getElementById('initialDailyCigs').value;
+
+        fetch('{{ path('app_settings_save') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `pack_price=${packPrice}&cigs_per_pack=${cigsPerPack}&initial_daily_cigs=${initialDailyCigs}`
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Paramètres enregistrés');
+                setTimeout(() => window.location.href = '{{ path('app_stats') }}', 1000);
+            }
+        });
+    }
+</script>
+{% endblock %}

@@ -1,10 +1,373 @@
 <!DOCTYPE html>
-<html>
+<html lang="fr">
     <head>
         <meta charset="UTF-8">
-        <title>{% block title %}Welcome!{% endblock %}</title>
-        <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 128 128%22><text y=%221.2em%22 font-size=%2296%22>⚫️</text><text y=%221.3em%22 x=%220.2em%22 font-size=%2276%22 fill=%22%23fff%22>sf</text></svg>">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+        <meta name="theme-color" content="#1a1a2e">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+        <meta name="apple-mobile-web-app-title" content="StopClope">
+        <title>{% block title %}StopClope{% endblock %}</title>
+        <link rel="manifest" href="{{ asset('manifest.json') }}">
+        <link rel="apple-touch-icon" href="{{ asset('icons/icon-192.png') }}">
+        <link rel="icon" type="image/png" sizes="32x32" href="{{ asset('icons/icon-32.png') }}">
         {% block stylesheets %}
+        <style>
+            :root {
+                --bg-primary: #1a1a2e;
+                --bg-secondary: #16213e;
+                --bg-card: #0f3460;
+                --accent: #e94560;
+                --accent-light: #ff6b6b;
+                --success: #00d9a5;
+                --warning: #ffc107;
+                --text-primary: #ffffff;
+                --text-secondary: #a0a0a0;
+            }
+
+            * {
+                margin: 0;
+                padding: 0;
+                box-sizing: border-box;
+            }
+
+            body {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+                background: var(--bg-primary);
+                color: var(--text-primary);
+                min-height: 100vh;
+                padding-bottom: 80px;
+            }
+
+            .container {
+                max-width: 500px;
+                margin: 0 auto;
+                padding: 20px;
+            }
+
+            .header {
+                text-align: center;
+                padding: 20px 0;
+            }
+
+            .header h1 {
+                font-size: 1.5rem;
+                font-weight: 600;
+            }
+
+            .card {
+                background: var(--bg-card);
+                border-radius: 16px;
+                padding: 20px;
+                margin-bottom: 16px;
+            }
+
+            .score-display {
+                text-align: center;
+                padding: 30px 20px;
+            }
+
+            .score-value {
+                font-size: 4rem;
+                font-weight: 700;
+                color: var(--success);
+            }
+
+            .score-value.negative {
+                color: var(--accent);
+            }
+
+            .score-label {
+                font-size: 0.9rem;
+                color: var(--text-secondary);
+                margin-top: 5px;
+            }
+
+            .rank-badge {
+                display: inline-block;
+                background: linear-gradient(135deg, var(--accent), var(--accent-light));
+                padding: 8px 16px;
+                border-radius: 20px;
+                font-size: 0.85rem;
+                font-weight: 600;
+                margin-top: 10px;
+            }
+
+            .progress-bar {
+                background: var(--bg-secondary);
+                border-radius: 10px;
+                height: 8px;
+                margin-top: 15px;
+                overflow: hidden;
+            }
+
+            .progress-fill {
+                background: linear-gradient(90deg, var(--success), #00ff88);
+                height: 100%;
+                border-radius: 10px;
+                transition: width 0.5s ease;
+            }
+
+            .big-button {
+                width: 100%;
+                padding: 25px;
+                font-size: 1.3rem;
+                font-weight: 600;
+                background: linear-gradient(135deg, var(--accent), var(--accent-light));
+                color: white;
+                border: none;
+                border-radius: 16px;
+                cursor: pointer;
+                transition: transform 0.2s, box-shadow 0.2s;
+                margin-bottom: 16px;
+            }
+
+            .big-button:active {
+                transform: scale(0.98);
+            }
+
+            .big-button:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+
+            .secondary-button {
+                width: 100%;
+                padding: 15px;
+                font-size: 1rem;
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                border: 2px solid var(--bg-card);
+                border-radius: 12px;
+                cursor: pointer;
+                margin-bottom: 12px;
+            }
+
+            .stats-grid {
+                display: grid;
+                grid-template-columns: repeat(2, 1fr);
+                gap: 12px;
+            }
+
+            .stat-item {
+                background: var(--bg-secondary);
+                padding: 15px;
+                border-radius: 12px;
+                text-align: center;
+            }
+
+            .stat-value {
+                font-size: 1.8rem;
+                font-weight: 700;
+            }
+
+            .stat-label {
+                font-size: 0.75rem;
+                color: var(--text-secondary);
+                margin-top: 4px;
+            }
+
+            .cig-list {
+                list-style: none;
+            }
+
+            .cig-item {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 12px 0;
+                border-bottom: 1px solid var(--bg-secondary);
+            }
+
+            .cig-item:last-child {
+                border-bottom: none;
+            }
+
+            .cig-time {
+                font-size: 1.1rem;
+                font-weight: 500;
+            }
+
+            .cig-badge {
+                font-size: 0.7rem;
+                background: var(--warning);
+                color: #000;
+                padding: 2px 8px;
+                border-radius: 10px;
+                margin-left: 8px;
+            }
+
+            .delete-btn {
+                background: transparent;
+                border: none;
+                color: var(--accent);
+                font-size: 1.2rem;
+                cursor: pointer;
+                padding: 5px 10px;
+            }
+
+            .nav-bottom {
+                position: fixed;
+                bottom: 0;
+                left: 0;
+                right: 0;
+                background: var(--bg-secondary);
+                display: flex;
+                justify-content: space-around;
+                padding: 12px 0;
+                padding-bottom: calc(12px + env(safe-area-inset-bottom));
+                border-top: 1px solid var(--bg-card);
+            }
+
+            .nav-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-decoration: none;
+                color: var(--text-secondary);
+                font-size: 0.75rem;
+                transition: color 0.2s;
+            }
+
+            .nav-item.active {
+                color: var(--accent);
+            }
+
+            .nav-icon {
+                font-size: 1.5rem;
+                margin-bottom: 4px;
+            }
+
+            .score-breakdown {
+                margin-top: 15px;
+            }
+
+            .breakdown-item {
+                display: flex;
+                justify-content: space-between;
+                padding: 10px 0;
+                border-bottom: 1px solid var(--bg-secondary);
+                font-size: 0.9rem;
+            }
+
+            .breakdown-score {
+                font-weight: 600;
+            }
+
+            .breakdown-score.positive {
+                color: var(--success);
+            }
+
+            .breakdown-score.negative {
+                color: var(--accent);
+            }
+
+            .modal {
+                display: none;
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background: rgba(0,0,0,0.8);
+                z-index: 1000;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .modal.active {
+                display: flex;
+            }
+
+            .modal-content {
+                background: var(--bg-card);
+                padding: 25px;
+                border-radius: 16px;
+                width: 90%;
+                max-width: 400px;
+            }
+
+            .modal-title {
+                font-size: 1.2rem;
+                margin-bottom: 20px;
+            }
+
+            .input-group {
+                margin-bottom: 15px;
+            }
+
+            .input-group label {
+                display: block;
+                margin-bottom: 8px;
+                font-size: 0.9rem;
+                color: var(--text-secondary);
+            }
+
+            .input-group input {
+                width: 100%;
+                padding: 12px;
+                border-radius: 8px;
+                border: none;
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+                font-size: 1rem;
+            }
+
+            .modal-buttons {
+                display: flex;
+                gap: 10px;
+                margin-top: 20px;
+            }
+
+            .modal-buttons button {
+                flex: 1;
+                padding: 12px;
+                border-radius: 8px;
+                border: none;
+                font-size: 1rem;
+                cursor: pointer;
+            }
+
+            .btn-cancel {
+                background: var(--bg-secondary);
+                color: var(--text-primary);
+            }
+
+            .btn-confirm {
+                background: var(--accent);
+                color: white;
+            }
+
+            .toast {
+                position: fixed;
+                bottom: 100px;
+                left: 50%;
+                transform: translateX(-50%) translateY(100px);
+                background: var(--bg-card);
+                padding: 15px 25px;
+                border-radius: 12px;
+                opacity: 0;
+                transition: all 0.3s ease;
+                z-index: 1001;
+            }
+
+            .toast.show {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+
+            .empty-state {
+                text-align: center;
+                padding: 40px 20px;
+                color: var(--text-secondary);
+            }
+
+            .empty-state-icon {
+                font-size: 3rem;
+                margin-bottom: 15px;
+            }
+
+        </style>
         {% endblock %}
 
         {% block javascripts %}
@@ -13,5 +376,106 @@
     </head>
     <body>
         {% block body %}{% endblock %}
+
+        <nav class="nav-bottom">
+            <a href="{{ path('app_home') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_home' ? 'active' : '' }}">
+                <span class="nav-icon">🏠</span>
+                <span>Accueil</span>
+            </a>
+            <a href="{{ path('app_stats') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_stats' ? 'active' : '' }}">
+                <span class="nav-icon">📊</span>
+                <span>Stats</span>
+            </a>
+            <a href="{{ path('app_history') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_history' ? 'active' : '' }}">
+                <span class="nav-icon">📅</span>
+                <span>Historique</span>
+            </a>
+        </nav>
+
+        <div id="toast" class="toast"></div>
+
+        <script>
+            // Register Service Worker
+            if ('serviceWorker' in navigator) {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(reg => {
+                        console.log('SW registered');
+                        // Check for pending offline data on load
+                        syncOfflineData();
+                    })
+                    .catch(err => console.log('SW registration failed', err));
+
+                // Listen for sync messages from SW
+                navigator.serviceWorker.addEventListener('message', event => {
+                    if (event.data.type === 'SYNC_OFFLINE_DATA') {
+                        syncOfflineData();
+                    }
+                });
+            }
+
+            function showToast(message) {
+                const toast = document.getElementById('toast');
+                toast.textContent = message;
+                toast.classList.add('show');
+                setTimeout(() => toast.classList.remove('show'), 2500);
+            }
+
+            // Offline data management
+            function getOfflineQueue() {
+                return JSON.parse(localStorage.getItem('offlineQueue') || '[]');
+            }
+
+            function addToOfflineQueue(action, data) {
+                const queue = getOfflineQueue();
+                queue.push({ action, data, timestamp: Date.now() });
+                localStorage.setItem('offlineQueue', JSON.stringify(queue));
+            }
+
+            function clearOfflineQueue() {
+                localStorage.setItem('offlineQueue', '[]');
+            }
+
+            async function syncOfflineData() {
+                const queue = getOfflineQueue();
+                if (queue.length === 0) return;
+
+                console.log('Syncing', queue.length, 'offline items');
+
+                for (const item of queue) {
+                    try {
+                        if (item.action === 'log_cigarette') {
+                            await fetch('/log', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: item.data.custom_time ? `custom_time=${encodeURIComponent(item.data.custom_time)}` : ''
+                            });
+                        } else if (item.action === 'log_wakeup') {
+                            await fetch('/wakeup', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                                body: `wake_time=${encodeURIComponent(item.data.wake_time)}`
+                            });
+                        }
+                    } catch (e) {
+                        console.error('Failed to sync item:', e);
+                        return; // Stop syncing, will retry later
+                    }
+                }
+
+                clearOfflineQueue();
+                showToast('Données synchronisées');
+                setTimeout(() => location.reload(), 1000);
+            }
+
+            // Check online status
+            window.addEventListener('online', () => {
+                showToast('Connexion rétablie');
+                syncOfflineData();
+            });
+
+            window.addEventListener('offline', () => {
+                showToast('Mode hors-ligne');
+            });
+        </script>
     </body>
 </html>

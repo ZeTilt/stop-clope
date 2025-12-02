@@ -1,0 +1,374 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}StopClope - Accueil{% endblock %}
+
+{% block body %}
+<div class="container">
+    <header class="header">
+        <h1>StopClope</h1>
+        <div id="offlineIndicator" style="display: none; background: var(--warning); color: #000; padding: 5px 12px; border-radius: 12px; font-size: 0.75rem; margin-top: 5px;">
+            Mode hors-ligne
+        </div>
+    </header>
+
+    <!-- Réveil du jour -->
+    <div class="card" style="padding: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <span style="color: var(--text-secondary); font-size: 0.85rem;">Réveil</span>
+                <div style="font-size: 1.3rem; font-weight: 600;" id="wakeupDisplay">
+                    {% if today_wakeup %}
+                        {{ today_wakeup.wakeTime|date('H:i') }}
+                    {% else %}
+                        --:--
+                    {% endif %}
+                </div>
+            </div>
+            <button class="secondary-button" style="width: auto; margin: 0; padding: 10px 15px;{% if not today_wakeup %} background: var(--accent);{% endif %}" onclick="openWakeUpModal()">
+                {% if today_wakeup %}Modifier{% else %}Noter le réveil{% endif %}
+            </button>
+        </div>
+    </div>
+
+    <!-- Message d'encouragement -->
+    {% if encouragement %}
+    <div class="card" style="padding: 15px; text-align: center; background: {{ encouragement.type == 'success' ? 'linear-gradient(135deg, var(--success), #00ff88)' : 'linear-gradient(135deg, var(--warning), #ffdb4d)' }};">
+        <span style="font-size: 1.5rem;">{{ encouragement.icon }}</span>
+        <div style="color: #000; font-weight: 600; margin-top: 5px;">
+            {{ encouragement.message }}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Score du jour -->
+    <div class="card score-display">
+        <div class="score-value {{ daily_score.total_score < 0 ? 'negative' : '' }}">
+            {{ daily_score.total_score > 0 ? '+' : '' }}{{ daily_score.total_score }}
+        </div>
+        <div class="score-label">Points aujourd'hui</div>
+        <div class="rank-badge">{{ rank.rank }}</div>
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ rank.progress }}%"></div>
+        </div>
+        <div class="score-label" style="margin-top: 8px;">
+            {{ rank.total_score }} / {{ rank.next_rank_threshold }} pts
+        </div>
+    </div>
+
+    <!-- Compte à rebours -->
+    {% if next_cig_target %}
+    <div class="card" style="padding: 15px; text-align: center;">
+        {% if next_cig_target.status == 'waiting' %}
+            <div style="color: var(--warning); font-size: 0.85rem;">Prochaine clope sans pénalité</div>
+            <div id="countdown" style="font-size: 2rem; font-weight: 700; color: var(--warning);" data-seconds="{{ next_cig_target.seconds_remaining }}">
+                {{ next_cig_target.message }}
+            </div>
+            <div style="color: var(--text-secondary); font-size: 0.8rem;">Objectif : {{ next_cig_target.target_time }}</div>
+        {% elseif next_cig_target.status == 'ok' %}
+            <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
+                ✓ {{ next_cig_target.message }}
+            </div>
+        {% elseif next_cig_target.status == 'ahead' %}
+            <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
+                🎉 {{ next_cig_target.message }}
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Bouton principal -->
+    <button class="big-button" id="logBtn" onclick="logCigarette()">
+        🚬 J'ai fumé une clope
+    </button>
+
+    <!-- Bouton ajout rétroactif -->
+    <button class="secondary-button" onclick="openModal()">
+        ⏰ Ajouter une clope passée
+    </button>
+
+    <!-- Stats du jour -->
+    <div class="card">
+        <h3 style="margin-bottom: 15px;">Aujourd'hui</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value" id="todayCount">{{ today_cigarettes|length }}</div>
+                <div class="stat-label">Clopes</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ yesterday_count }}</div>
+                <div class="stat-label">Hier</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value {{ (yesterday_count - today_cigarettes|length) > 0 ? 'positive' : ((yesterday_count - today_cigarettes|length) < 0 ? 'negative' : '') }}" style="color: {{ (yesterday_count - today_cigarettes|length) > 0 ? 'var(--success)' : ((yesterday_count - today_cigarettes|length) < 0 ? 'var(--accent)' : 'inherit') }}">
+                    {{ yesterday_count - today_cigarettes|length >= 0 ? '+' : '' }}{{ yesterday_count - today_cigarettes|length }}
+                </div>
+                <div class="stat-label">Différence</div>
+            </div>
+            <div class="stat-item">
+                {% if today_cigarettes|length > 0 %}
+                    <div class="stat-value">{{ today_cigarettes|first.smokedAt|date('H:i') }}</div>
+                {% else %}
+                    <div class="stat-value">--</div>
+                {% endif %}
+                <div class="stat-label">1ère clope</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Détail des points -->
+    <div class="card">
+        <h3 style="margin-bottom: 10px;">Détail des points</h3>
+        <div class="score-breakdown">
+            {% for key, detail in daily_score.details %}
+                <div class="breakdown-item">
+                    <span>{{ detail.label }}</span>
+                    <span class="breakdown-score {{ detail.score > 0 ? 'positive' : (detail.score < 0 ? 'negative' : '') }}">
+                        {{ detail.score > 0 ? '+' : '' }}{{ detail.score }}
+                    </span>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Liste des clopes du jour -->
+    <div class="card">
+        <h3 style="margin-bottom: 10px;">Clopes du jour</h3>
+        {% if today_cigarettes|length > 0 %}
+            <ul class="cig-list" id="cigList">
+                {% for cig in today_cigarettes %}
+                    <li class="cig-item" data-id="{{ cig.id }}">
+                        <div>
+                            <span class="cig-time">{{ cig.smokedAt|date('H:i') }}</span>
+                            {% if cig.isRetroactive %}
+                                <span class="cig-badge">ajoutée après</span>
+                            {% endif %}
+                        </div>
+                        <button class="delete-btn" onclick="deleteCigarette({{ cig.id }})">✕</button>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">🎉</div>
+                <p>Aucune clope aujourd'hui !</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Modal ajout rétroactif -->
+<div class="modal" id="retroModal">
+    <div class="modal-content">
+        <h3 class="modal-title">Ajouter une clope passée</h3>
+        <div class="input-group">
+            <label for="customTime">Date et heure</label>
+            <input type="datetime-local" id="customTime">
+        </div>
+        <div class="modal-buttons">
+            <button class="btn-cancel" onclick="closeModal()">Annuler</button>
+            <button class="btn-confirm" onclick="logRetroactive()">Ajouter</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal réveil -->
+<div class="modal" id="wakeUpModal">
+    <div class="modal-content">
+        <h3 class="modal-title">Heure de réveil</h3>
+        <div class="input-group">
+            <label for="wakeTime">Heure</label>
+            <input type="time" id="wakeTime">
+        </div>
+        <div class="modal-buttons">
+            <button class="btn-cancel" onclick="closeWakeUpModal()">Annuler</button>
+            <button class="btn-confirm" onclick="saveWakeUp()">Enregistrer</button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Set default datetime to now
+    document.getElementById('customTime').value = new Date().toISOString().slice(0, 16);
+    document.getElementById('wakeTime').value = new Date().toTimeString().slice(0, 5);
+
+    // Compte à rebours en temps réel
+    const countdownEl = document.getElementById('countdown');
+    if (countdownEl && countdownEl.dataset.seconds) {
+        let seconds = parseInt(countdownEl.dataset.seconds);
+
+        const updateCountdown = () => {
+            if (seconds <= 0) {
+                countdownEl.textContent = '✓ Tu peux fumer sans pénalité';
+                countdownEl.style.color = 'var(--success)';
+                return;
+            }
+
+            const hours = Math.floor(seconds / 3600);
+            const mins = Math.floor((seconds % 3600) / 60);
+            const secs = seconds % 60;
+
+            countdownEl.textContent = `${hours}h${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            seconds--;
+        };
+
+        updateCountdown();
+        setInterval(updateCountdown, 1000);
+    }
+
+    function logCigarette() {
+        const btn = document.getElementById('logBtn');
+        btn.disabled = true;
+        btn.textContent = '⏳ Enregistrement...';
+
+        fetch('{{ path('app_log_cigarette') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            }
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                showToast('Clope enregistrée à ' + data.smoked_at);
+                document.getElementById('todayCount').textContent = data.today_count;
+                setTimeout(() => location.reload(), 1000);
+            }
+        })
+        .catch(err => {
+            // Mode offline : ajouter à la queue
+            addToOfflineQueue('log_cigarette', {});
+            showToast('Clope enregistrée (hors-ligne)');
+            // Incrémenter visuellement le compteur
+            const countEl = document.getElementById('todayCount');
+            countEl.textContent = parseInt(countEl.textContent) + 1;
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = '🚬 J\'ai fumé une clope';
+        });
+    }
+
+    function openModal() {
+        document.getElementById('retroModal').classList.add('active');
+        document.getElementById('customTime').value = new Date().toISOString().slice(0, 16);
+    }
+
+    function closeModal() {
+        document.getElementById('retroModal').classList.remove('active');
+    }
+
+    function logRetroactive() {
+        const customTime = document.getElementById('customTime').value;
+
+        fetch('{{ path('app_log_cigarette') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'custom_time=' + encodeURIComponent(customTime)
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                showToast('Clope ajoutée à ' + data.smoked_at);
+                closeModal();
+                setTimeout(() => location.reload(), 1000);
+            }
+        })
+        .catch(err => {
+            addToOfflineQueue('log_cigarette', { custom_time: customTime });
+            showToast('Clope ajoutée (hors-ligne)');
+            closeModal();
+        });
+    }
+
+    function deleteCigarette(id) {
+        if (!confirm('Supprimer cette clope ?')) return;
+
+        fetch('/delete/' + id, {
+            method: 'POST'
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                showToast('Clope supprimée');
+                document.querySelector('[data-id="' + id + '"]').remove();
+                document.getElementById('todayCount').textContent = data.today_count;
+                setTimeout(() => location.reload(), 1000);
+            }
+        })
+        .catch(err => {
+            showToast('Suppression impossible hors-ligne');
+        });
+    }
+
+    function openWakeUpModal() {
+        document.getElementById('wakeUpModal').classList.add('active');
+        document.getElementById('wakeTime').value = new Date().toTimeString().slice(0, 5);
+    }
+
+    function closeWakeUpModal() {
+        document.getElementById('wakeUpModal').classList.remove('active');
+    }
+
+    function saveWakeUp() {
+        const wakeTime = document.getElementById('wakeTime').value;
+
+        fetch('{{ path('app_log_wakeup') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: 'wake_time=' + encodeURIComponent(wakeTime)
+        })
+        .then(response => {
+            if (!response.ok) throw new Error('Network error');
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                showToast('Réveil enregistré à ' + data.wake_time);
+                document.getElementById('wakeupDisplay').textContent = data.wake_time;
+                closeWakeUpModal();
+                setTimeout(() => location.reload(), 1000);
+            }
+        })
+        .catch(err => {
+            addToOfflineQueue('log_wakeup', { wake_time: wakeTime });
+            showToast('Réveil enregistré (hors-ligne)');
+            document.getElementById('wakeupDisplay').textContent = wakeTime;
+            closeWakeUpModal();
+        });
+    }
+
+    // Close modals on outside click
+    document.getElementById('retroModal').addEventListener('click', function(e) {
+        if (e.target === this) closeModal();
+    });
+    document.getElementById('wakeUpModal').addEventListener('click', function(e) {
+        if (e.target === this) closeWakeUpModal();
+    });
+
+    // Gestion de l'indicateur offline
+    const offlineIndicator = document.getElementById('offlineIndicator');
+    function updateOnlineStatus() {
+        if (!navigator.onLine) {
+            offlineIndicator.style.display = 'inline-block';
+        } else {
+            offlineIndicator.style.display = 'none';
+        }
+    }
+    updateOnlineStatus();
+    window.addEventListener('online', updateOnlineStatus);
+    window.addEventListener('offline', updateOnlineStatus);
+</script>
+{% endblock %}

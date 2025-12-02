@@ -1,0 +1,268 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}StopClope - Statistiques{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+    .chart-container {
+        position: relative;
+        height: 200px;
+        margin: 20px 0;
+    }
+
+    .bar-chart {
+        display: flex;
+        align-items: flex-end;
+        justify-content: space-around;
+        height: 150px;
+        padding: 10px 0;
+    }
+
+    .bar-wrapper {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        flex: 1;
+        max-width: 40px;
+    }
+
+    .bar {
+        width: 24px;
+        background: linear-gradient(180deg, var(--accent), var(--accent-light));
+        border-radius: 4px 4px 0 0;
+        transition: height 0.5s ease;
+        min-height: 4px;
+    }
+
+    .bar-label {
+        font-size: 0.65rem;
+        color: var(--text-secondary);
+        margin-top: 8px;
+        text-align: center;
+    }
+
+    .bar-value {
+        font-size: 0.75rem;
+        font-weight: 600;
+        margin-bottom: 4px;
+    }
+
+    .score-chart .bar {
+        background: linear-gradient(180deg, var(--success), #00ff88);
+    }
+
+    .score-chart .bar.negative {
+        background: linear-gradient(180deg, var(--accent), var(--accent-light));
+    }
+
+    .heatmap {
+        display: grid;
+        grid-template-columns: repeat(12, 1fr);
+        gap: 3px;
+    }
+
+    .heatmap-cell {
+        aspect-ratio: 1;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.6rem;
+        color: var(--text-secondary);
+    }
+
+    .savings-card {
+        background: linear-gradient(135deg, var(--success), #00ff88);
+        color: #000;
+    }
+
+    .savings-card .score-value {
+        color: #000;
+    }
+
+    .savings-card .score-label {
+        color: rgba(0,0,0,0.7);
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <header class="header">
+        <h1>Statistiques</h1>
+    </header>
+
+    <!-- Économies -->
+    {% if savings.total > 0 %}
+    <div class="card score-display savings-card">
+        <div class="score-value" style="font-size: 2.5rem;">{{ savings.total }}€</div>
+        <div class="score-label">Économisés</div>
+        <div style="margin-top: 15px; font-size: 0.9rem;">
+            <div>{{ savings.cigs_avoided }} clopes évitées en {{ savings.days }} jours</div>
+            <div style="margin-top: 5px;">Moyenne : {{ savings.daily_avg }} clopes/jour (vs {{ savings.initial_daily }} avant)</div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Rang actuel -->
+    <div class="card score-display">
+        <div class="rank-badge" style="font-size: 1.2rem; padding: 12px 24px;">{{ rank.rank }}</div>
+        <div class="score-value" style="font-size: 3rem; margin-top: 15px;">{{ rank.total_score }}</div>
+        <div class="score-label">Points totaux</div>
+        <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ rank.progress }}%"></div>
+        </div>
+        <div class="score-label" style="margin-top: 8px;">
+            Prochain rang à {{ rank.next_rank_threshold }} pts
+        </div>
+    </div>
+
+    <!-- Graphique clopes/jour -->
+    <div class="card">
+        <h3>Clopes par jour (7 derniers jours)</h3>
+        <div class="chart-container">
+            <div class="bar-chart">
+                {% set max_count = 1 %}
+                {% for date, count in monthly_stats|slice(-7) %}
+                    {% if count > max_count %}
+                        {% set max_count = count %}
+                    {% endif %}
+                {% endfor %}
+
+                {% for i in 6..0 %}
+                    {% set check_date = ("now")|date_modify("-" ~ i ~ " days")|date("Y-m-d") %}
+                    {% set count = monthly_stats[check_date]|default(0) %}
+                    {% set height = max_count > 0 ? (count / max_count * 120) : 0 %}
+                    <div class="bar-wrapper">
+                        <span class="bar-value">{{ count }}</span>
+                        <div class="bar" style="height: {{ height }}px;"></div>
+                        <span class="bar-label">{{ check_date|date("D")|slice(0, 3) }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Graphique scores/jour -->
+    <div class="card">
+        <h3>Score par jour (7 derniers jours)</h3>
+        <div class="chart-container score-chart">
+            <div class="bar-chart">
+                {% set max_score = 1 %}
+                {% set min_score = 0 %}
+                {% for date, score_data in weekly_scores %}
+                    {% if score_data.total_score > max_score %}
+                        {% set max_score = score_data.total_score %}
+                    {% endif %}
+                    {% if score_data.total_score < min_score %}
+                        {% set min_score = score_data.total_score %}
+                    {% endif %}
+                {% endfor %}
+                {% set range = max_score - min_score %}
+                {% if range == 0 %}{% set range = 1 %}{% endif %}
+
+                {% for date, score_data in weekly_scores %}
+                    {% set height = ((score_data.total_score - min_score) / range * 120)|round %}
+                    <div class="bar-wrapper">
+                        <span class="bar-value">{{ score_data.total_score > 0 ? '+' : '' }}{{ score_data.total_score }}</span>
+                        <div class="bar {{ score_data.total_score < 0 ? 'negative' : '' }}" style="height: {{ height > 4 ? height : 4 }}px;"></div>
+                        <span class="bar-label">{{ date|date("D")|slice(0, 3) }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Semaine type -->
+    {% if weekday_stats|length > 0 %}
+    <div class="card">
+        <h3>Semaine type</h3>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Total de clopes par jour de la semaine</p>
+        <div class="chart-container">
+            <div class="bar-chart">
+                {% set max_weekday = 1 %}
+                {% for day, count in weekday_stats %}
+                    {% if count > max_weekday %}
+                        {% set max_weekday = count %}
+                    {% endif %}
+                {% endfor %}
+
+                {% set days_order = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] %}
+                {% for day in days_order %}
+                    {% set count = weekday_stats[day]|default(0) %}
+                    {% set height = max_weekday > 0 ? (count / max_weekday * 120) : 0 %}
+                    <div class="bar-wrapper">
+                        <span class="bar-value">{{ count }}</span>
+                        <div class="bar" style="height: {{ height }}px;"></div>
+                        <span class="bar-label">{{ day }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Heatmap des heures -->
+    {% if hourly_stats|length > 0 %}
+    <div class="card">
+        <h3>Heures de consommation</h3>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Quand fumes-tu le plus ?</p>
+        <div class="heatmap">
+            {% set max_hour = 1 %}
+            {% for hour, count in hourly_stats %}
+                {% if count > max_hour %}
+                    {% set max_hour = count %}
+                {% endif %}
+            {% endfor %}
+
+            {% for hour in 0..23 %}
+                {% set count = hourly_stats[hour]|default(0) %}
+                {% set intensity = max_hour > 0 ? (count / max_hour) : 0 %}
+                {% if intensity > 0.7 %}
+                    {% set bg = 'var(--accent)' %}
+                {% elseif intensity > 0.4 %}
+                    {% set bg = 'rgba(233, 69, 96, 0.6)' %}
+                {% elseif intensity > 0.1 %}
+                    {% set bg = 'rgba(233, 69, 96, 0.3)' %}
+                {% else %}
+                    {% set bg = 'var(--bg-secondary)' %}
+                {% endif %}
+                <div class="heatmap-cell" style="background: {{ bg }};" title="{{ count }} clopes à {{ hour }}h">
+                    {{ hour }}h
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Résumé mensuel -->
+    <div class="card">
+        <h3 style="margin-bottom: 15px;">30 derniers jours</h3>
+        {% set total_cigs = 0 %}
+        {% set days_with_data = 0 %}
+        {% for date, count in monthly_stats %}
+            {% set total_cigs = total_cigs + count %}
+            {% if count > 0 %}
+                {% set days_with_data = days_with_data + 1 %}
+            {% endif %}
+        {% endfor %}
+
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">{{ total_cigs }}</div>
+                <div class="stat-label">Total clopes</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ days_with_data > 0 ? (total_cigs / days_with_data)|round(1) : 0 }}</div>
+                <div class="stat-label">Moyenne/jour</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Lien vers paramètres -->
+    <a href="{{ path('app_settings') }}" class="secondary-button" style="display: block; text-align: center; text-decoration: none;">
+        ⚙️ Paramètres (prix paquet, etc.)
+    </a>
+</div>
+{% endblock %}

@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Background -->
+  <rect width="512" height="512" rx="100" fill="#1a1a2e"/>
+
+  <!-- Cigarette body -->
+  <rect x="100" y="230" width="280" height="52" rx="6" fill="#f5f5f5"/>
+
+  <!-- Cigarette filter -->
+  <rect x="100" y="230" width="70" height="52" rx="6" fill="#d4a574"/>
+
+  <!-- Cigarette tip (burning) -->
+  <rect x="380" y="230" width="32" height="52" rx="6" fill="#ff6b35"/>
+  <rect x="385" y="235" width="22" height="42" rx="4" fill="#ff8c42"/>
+
+  <!-- Smoke -->
+  <path d="M400 220 Q420 200 410 175 Q400 150 420 130" stroke="#a0a0a0" stroke-width="8" stroke-linecap="round" fill="none" opacity="0.6"/>
+  <path d="M420 225 Q445 195 430 165 Q420 140 445 115" stroke="#a0a0a0" stroke-width="6" stroke-linecap="round" fill="none" opacity="0.4"/>
+
+  <!-- Red circle (prohibition) -->
+  <circle cx="256" cy="256" r="180" stroke="#e94560" stroke-width="24" fill="none"/>
+
+  <!-- Red diagonal line -->
+  <line x1="130" y1="130" x2="382" y2="382" stroke="#e94560" stroke-width="24" stroke-linecap="round"/>
+</svg>

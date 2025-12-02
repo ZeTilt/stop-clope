@@ -1,0 +1,153 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}StopClope - Historique{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+    .date-nav {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+    }
+
+    .date-nav button {
+        background: var(--bg-card);
+        border: none;
+        color: var(--text-primary);
+        padding: 10px 15px;
+        border-radius: 8px;
+        font-size: 1.2rem;
+        cursor: pointer;
+    }
+
+    .date-nav button:disabled {
+        opacity: 0.3;
+        cursor: not-allowed;
+    }
+
+    .current-date {
+        font-size: 1.1rem;
+        font-weight: 500;
+    }
+
+    .date-picker {
+        background: var(--bg-secondary);
+        border: none;
+        color: var(--text-primary);
+        padding: 8px;
+        border-radius: 8px;
+        font-size: 1rem;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="container">
+    <header class="header">
+        <h1>Historique</h1>
+    </header>
+
+    <!-- Navigation de date -->
+    <div class="date-nav">
+        <button onclick="changeDate(-1)" {{ selected_date|date('Y-m-d') == first_date|date('Y-m-d') ? 'disabled' : '' }}>◀</button>
+        <div>
+            <input type="date" class="date-picker" id="datePicker"
+                   value="{{ selected_date|date('Y-m-d') }}"
+                   min="{{ first_date|date('Y-m-d') }}"
+                   max="{{ 'now'|date('Y-m-d') }}"
+                   onchange="goToDate(this.value)">
+        </div>
+        <button onclick="changeDate(1)" {{ selected_date|date('Y-m-d') == 'now'|date('Y-m-d') ? 'disabled' : '' }}>▶</button>
+    </div>
+
+    <!-- Score du jour sélectionné -->
+    <div class="card score-display" style="padding: 20px;">
+        <div class="score-value {{ daily_score.total_score < 0 ? 'negative' : '' }}" style="font-size: 3rem;">
+            {{ daily_score.total_score > 0 ? '+' : '' }}{{ daily_score.total_score }}
+        </div>
+        <div class="score-label">Points ce jour</div>
+    </div>
+
+    <!-- Stats du jour -->
+    <div class="card">
+        <h3 style="margin-bottom: 15px;">Résumé</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">{{ cigarettes|length }}</div>
+                <div class="stat-label">Clopes</div>
+            </div>
+            <div class="stat-item">
+                {% if cigarettes|length > 0 %}
+                    <div class="stat-value">{{ cigarettes|first.smokedAt|date('H:i') }}</div>
+                {% else %}
+                    <div class="stat-value">--</div>
+                {% endif %}
+                <div class="stat-label">1ère clope</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Détail des points -->
+    <div class="card">
+        <h3 style="margin-bottom: 10px;">Détail des points</h3>
+        <div class="score-breakdown">
+            {% for key, detail in daily_score.details %}
+                <div class="breakdown-item">
+                    <span>{{ detail.label }}</span>
+                    <span class="breakdown-score {{ detail.score > 0 ? 'positive' : (detail.score < 0 ? 'negative' : '') }}">
+                        {{ detail.score > 0 ? '+' : '' }}{{ detail.score }}
+                    </span>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Liste des clopes -->
+    <div class="card">
+        <h3 style="margin-bottom: 10px;">Détail des clopes</h3>
+        {% if cigarettes|length > 0 %}
+            <ul class="cig-list">
+                {% for cig in cigarettes %}
+                    <li class="cig-item">
+                        <div>
+                            <span class="cig-time">{{ cig.smokedAt|date('H:i') }}</span>
+                            {% if cig.isRetroactive %}
+                                <span class="cig-badge">ajoutée après</span>
+                            {% endif %}
+                        </div>
+                        <span style="color: var(--text-secondary);">#{{ loop.index }}</span>
+                    </li>
+                {% endfor %}
+            </ul>
+        {% else %}
+            <div class="empty-state">
+                <div class="empty-state-icon">🎉</div>
+                <p>Aucune clope ce jour !</p>
+            </div>
+        {% endif %}
+    </div>
+</div>
+
+<script>
+    const firstDate = new Date('{{ first_date|date('Y-m-d') }}');
+    firstDate.setHours(0, 0, 0, 0);
+
+    function changeDate(offset) {
+        const currentDate = new Date('{{ selected_date|date('Y-m-d') }}');
+        currentDate.setDate(currentDate.getDate() + offset);
+
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        if (currentDate >= firstDate && currentDate <= today) {
+            goToDate(currentDate.toISOString().split('T')[0]);
+        }
+    }
+
+    function goToDate(date) {
+        window.location.href = '{{ path('app_history') }}?date=' + date;
+    }
+</script>
+{% endblock %}
