@@ -230,35 +230,31 @@
 
             {% for hour in 0..23 %}
                 {% set count = hourly_stats[hour]|default(0) %}
-                {% if count == 0 %}
-                    {% set bg = 'var(--bg-secondary)' %}
+                {% set intensity = (max_hour > 0) ? (count / max_hour) : 0 %}
+                {# 10 nuances du vert au rouge #}
+                {% set level = (intensity * 9)|round %}
+                {% if level == 0 %}
+                    {% set bg = '#00c853' %}
+                {% elseif level == 1 %}
+                    {% set bg = '#4caf50' %}
+                {% elseif level == 2 %}
+                    {% set bg = '#8bc34a' %}
+                {% elseif level == 3 %}
+                    {% set bg = '#cddc39' %}
+                {% elseif level == 4 %}
+                    {% set bg = '#ffeb3b' %}
+                {% elseif level == 5 %}
+                    {% set bg = '#ffc107' %}
+                {% elseif level == 6 %}
+                    {% set bg = '#ff9800' %}
+                {% elseif level == 7 %}
+                    {% set bg = '#ff5722' %}
+                {% elseif level == 8 %}
+                    {% set bg = '#f44336' %}
                 {% else %}
-                    {% set intensity = range > 0 ? ((count - min_hour) / range) : 0.5 %}
-                    {# 10 nuances du vert au rouge #}
-                    {% set level = (intensity * 9)|round %}
-                    {% if level == 0 %}
-                        {% set bg = '#00c853' %}
-                    {% elseif level == 1 %}
-                        {% set bg = '#4caf50' %}
-                    {% elseif level == 2 %}
-                        {% set bg = '#8bc34a' %}
-                    {% elseif level == 3 %}
-                        {% set bg = '#cddc39' %}
-                    {% elseif level == 4 %}
-                        {% set bg = '#ffeb3b' %}
-                    {% elseif level == 5 %}
-                        {% set bg = '#ffc107' %}
-                    {% elseif level == 6 %}
-                        {% set bg = '#ff9800' %}
-                    {% elseif level == 7 %}
-                        {% set bg = '#ff5722' %}
-                    {% elseif level == 8 %}
-                        {% set bg = '#f44336' %}
-                    {% else %}
-                        {% set bg = '#d32f2f' %}
-                    {% endif %}
+                    {% set bg = '#d32f2f' %}
                 {% endif %}
-                <div class="heatmap-cell" style="background: {{ bg }}; color: {{ count > 0 ? '#000' : 'var(--text-secondary)' }};" title="{{ count|round(1) }} clopes/jour à {{ hour }}h">
+                <div class="heatmap-cell" style="background: {{ bg }}; color: #000;" title="{{ count|round(1) }} clopes/jour à {{ hour }}h">
                     {{ hour }}h
                 </div>
             {% endfor %}
