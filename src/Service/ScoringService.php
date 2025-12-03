@@ -124,7 +124,11 @@ class ScoringService
             ];
         }
 
-        $label = $score > 0 ? "Bien joué ! +{$score} pts" : ($score < 0 ? "À améliorer : {$score} pts" : 'Neutre');
+        $label = match (true) {
+            $score > 0 => "Clopes retardées vs hier",
+            $score < 0 => "Clopes avancées vs hier",
+            default => "Timing identique à hier",
+        };
 
         return ['score' => $score, 'label' => $label, 'comparisons' => $comparisons];
     }
