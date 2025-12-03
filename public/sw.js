@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stopclope-v3';
+const CACHE_NAME = 'stopclope-v4';
 const urlsToCache = [
     '/',
     '/stats',
@@ -25,6 +25,11 @@ self.addEventListener('install', event => {
 self.addEventListener('fetch', event => {
     // Skip non-GET requests
     if (event.request.method !== 'GET') {
+        return;
+    }
+
+    // Skip non-http(s) requests (chrome-extension, etc.)
+    if (!event.request.url.startsWith('http')) {
         return;
     }
 
