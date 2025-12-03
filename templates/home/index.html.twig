@@ -88,6 +88,14 @@
             <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
                 🎉 {{ next_cig_target.message }}
             </div>
+        {% elseif next_cig_target.status == 'equal' %}
+            <div style="color: var(--warning); font-size: 1.1rem; font-weight: 600;">
+                ⚖️ {{ next_cig_target.message }}
+            </div>
+        {% elseif next_cig_target.status == 'exceeded' %}
+            <div style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">
+                📈 {{ next_cig_target.message }}
+            </div>
         {% elseif next_cig_target.status == 'first_day' %}
             <div style="color: var(--text-secondary); font-size: 0.9rem;">
                 📊 {{ next_cig_target.message }}

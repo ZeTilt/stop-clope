@@ -138,11 +138,24 @@ class HomeController extends AbstractController
         $nextIndex = $todayCount; // La prochaine sera à cet index
 
         if (!isset($yesterdayCigs[$nextIndex])) {
-            // Pas de clope correspondante hier = tu as déjà fait mieux !
-            return [
-                'status' => 'ahead',
-                'message' => 'Tu as moins de clopes qu\'hier !',
-            ];
+            // Pas de clope correspondante hier = tu as déjà dépassé le total d'hier
+            $yesterdayTotal = count($yesterdayCigs);
+            if ($todayCount < $yesterdayTotal) {
+                return [
+                    'status' => 'ahead',
+                    'message' => 'Tu as moins de clopes qu\'hier !',
+                ];
+            } elseif ($todayCount == $yesterdayTotal) {
+                return [
+                    'status' => 'equal',
+                    'message' => 'Tu as égalé hier (' . $yesterdayTotal . ' clopes)',
+                ];
+            } else {
+                return [
+                    'status' => 'exceeded',
+                    'message' => 'Tu as dépassé hier (' . $yesterdayTotal . ' clopes)',
+                ];
+            }
         }
 
         // Calculer le temps depuis le réveil de la clope d'hier
