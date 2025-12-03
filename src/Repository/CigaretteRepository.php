@@ -146,4 +146,75 @@ class CigaretteRepository extends ServiceEntityRepository
         $result = $conn->executeQuery($sql)->fetchOne();
         return $result !== false ? (int) $result : null;
     }
+
+    /**
+     * Calcule l'intervalle moyen entre clopes pour chaque jour
+     * @return array ['2024-12-01' => 45, '2024-12-02' => 52, ...] (en minutes)
+     */
+    public function getDailyAverageInterval(int $days = 7): array
+    {
+        $intervals = [];
+
+        for ($i = $days - 1; $i >= 0; $i--) {
+            $date = new \DateTime("-{$i} days");
+            $cigs = $this->findByDate($date);
+
+            if (count($cigs) < 2) {
+                continue;
+            }
+
+            $totalMinutes = 0;
+            for ($j = 1; $j < count($cigs); $j++) {
+                $diff = $cigs[$j]->getSmokedAt()->getTimestamp() - $cigs[$j - 1]->getSmokedAt()->getTimestamp();
+                $totalMinutes += $diff / 60;
+            }
+
+            $avgMinutes = $totalMinutes / (count($cigs) - 1);
+            $intervals[$date->format('Y-m-d')] = round($avgMinutes);
+        }
+
+        return $intervals;
+    }
+
+    /**
+     * Stats pour comparaison semaine glissante
+     * @return array ['current' => [...], 'previous' => [...]]
+     */
+    public function getWeeklyComparison(): array
+    {
+        $currentWeek = [];
+        $previousWeek = [];
+
+        // Semaine actuelle (7 derniers jours)
+        for ($i = 6; $i >= 0; $i--) {
+            $date = new \DateTime("-{$i} days");
+            $currentWeek[$date->format('Y-m-d')] = $this->countByDate($date);
+        }
+
+        // Semaine précédente (jours 7 à 13)
+        for ($i = 13; $i >= 7; $i--) {
+            $date = new \DateTime("-{$i} days");
+            $previousWeek[$date->format('Y-m-d')] = $this->countByDate($date);
+        }
+
+        $currentTotal = array_sum($currentWeek);
+        $previousTotal = array_sum($previousWeek);
+        $currentAvg = count($currentWeek) > 0 ? round($currentTotal / count($currentWeek), 1) : 0;
+        $previousAvg = count($previousWeek) > 0 ? round($previousTotal / count($previousWeek), 1) : 0;
+
+        return [
+            'current' => [
+                'days' => $currentWeek,
+                'total' => $currentTotal,
+                'avg' => $currentAvg,
+            ],
+            'previous' => [
+                'days' => $previousWeek,
+                'total' => $previousTotal,
+                'avg' => $previousAvg,
+            ],
+            'diff_total' => $currentTotal - $previousTotal,
+            'diff_avg' => round($currentAvg - $previousAvg, 1),
+        ];
+    }
 }

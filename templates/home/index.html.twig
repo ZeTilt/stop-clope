@@ -55,15 +55,31 @@
         </div>
     </div>
 
-    <!-- Compte à rebours -->
+    <!-- Compte à rebours et paliers de points -->
     {% if next_cig_target %}
     <div class="card" style="padding: 15px; text-align: center;">
         {% if next_cig_target.status == 'waiting' %}
-            <div style="color: var(--warning); font-size: 0.85rem;">Prochaine clope sans pénalité</div>
-            <div id="countdown" style="font-size: 2rem; font-weight: 700; color: var(--warning);" data-seconds="{{ next_cig_target.seconds_remaining }}">
+            <div style="color: var(--accent); font-size: 0.85rem;">Pour ne pas perdre de points</div>
+            <div id="countdown" style="font-size: 2rem; font-weight: 700; color: var(--accent);" data-seconds="{{ next_cig_target.seconds_remaining }}">
                 {{ next_cig_target.message }}
             </div>
-            <div style="color: var(--text-secondary); font-size: 0.8rem;">Objectif : {{ next_cig_target.target_time }}</div>
+            {% if next_cig_target.current_penalty %}
+                <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 5px;">
+                    Si tu fumes maintenant : {{ next_cig_target.current_penalty }} pts
+                </div>
+            {% endif %}
+        {% elseif next_cig_target.status == 'bonus' %}
+            <div style="color: var(--warning); font-size: 0.85rem;">Pour gagner {{ next_cig_target.next_tier.label }}</div>
+            <div id="countdown" style="font-size: 2rem; font-weight: 700; color: var(--warning);" data-seconds="{{ next_cig_target.seconds_remaining }}">
+                Encore {{ (next_cig_target.seconds_remaining / 60)|round }}min
+            </div>
+            <div style="color: var(--success); font-size: 0.85rem; margin-top: 5px;">
+                Actuellement : {{ next_cig_target.current_label }}
+            </div>
+        {% elseif next_cig_target.status == 'max_bonus' %}
+            <div style="color: var(--success); font-size: 1.3rem; font-weight: 700;">
+                🏆 {{ next_cig_target.message }}
+            </div>
         {% elseif next_cig_target.status == 'ok' %}
             <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
                 ✓ {{ next_cig_target.message }}
@@ -174,13 +190,16 @@
 <!-- Modal réveil -->
 <div class="modal" id="wakeUpModal">
     <div class="modal-content">
-        <h3 class="modal-title">Heure de réveil</h3>
+        <h3 class="modal-title" id="wakeUpModalTitle">Heure de réveil</h3>
+        <p id="wakeUpModalSubtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px; display: none;">
+            Note ton heure de réveil pour un calcul précis des points
+        </p>
         <div class="input-group">
             <label for="wakeTime">Heure</label>
             <input type="time" id="wakeTime">
         </div>
         <div class="modal-buttons">
-            <button class="btn-cancel" onclick="closeWakeUpModal()">Annuler</button>
+            <button class="btn-cancel" id="wakeUpCancelBtn" onclick="closeWakeUpModal()">Annuler</button>
             <button class="btn-confirm" onclick="saveWakeUp()">Enregistrer</button>
         </div>
     </div>
@@ -190,6 +209,16 @@
     // Set default datetime to now
     document.getElementById('customTime').value = new Date().toISOString().slice(0, 16);
     document.getElementById('wakeTime').value = new Date().toTimeString().slice(0, 5);
+
+    // Ouvrir automatiquement le modal de réveil si pas encore renseigné aujourd'hui
+    {% if show_wakeup_modal %}
+    (function() {
+        document.getElementById('wakeUpModalTitle').textContent = 'Bonjour !';
+        document.getElementById('wakeUpModalSubtitle').style.display = 'block';
+        document.getElementById('wakeUpCancelBtn').style.display = 'none';
+        document.getElementById('wakeUpModal').classList.add('active');
+    })();
+    {% endif %}
 
     // Compte à rebours en temps réel
     const countdownEl = document.getElementById('countdown');
@@ -312,6 +341,9 @@
     }
 
     function openWakeUpModal() {
+        document.getElementById('wakeUpModalTitle').textContent = 'Heure de réveil';
+        document.getElementById('wakeUpModalSubtitle').style.display = 'none';
+        document.getElementById('wakeUpCancelBtn').style.display = 'block';
         document.getElementById('wakeUpModal').classList.add('active');
         document.getElementById('wakeTime').value = new Date().toTimeString().slice(0, 5);
     }

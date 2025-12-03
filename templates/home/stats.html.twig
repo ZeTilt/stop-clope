@@ -242,6 +242,65 @@
     </div>
     {% endif %}
 
+    <!-- Intervalle moyen entre clopes -->
+    {% if daily_intervals|length > 0 %}
+    <div class="card">
+        <h3>Intervalle moyen entre clopes</h3>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Évolution par jour (en minutes)</p>
+        <div class="chart-container">
+            <div class="bar-chart">
+                {% set max_interval = 1 %}
+                {% for date, interval in daily_intervals %}
+                    {% if interval > max_interval %}
+                        {% set max_interval = interval %}
+                    {% endif %}
+                {% endfor %}
+
+                {% for date, interval in daily_intervals %}
+                    {% set height = max_interval > 0 ? (interval / max_interval * 120) : 0 %}
+                    <div class="bar-wrapper">
+                        <span class="bar-value">{{ interval }}m</span>
+                        <div class="bar" style="height: {{ height }}px; background: linear-gradient(180deg, #00d9a5, #00ff88);"></div>
+                        <span class="bar-label">{{ date|date("D")|slice(0, 3) }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Comparaison semaine glissante -->
+    {% if weekly_comparison %}
+    <div class="card">
+        <h3 style="margin-bottom: 15px;">Semaine vs semaine précédente</h3>
+        <div class="stats-grid">
+            <div class="stat-item">
+                <div class="stat-value">{{ weekly_comparison.current.total }}</div>
+                <div class="stat-label">Cette semaine</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value">{{ weekly_comparison.previous.total }}</div>
+                <div class="stat-label">Semaine précédente</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" style="color: {{ weekly_comparison.diff_total < 0 ? 'var(--success)' : (weekly_comparison.diff_total > 0 ? 'var(--accent)' : 'inherit') }};">
+                    {{ weekly_comparison.diff_total >= 0 ? '+' : '' }}{{ weekly_comparison.diff_total }}
+                </div>
+                <div class="stat-label">Différence</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-value" style="color: {{ weekly_comparison.diff_avg < 0 ? 'var(--success)' : (weekly_comparison.diff_avg > 0 ? 'var(--accent)' : 'inherit') }};">
+                    {{ weekly_comparison.diff_avg >= 0 ? '+' : '' }}{{ weekly_comparison.diff_avg }}
+                </div>
+                <div class="stat-label">Diff moy/jour</div>
+            </div>
+        </div>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 10px; text-align: center;">
+            Moyenne : {{ weekly_comparison.current.avg }} clopes/jour (vs {{ weekly_comparison.previous.avg }} avant)
+        </p>
+    </div>
+    {% endif %}
+
     <!-- Résumé mensuel -->
     <div class="card">
         <h3 style="margin-bottom: 15px;">30 derniers jours</h3>

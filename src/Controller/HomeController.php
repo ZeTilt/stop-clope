@@ -52,6 +52,7 @@ class HomeController extends AbstractController
             'weekly_stats' => $stats,
             'next_cig_target' => $nextCigTarget,
             'encouragement' => $encouragement,
+            'show_wakeup_modal' => $todayWakeUp === null,
         ]);
     }
 
@@ -132,7 +133,7 @@ class HomeController extends AbstractController
             // Pas de clope correspondante hier = tu as déjà fait mieux !
             return [
                 'status' => 'ahead',
-                'message' => 'Tu as moins de clopes qu\'hier à cette heure !',
+                'message' => 'Tu as moins de clopes qu\'hier !',
             ];
         }
 
@@ -140,36 +141,119 @@ class HomeController extends AbstractController
         $yesterdayCig = $yesterdayCigs[$nextIndex];
         $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
 
-        // Calculer l'heure cible aujourd'hui (réveil + même délai)
+        // Calculer l'heure cible aujourd'hui (réveil + même délai = 0 point)
         if ($todayWakeUp) {
-            $targetTime = clone $todayWakeUp->getWakeDateTime();
-            $targetTime->modify("+{$yesterdayMinutesSinceWake} minutes");
+            $baseTime = clone $todayWakeUp->getWakeDateTime();
+            $baseTime->modify("+{$yesterdayMinutesSinceWake} minutes");
         } else {
             // Pas de réveil aujourd'hui, utiliser l'heure absolue d'hier
-            $targetTime = clone $yesterdayCig->getSmokedAt();
-            $targetTime->modify('+1 day');
+            $baseTime = clone $yesterdayCig->getSmokedAt();
+            $baseTime->modify('+1 day');
         }
 
         $now = new \DateTime();
-        $diff = $targetTime->getTimestamp() - $now->getTimestamp();
+        $diffSeconds = $now->getTimestamp() - $baseTime->getTimestamp();
+        $diffMinutes = $diffSeconds / 60;
 
-        if ($diff <= 0) {
+        // Paliers de points selon le temps depuis l'heure cible
+        // Positif = en avance sur hier (bonus), Négatif = en retard (pénalité)
+        $tiers = [
+            ['min' => 30, 'points' => 10, 'label' => '+10 pts'],
+            ['min' => 15, 'points' => 5, 'label' => '+5 pts'],
+            ['min' => 5, 'points' => 2, 'label' => '+2 pts'],
+            ['min' => 1, 'points' => 1, 'label' => '+1 pt'],
+            ['min' => 0, 'points' => -1, 'label' => '-1 pt'],
+        ];
+
+        // Trouver le palier actuel et le prochain
+        $currentTier = null;
+        $nextTier = null;
+
+        foreach ($tiers as $i => $tier) {
+            if ($diffMinutes >= $tier['min']) {
+                $currentTier = $tier;
+                break;
+            }
+            $nextTier = $tier;
+        }
+
+        // Si on est encore en négatif (avant l'heure cible)
+        if ($diffMinutes < 0) {
+            $secondsToZero = abs($diffSeconds);
+            $hours = floor($secondsToZero / 3600);
+            $mins = floor(($secondsToZero % 3600) / 60);
+
+            // Calculer le temps jusqu'au prochain palier positif
+            $nextTierInfo = null;
+            if ($nextTier) {
+                $secondsToNextTier = ($nextTier['min'] * 60) - $diffSeconds;
+                $h = floor($secondsToNextTier / 3600);
+                $m = floor(($secondsToNextTier % 3600) / 60);
+                $nextTierInfo = [
+                    'time' => sprintf('%dh%02d', $h, $m),
+                    'points' => $nextTier['points'],
+                    'label' => $nextTier['label'],
+                ];
+            }
+
             return [
-                'status' => 'ok',
-                'message' => 'Tu peux fumer sans pénalité',
-                'target_time' => $targetTime->format('H:i'),
+                'status' => 'waiting',
+                'message' => sprintf('Encore %dh%02d pour ne pas perdre de points', $hours, $mins),
+                'seconds_remaining' => $secondsToZero,
+                'current_penalty' => $this->getPenaltyForMinutes($diffMinutes),
+                'next_tier' => $nextTierInfo,
             ];
         }
 
-        $hours = floor($diff / 3600);
-        $minutes = floor(($diff % 3600) / 60);
+        // On est au-delà de l'heure cible (zone de bonus ou neutre)
+        if ($currentTier && $currentTier['points'] > 0 && $nextTier) {
+            // Calculer le temps jusqu'au prochain palier de bonus
+            $secondsToNextTier = ($nextTier['min'] * 60) - $diffSeconds;
+            if ($secondsToNextTier > 0) {
+                $hours = floor($secondsToNextTier / 3600);
+                $mins = floor(($secondsToNextTier % 3600) / 60);
 
+                return [
+                    'status' => 'bonus',
+                    'message' => sprintf('Encore %dh%02d pour gagner %s', $hours, $mins, $nextTier['label']),
+                    'seconds_remaining' => $secondsToNextTier,
+                    'current_points' => $currentTier['points'],
+                    'current_label' => $currentTier['label'],
+                    'next_tier' => [
+                        'points' => $nextTier['points'],
+                        'label' => $nextTier['label'],
+                    ],
+                ];
+            }
+        }
+
+        // Zone max de bonus atteinte
+        if ($currentTier && $currentTier['points'] >= 10) {
+            return [
+                'status' => 'max_bonus',
+                'message' => 'Bonus max atteint (+10 pts) !',
+                'current_points' => 10,
+            ];
+        }
+
+        // Zone neutre ou légère pénalité
         return [
-            'status' => 'waiting',
-            'message' => sprintf('Sans pénalité dans %dh%02d', $hours, $minutes),
-            'target_time' => $targetTime->format('H:i'),
-            'seconds_remaining' => $diff,
+            'status' => 'ok',
+            'message' => 'Tu peux fumer sans pénalité',
+            'current_points' => $currentTier ? $currentTier['points'] : 0,
         ];
+    }
+
+    private function getPenaltyForMinutes(float $diffMinutes): int
+    {
+        return match (true) {
+            $diffMinutes <= -30 => -10,
+            $diffMinutes <= -15 => -8,
+            $diffMinutes <= -5 => -5,
+            $diffMinutes <= -1 => -2,
+            $diffMinutes < 0 => -1,
+            default => 0,
+        };
     }
 
     private function getMinutesSinceWakeUp(\DateTimeInterface $cigTime, $wakeUp): int
@@ -288,6 +372,12 @@ class HomeController extends AbstractController
         $weekdayStats = $this->cigaretteRepository->getWeekdayStats();
         $hourlyStats = $this->cigaretteRepository->getHourlyStats();
 
+        // Intervalle moyen par jour
+        $dailyIntervals = $this->cigaretteRepository->getDailyAverageInterval(7);
+
+        // Comparaison semaine glissante
+        $weeklyComparison = $this->cigaretteRepository->getWeeklyComparison();
+
         // Économies réalisées
         $savings = $this->calculateSavings();
 
@@ -297,6 +387,8 @@ class HomeController extends AbstractController
             'rank' => $rank,
             'weekday_stats' => $weekdayStats,
             'hourly_stats' => $hourlyStats,
+            'daily_intervals' => $dailyIntervals,
+            'weekly_comparison' => $weeklyComparison,
             'savings' => $savings,
             'first_date' => $firstDate,
         ]);
