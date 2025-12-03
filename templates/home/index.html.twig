@@ -210,37 +210,36 @@
 </div>
 
 <script>
+(function() {
     // Set default datetime to now
     document.getElementById('customTime').value = new Date().toISOString().slice(0, 16);
     document.getElementById('wakeTime').value = new Date().toTimeString().slice(0, 5);
 
     // Ouvrir automatiquement le modal de réveil si pas encore renseigné aujourd'hui
     {% if show_wakeup_modal %}
-    (function() {
-        document.getElementById('wakeUpModalTitle').textContent = 'Bonjour !';
-        document.getElementById('wakeUpModalSubtitle').style.display = 'block';
-        document.getElementById('wakeUpCancelBtn').style.display = 'none';
-        document.getElementById('wakeUpModal').classList.add('active');
-    })();
+    document.getElementById('wakeUpModalTitle').textContent = 'Bonjour !';
+    document.getElementById('wakeUpModalSubtitle').style.display = 'block';
+    document.getElementById('wakeUpCancelBtn').style.display = 'none';
+    document.getElementById('wakeUpModal').classList.add('active');
     {% endif %}
 
     // Compte à rebours en temps réel
-    const countdownEl = document.getElementById('countdown');
+    var countdownEl = document.getElementById('countdown');
     if (countdownEl && countdownEl.dataset.seconds) {
-        let seconds = parseInt(countdownEl.dataset.seconds);
+        var seconds = parseInt(countdownEl.dataset.seconds);
 
-        const updateCountdown = () => {
+        var updateCountdown = function() {
             if (seconds <= 0) {
                 countdownEl.textContent = '✓ Tu peux fumer sans pénalité';
                 countdownEl.style.color = 'var(--success)';
                 return;
             }
 
-            const hours = Math.floor(seconds / 3600);
-            const mins = Math.floor((seconds % 3600) / 60);
-            const secs = seconds % 60;
+            var hours = Math.floor(seconds / 3600);
+            var mins = Math.floor((seconds % 3600) / 60);
+            var secs = seconds % 60;
 
-            countdownEl.textContent = `${hours}h${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            countdownEl.textContent = hours + 'h' + mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
             seconds--;
         };
 
@@ -248,14 +247,14 @@
         setInterval(updateCountdown, 1000);
     }
 
-    function logCigarette() {
-        const btn = document.getElementById('logBtn');
+    window.logCigarette = function() {
+        var btn = document.getElementById('logBtn');
         btn.disabled = true;
         btn.textContent = '⏳ Enregistrement...';
 
         // Envoyer l'heure locale du client
-        const now = new Date();
-        const localTime = now.getFullYear() + '-' +
+        var now = new Date();
+        var localTime = now.getFullYear() + '-' +
             String(now.getMonth() + 1).padStart(2, '0') + '-' +
             String(now.getDate()).padStart(2, '0') + 'T' +
             String(now.getHours()).padStart(2, '0') + ':' +
@@ -268,42 +267,42 @@
             },
             body: 'custom_time=' + encodeURIComponent(localTime)
         })
-        .then(response => {
+        .then(function(response) {
             if (!response.ok) throw new Error('Network error');
             return response.json();
         })
-        .then(data => {
+        .then(function(data) {
             if (data.success) {
                 showToast('Clope enregistrée à ' + data.smoked_at);
                 document.getElementById('todayCount').textContent = data.today_count;
-                setTimeout(() => location.reload(), 1000);
+                setTimeout(function() { location.reload(); }, 1000);
             }
         })
-        .catch(err => {
+        .catch(function(err) {
             // Mode offline : ajouter à la queue avec l'heure locale
             addToOfflineQueue('log_cigarette', { custom_time: localTime });
             showToast('Clope enregistrée (hors-ligne)');
             // Incrémenter visuellement le compteur
-            const countEl = document.getElementById('todayCount');
+            var countEl = document.getElementById('todayCount');
             countEl.textContent = parseInt(countEl.textContent) + 1;
         })
-        .finally(() => {
+        .finally(function() {
             btn.disabled = false;
             btn.textContent = '🚬 J\'ai fumé une clope';
         });
-    }
+    };
 
-    function openModal() {
+    window.openModal = function() {
         document.getElementById('retroModal').classList.add('active');
         document.getElementById('customTime').value = new Date().toISOString().slice(0, 16);
-    }
+    };
 
-    function closeModal() {
+    window.closeModal = function() {
         document.getElementById('retroModal').classList.remove('active');
-    }
+    };
 
-    function logRetroactive() {
-        const customTime = document.getElementById('customTime').value;
+    window.logRetroactive = function() {
+        var customTime = document.getElementById('customTime').value;
 
         fetch('{{ path('app_log_cigarette') }}', {
             method: 'POST',
@@ -312,61 +311,61 @@
             },
             body: 'custom_time=' + encodeURIComponent(customTime) + '&is_retroactive=1'
         })
-        .then(response => {
+        .then(function(response) {
             if (!response.ok) throw new Error('Network error');
             return response.json();
         })
-        .then(data => {
+        .then(function(data) {
             if (data.success) {
                 showToast('Clope ajoutée à ' + data.smoked_at);
                 closeModal();
-                setTimeout(() => location.reload(), 1000);
+                setTimeout(function() { location.reload(); }, 1000);
             }
         })
-        .catch(err => {
+        .catch(function(err) {
             addToOfflineQueue('log_cigarette', { custom_time: customTime });
             showToast('Clope ajoutée (hors-ligne)');
             closeModal();
         });
-    }
+    };
 
-    function deleteCigarette(id) {
+    window.deleteCigarette = function(id) {
         if (!confirm('Supprimer cette clope ?')) return;
 
         fetch('/delete/' + id, {
             method: 'POST'
         })
-        .then(response => {
+        .then(function(response) {
             if (!response.ok) throw new Error('Network error');
             return response.json();
         })
-        .then(data => {
+        .then(function(data) {
             if (data.success) {
                 showToast('Clope supprimée');
                 document.querySelector('[data-id="' + id + '"]').remove();
                 document.getElementById('todayCount').textContent = data.today_count;
-                setTimeout(() => location.reload(), 1000);
+                setTimeout(function() { location.reload(); }, 1000);
             }
         })
-        .catch(err => {
+        .catch(function(err) {
             showToast('Suppression impossible hors-ligne');
         });
-    }
+    };
 
-    function openWakeUpModal() {
+    window.openWakeUpModal = function() {
         document.getElementById('wakeUpModalTitle').textContent = 'Heure de réveil';
         document.getElementById('wakeUpModalSubtitle').style.display = 'none';
         document.getElementById('wakeUpCancelBtn').style.display = 'block';
         document.getElementById('wakeUpModal').classList.add('active');
         document.getElementById('wakeTime').value = new Date().toTimeString().slice(0, 5);
-    }
+    };
 
-    function closeWakeUpModal() {
+    window.closeWakeUpModal = function() {
         document.getElementById('wakeUpModal').classList.remove('active');
-    }
+    };
 
-    function saveWakeUp() {
-        const wakeTime = document.getElementById('wakeTime').value;
+    window.saveWakeUp = function() {
+        var wakeTime = document.getElementById('wakeTime').value;
 
         fetch('{{ path('app_log_wakeup') }}', {
             method: 'POST',
@@ -375,25 +374,25 @@
             },
             body: 'wake_time=' + encodeURIComponent(wakeTime)
         })
-        .then(response => {
+        .then(function(response) {
             if (!response.ok) throw new Error('Network error');
             return response.json();
         })
-        .then(data => {
+        .then(function(data) {
             if (data.success) {
                 showToast('Réveil enregistré à ' + data.wake_time);
                 document.getElementById('wakeupDisplay').textContent = data.wake_time;
                 closeWakeUpModal();
-                setTimeout(() => location.reload(), 1000);
+                setTimeout(function() { location.reload(); }, 1000);
             }
         })
-        .catch(err => {
+        .catch(function(err) {
             addToOfflineQueue('log_wakeup', { wake_time: wakeTime });
             showToast('Réveil enregistré (hors-ligne)');
             document.getElementById('wakeupDisplay').textContent = wakeTime;
             closeWakeUpModal();
         });
-    }
+    };
 
     // Close modals on outside click
     document.getElementById('retroModal').addEventListener('click', function(e) {
@@ -404,7 +403,7 @@
     });
 
     // Gestion de l'indicateur offline
-    const offlineIndicator = document.getElementById('offlineIndicator');
+    var offlineIndicator = document.getElementById('offlineIndicator');
     function updateOnlineStatus() {
         if (!navigator.onLine) {
             offlineIndicator.style.display = 'inline-block';
@@ -415,5 +414,6 @@
     updateOnlineStatus();
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
+})();
 </script>
 {% endblock %}
