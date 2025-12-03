@@ -124,6 +124,14 @@ class HomeController extends AbstractController
 
     private function calculateNextCigTarget(array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): ?array
     {
+        // Premier jour : pas de comparaison possible
+        if (empty($yesterdayCigs)) {
+            return [
+                'status' => 'first_day',
+                'message' => 'Premier jour - pas de comparaison',
+            ];
+        }
+
         $todayCount = count($todayCigs);
 
         // Quelle est la prochaine clope à comparer ?
