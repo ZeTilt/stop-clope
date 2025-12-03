@@ -21,6 +21,8 @@ migrate:
 install:
 	@echo "==> Installation des dépendances..."
 	composer install --no-dev --optimize-autoloader
+	@echo "==> Compilation des assets..."
+	php bin/console asset-map:compile
 	@echo "==> Migration de la base de données..."
 	php bin/console doctrine:migrations:migrate --no-interaction
 	@echo "==> Nettoyage du cache..."
@@ -33,6 +35,8 @@ deploy:
 	git pull origin main
 	@echo "==> Installation des dépendances..."
 	composer install --no-dev --optimize-autoloader
+	@echo "==> Compilation des assets..."
+	php bin/console asset-map:compile
 	@echo "==> Migration de la base de données..."
 	php bin/console doctrine:migrations:migrate --no-interaction
 	@echo "==> Nettoyage du cache..."
