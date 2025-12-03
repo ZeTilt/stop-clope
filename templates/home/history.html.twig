@@ -131,23 +131,25 @@
 </div>
 
 <script>
-    const firstDate = new Date('{{ first_date|date('Y-m-d') }}');
-    firstDate.setHours(0, 0, 0, 0);
+    (function() {
+        const firstDate = new Date('{{ first_date|date('Y-m-d') }}');
+        firstDate.setHours(0, 0, 0, 0);
 
-    function changeDate(offset) {
-        const currentDate = new Date('{{ selected_date|date('Y-m-d') }}');
-        currentDate.setDate(currentDate.getDate() + offset);
+        window.changeDate = function(offset) {
+            const currentDate = new Date('{{ selected_date|date('Y-m-d') }}');
+            currentDate.setDate(currentDate.getDate() + offset);
 
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
 
-        if (currentDate >= firstDate && currentDate <= today) {
-            goToDate(currentDate.toISOString().split('T')[0]);
-        }
-    }
+            if (currentDate >= firstDate && currentDate <= today) {
+                window.goToDate(currentDate.toISOString().split('T')[0]);
+            }
+        };
 
-    function goToDate(date) {
-        window.location.href = '{{ path('app_history') }}?date=' + date;
-    }
+        window.goToDate = function(date) {
+            window.location.href = '{{ path('app_history') }}?date=' + date;
+        };
+    })();
 </script>
 {% endblock %}
