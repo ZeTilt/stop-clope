@@ -132,18 +132,30 @@
 
 <script>
     (function() {
-        const firstDate = new Date('{{ first_date|date('Y-m-d') }}');
-        firstDate.setHours(0, 0, 0, 0);
+        // Parse dates as local time (not UTC)
+        function parseLocalDate(dateStr) {
+            var parts = dateStr.split('-');
+            return new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+        }
+
+        function formatDate(d) {
+            return d.getFullYear() + '-' +
+                String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                String(d.getDate()).padStart(2, '0');
+        }
+
+        var firstDate = parseLocalDate('{{ first_date|date('Y-m-d') }}');
+        var selectedDate = parseLocalDate('{{ selected_date|date('Y-m-d') }}');
 
         window.changeDate = function(offset) {
-            const currentDate = new Date('{{ selected_date|date('Y-m-d') }}');
-            currentDate.setDate(currentDate.getDate() + offset);
+            var newDate = new Date(selectedDate);
+            newDate.setDate(newDate.getDate() + offset);
 
-            const today = new Date();
-            today.setHours(0, 0, 0, 0);
+            var today = new Date();
+            today.setHours(12, 0, 0, 0);
 
-            if (currentDate >= firstDate && currentDate <= today) {
-                window.goToDate(currentDate.toISOString().split('T')[0]);
+            if (newDate >= firstDate && newDate <= today) {
+                window.goToDate(formatDate(newDate));
             }
         };
 
