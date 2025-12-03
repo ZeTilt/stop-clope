@@ -79,6 +79,14 @@
                 <div class="stat-label">Clopes</div>
             </div>
             <div class="stat-item">
+                {% if wakeup %}
+                    <div class="stat-value">{{ wakeup.wakeTime|date('H:i') }}</div>
+                {% else %}
+                    <div class="stat-value">--</div>
+                {% endif %}
+                <div class="stat-label">Réveil</div>
+            </div>
+            <div class="stat-item">
                 {% if cigarettes|length > 0 %}
                     <div class="stat-value">{{ cigarettes|first.smokedAt|date('H:i') }}</div>
                 {% else %}
