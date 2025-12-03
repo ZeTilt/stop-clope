@@ -184,7 +184,7 @@
     {% if weekday_stats|length > 0 %}
     <div class="card">
         <h3>Semaine type</h3>
-        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Total de clopes par jour de la semaine</p>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Moyenne de clopes par jour de la semaine</p>
         <div class="chart-container">
             <div class="bar-chart">
                 {% set max_weekday = 1 %}
@@ -213,7 +213,7 @@
     {% if hourly_stats|length > 0 %}
     <div class="card">
         <h3>Heures de consommation</h3>
-        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Quand fumes-tu le plus ?</p>
+        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Moyenne par heure de la journée</p>
         <div class="heatmap">
             {% set max_hour = 1 %}
             {% for hour, count in hourly_stats %}

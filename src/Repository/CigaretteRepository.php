@@ -85,8 +85,13 @@ class CigaretteRepository extends ServiceEntityRepository
     public function getWeekdayStats(): array
     {
         $conn = $this->getEntityManager()->getConnection();
+
+        // Compter les clopes par jour de la semaine ET le nombre de jours distincts
         $sql = '
-            SELECT DAYOFWEEK(smoked_at) as day_num, COUNT(id) as count
+            SELECT
+                DAYOFWEEK(smoked_at) as day_num,
+                COUNT(id) as count,
+                COUNT(DISTINCT DATE(smoked_at)) as day_count
             FROM cigarette
             GROUP BY DAYOFWEEK(smoked_at)
             ORDER BY day_num
@@ -98,7 +103,9 @@ class CigaretteRepository extends ServiceEntityRepository
         $days = [1 => 'Dim', 2 => 'Lun', 3 => 'Mar', 4 => 'Mer', 5 => 'Jeu', 6 => 'Ven', 7 => 'Sam'];
         $stats = [];
         foreach ($results as $row) {
-            $stats[$days[(int) $row['day_num']]] = (int) $row['count'];
+            $dayCount = (int) $row['day_count'];
+            $avg = $dayCount > 0 ? round((int) $row['count'] / $dayCount, 1) : 0;
+            $stats[$days[(int) $row['day_num']]] = $avg;
         }
 
         return $stats;
@@ -107,6 +114,11 @@ class CigaretteRepository extends ServiceEntityRepository
     public function getHourlyStats(): array
     {
         $conn = $this->getEntityManager()->getConnection();
+
+        // Nombre total de jours avec des données
+        $totalDays = $conn->executeQuery('SELECT COUNT(DISTINCT DATE(smoked_at)) FROM cigarette')->fetchOne();
+        $totalDays = max(1, (int) $totalDays);
+
         $sql = '
             SELECT HOUR(smoked_at) as hour, COUNT(id) as count
             FROM cigarette
@@ -118,7 +130,8 @@ class CigaretteRepository extends ServiceEntityRepository
 
         $stats = array_fill(0, 24, 0);
         foreach ($results as $row) {
-            $stats[(int) $row['hour']] = (int) $row['count'];
+            $avg = round((int) $row['count'] / $totalDays, 2);
+            $stats[(int) $row['hour']] = $avg;
         }
 
         return $stats;
