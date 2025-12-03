@@ -253,11 +253,20 @@
         btn.disabled = true;
         btn.textContent = '⏳ Enregistrement...';
 
+        // Envoyer l'heure locale du client
+        const now = new Date();
+        const localTime = now.getFullYear() + '-' +
+            String(now.getMonth() + 1).padStart(2, '0') + '-' +
+            String(now.getDate()).padStart(2, '0') + 'T' +
+            String(now.getHours()).padStart(2, '0') + ':' +
+            String(now.getMinutes()).padStart(2, '0');
+
         fetch('{{ path('app_log_cigarette') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
-            }
+            },
+            body: 'custom_time=' + encodeURIComponent(localTime)
         })
         .then(response => {
             if (!response.ok) throw new Error('Network error');
@@ -271,8 +280,8 @@
             }
         })
         .catch(err => {
-            // Mode offline : ajouter à la queue
-            addToOfflineQueue('log_cigarette', {});
+            // Mode offline : ajouter à la queue avec l'heure locale
+            addToOfflineQueue('log_cigarette', { custom_time: localTime });
             showToast('Clope enregistrée (hors-ligne)');
             // Incrémenter visuellement le compteur
             const countEl = document.getElementById('todayCount');
@@ -301,7 +310,7 @@
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'custom_time=' + encodeURIComponent(customTime)
+            body: 'custom_time=' + encodeURIComponent(customTime) + '&is_retroactive=1'
         })
         .then(response => {
             if (!response.ok) throw new Error('Network error');

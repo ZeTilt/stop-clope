@@ -282,11 +282,13 @@ class HomeController extends AbstractController
         $cigarette = new Cigarette();
 
         $customTime = $request->request->get('custom_time');
+        $isRetroactive = $request->request->getBoolean('is_retroactive', false);
+
         if ($customTime) {
             $smokedAt = \DateTime::createFromFormat('Y-m-d\TH:i', $customTime);
             if ($smokedAt) {
                 $cigarette->setSmokedAt($smokedAt);
-                $cigarette->setIsRetroactive(true);
+                $cigarette->setIsRetroactive($isRetroactive);
             }
         }
 
