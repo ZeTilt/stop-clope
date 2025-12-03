@@ -61,10 +61,6 @@ class ScoringService
         $details['streak'] = $streakScore;
         $totalScore += $streakScore['score'];
 
-        // 6. Records
-        $recordsScore = $this->calculateRecordsBonus($date, $todayCigs);
-        $details['records'] = $recordsScore;
-        $totalScore += $recordsScore['score'];
 
         // 7. Journée parfaite
         $perfectDay = $this->isPerfectDay($details);
