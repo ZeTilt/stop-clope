@@ -94,12 +94,14 @@
         <h3 style="margin-bottom: 10px;">Détail des points</h3>
         <div class="score-breakdown">
             {% for key, detail in daily_score.details %}
+                {% if detail.score != 0 %}
                 <div class="breakdown-item">
                     <span>{{ detail.label }}</span>
-                    <span class="breakdown-score {{ detail.score > 0 ? 'positive' : (detail.score < 0 ? 'negative' : '') }}">
+                    <span class="breakdown-score {{ detail.score > 0 ? 'positive' : 'negative' }}">
                         {{ detail.score > 0 ? '+' : '' }}{{ detail.score }}
                     </span>
                 </div>
+                {% endif %}
             {% endfor %}
         </div>
     </div>
