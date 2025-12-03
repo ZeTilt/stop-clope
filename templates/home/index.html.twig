@@ -245,14 +245,13 @@
 
             var hours = Math.floor(seconds / 3600);
             var mins = Math.floor((seconds % 3600) / 60);
-            var secs = seconds % 60;
 
-            countdownEl.textContent = hours + 'h' + mins.toString().padStart(2, '0') + ':' + secs.toString().padStart(2, '0');
-            seconds--;
+            countdownEl.textContent = hours + 'h' + mins.toString().padStart(2, '0');
+            seconds -= 60;
         };
 
         updateCountdown();
-        setInterval(updateCountdown, 1000);
+        setInterval(updateCountdown, 60000);
     }
 
     window.logCigarette = function() {
