@@ -70,7 +70,7 @@ class ScoringService
 
     /**
      * Calcule la cible (en minutes depuis réveil) pour la prochaine clope
-     * Basé uniquement sur la dernière clope d'aujourd'hui + intervalle d'hier
+     * Basé sur la dernière clope d'aujourd'hui + intervalle MOYEN d'hier
      */
     public function calculateTargetMinutes(int $index, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): float
     {
@@ -88,18 +88,10 @@ class ScoringService
             return $avgInterval;
         }
 
-        // Clopes suivantes : dernière clope d'aujourd'hui + intervalle d'hier
+        // Clopes suivantes : dernière clope d'aujourd'hui + intervalle MOYEN d'hier
         $todayPrevCig = $todayCigs[$index - 1];
         $todayPrevMinutes = self::minutesSinceWakeUp($todayPrevCig->getSmokedAt(), $todayWakeUp->getWakeTime());
 
-        // Si on a une référence hier pour cet intervalle
-        if (isset($yesterdayCigs[$index]) && isset($yesterdayCigs[$index - 1])) {
-            $yesterdayInterval = self::timeToMinutes($yesterdayCigs[$index]->getSmokedAt())
-                               - self::timeToMinutes($yesterdayCigs[$index - 1]->getSmokedAt());
-            return $todayPrevMinutes + $yesterdayInterval;
-        }
-
-        // Sinon (on dépasse hier) : utiliser l'intervalle moyen
         return $todayPrevMinutes + $avgInterval;
     }
 
