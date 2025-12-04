@@ -59,39 +59,13 @@
     {% if next_cig_target %}
     <div class="card" style="padding: 15px; text-align: center;">
         {% if next_cig_target.status == 'points_info' %}
-            {# Points actuels #}
-            {% if next_cig_target.current_points >= 10 %}
-                <div style="color: var(--success); font-size: 1.3rem; font-weight: 700;">
-                    🏆 Tu gagnerais +{{ next_cig_target.current_points }} pts (max !)
+            <div id="points-display" data-target-timestamp="{{ next_cig_target.target_timestamp }}">
+                <div id="current-points-msg">Chargement...</div>
+                <div id="next-tier-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bg-lighter); display: none;">
+                    <div id="next-tier-msg" style="color: var(--warning); font-size: 0.85rem;"></div>
+                    <div id="countdown" style="font-size: 1.5rem; font-weight: 700; color: var(--warning); margin-top: 5px;"></div>
                 </div>
-            {% elseif next_cig_target.current_points > 0 %}
-                <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
-                    Tu gagnerais +{{ next_cig_target.current_points }} pts
-                </div>
-            {% elseif next_cig_target.current_points == 0 %}
-                <div style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 600;">
-                    Tu gagnerais 0 pt
-                </div>
-            {% else %}
-                <div style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">
-                    Tu perdrais {{ next_cig_target.current_points }} pts
-                </div>
-            {% endif %}
-
-            {# Prochain palier si disponible #}
-            {% if next_cig_target.next_points is defined %}
-                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bg-lighter);">
-                    <div style="color: var(--warning); font-size: 0.85rem;">
-                        Attends {{ next_cig_target.minutes_to_next }} min pour +{{ next_cig_target.next_points }} pts
-                        <span style="color: var(--success);">(+{{ next_cig_target.next_points - next_cig_target.current_points }} de plus)</span>
-                    </div>
-                    <div id="countdown" style="font-size: 1.5rem; font-weight: 700; color: var(--warning); margin-top: 5px;"
-                         data-target-time="{{ next_cig_target.target_time }}"
-                         data-next-points="{{ next_cig_target.next_points }}">
-                        --:--
-                    </div>
-                </div>
-            {% endif %}
+            </div>
         {% elseif next_cig_target.status == 'ahead' %}
             <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
                 🎉 {{ next_cig_target.message }}
@@ -251,40 +225,89 @@
     document.getElementById('wakeUpModal').classList.add('active');
     {% endif %}
 
-    // Compte à rebours en temps réel (basé sur l'heure de l'appareil)
-    var countdownEl = document.getElementById('countdown');
-    if (countdownEl && countdownEl.dataset.targetTime) {
-        var targetTime = countdownEl.dataset.targetTime; // Format "HH:MM"
-        var targetParts = targetTime.split(':');
-        var targetHour = parseInt(targetParts[0]);
-        var targetMin = parseInt(targetParts[1]);
-        var nextPoints = countdownEl.dataset.nextPoints ? parseInt(countdownEl.dataset.nextPoints) : null;
+    // Calcul des points côté client (basé sur l'heure de l'appareil)
+    var pointsDisplay = document.getElementById('points-display');
+    if (pointsDisplay && pointsDisplay.dataset.targetTimestamp) {
+        var targetTimestamp = parseInt(pointsDisplay.dataset.targetTimestamp);
+        var tiers = [
+            { min: 30, points: 10 },
+            { min: 15, points: 5 },
+            { min: 5, points: 2 },
+            { min: 1, points: 1 },
+            { min: 0, points: 0 }
+        ];
 
-        var updateCountdown = function() {
-            var now = new Date();
-            var nowMinutes = now.getHours() * 60 + now.getMinutes();
-            var targetMinutes = targetHour * 60 + targetMin;
-            var diffMinutes = targetMinutes - nowMinutes;
+        function getPointsForMinutes(diffMinutes) {
+            if (diffMinutes >= 30) return 10;
+            if (diffMinutes >= 15) return 5;
+            if (diffMinutes >= 5) return 2;
+            if (diffMinutes >= 1) return 1;
+            if (diffMinutes >= 0) return 0;
+            if (diffMinutes >= -1) return -1;
+            if (diffMinutes >= -5) return -2;
+            if (diffMinutes >= -15) return -5;
+            if (diffMinutes >= -30) return -8;
+            return -10;
+        }
 
-            // Si la cible est passée, afficher le palier atteint
-            if (diffMinutes <= 0) {
-                countdownEl.textContent = nextPoints ? '+' + nextPoints + ' pts !' : '✓';
-                countdownEl.style.color = 'var(--success)';
-                return;
-            }
+        function updatePointsDisplay() {
+            var nowTimestamp = Math.floor(Date.now() / 1000);
+            var diffSeconds = nowTimestamp - targetTimestamp;
+            var diffMinutes = diffSeconds / 60;
+            var currentPoints = getPointsForMinutes(diffMinutes);
 
-            // Afficher en minutes ou heures+minutes
-            if (diffMinutes >= 60) {
-                var hours = Math.floor(diffMinutes / 60);
-                var mins = diffMinutes % 60;
-                countdownEl.textContent = hours + 'h' + mins.toString().padStart(2, '0');
+            var currentMsg = document.getElementById('current-points-msg');
+            var nextInfo = document.getElementById('next-tier-info');
+            var nextMsg = document.getElementById('next-tier-msg');
+            var countdown = document.getElementById('countdown');
+
+            // Afficher les points actuels
+            if (currentPoints >= 10) {
+                currentMsg.innerHTML = '<span style="color: var(--success); font-size: 1.3rem; font-weight: 700;">🏆 Tu gagnerais +' + currentPoints + ' pts (max !)</span>';
+                nextInfo.style.display = 'none';
             } else {
-                countdownEl.textContent = diffMinutes + ' min';
-            }
-        };
+                if (currentPoints > 0) {
+                    currentMsg.innerHTML = '<span style="color: var(--success); font-size: 1.1rem; font-weight: 600;">Tu gagnerais +' + currentPoints + ' pts</span>';
+                } else if (currentPoints === 0) {
+                    currentMsg.innerHTML = '<span style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 600;">Tu gagnerais 0 pt</span>';
+                } else {
+                    currentMsg.innerHTML = '<span style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">Tu perdrais ' + currentPoints + ' pts</span>';
+                }
 
-        updateCountdown();
-        setInterval(updateCountdown, 60000);
+                // Trouver le prochain palier
+                var nextTier = null;
+                for (var i = tiers.length - 1; i >= 0; i--) {
+                    if (tiers[i].points > currentPoints) {
+                        nextTier = tiers[i];
+                        break;
+                    }
+                }
+
+                if (nextTier) {
+                    var minutesToNext = Math.ceil(nextTier.min - diffMinutes);
+                    if (minutesToNext > 0) {
+                        var bonus = nextTier.points - currentPoints;
+                        nextMsg.innerHTML = 'Attends ' + minutesToNext + ' min pour +' + nextTier.points + ' pts <span style="color: var(--success);">(+' + bonus + ' de plus)</span>';
+
+                        if (minutesToNext >= 60) {
+                            var h = Math.floor(minutesToNext / 60);
+                            var m = minutesToNext % 60;
+                            countdown.textContent = h + 'h' + m.toString().padStart(2, '0');
+                        } else {
+                            countdown.textContent = minutesToNext + ' min';
+                        }
+                        nextInfo.style.display = 'block';
+                    } else {
+                        nextInfo.style.display = 'none';
+                    }
+                } else {
+                    nextInfo.style.display = 'none';
+                }
+            }
+        }
+
+        updatePointsDisplay();
+        setInterval(updatePointsDisplay, 60000);
     }
 
     window.logCigarette = function() {

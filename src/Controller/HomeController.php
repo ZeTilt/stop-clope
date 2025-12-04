@@ -240,6 +240,7 @@ class HomeController extends AbstractController
         $result = [
             'status' => 'points_info',
             'current_points' => $currentPoints,
+            'target_timestamp' => $targetTime->getTimestamp(),
         ];
 
         if ($nextTier) {
@@ -249,7 +250,7 @@ class HomeController extends AbstractController
                 $nextTierTarget->modify("+{$nextTier['min']} minutes");
                 $result['next_points'] = $nextTier['points'];
                 $result['minutes_to_next'] = (int) ceil($minutesToNext);
-                $result['target_time'] = $nextTierTarget->format('H:i');
+                $result['next_tier_timestamp'] = $nextTierTarget->getTimestamp();
             }
         }
 
