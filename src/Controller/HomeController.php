@@ -197,97 +197,14 @@ class HomeController extends AbstractController
             }
         }
 
-        // Calculer le temps cible
-        $targetTime = $this->calculateTargetTime($nextIndex, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
-
-        $now = new \DateTime();
-        $diffSeconds = $now->getTimestamp() - $targetTime->getTimestamp();
-        $diffMinutes = $diffSeconds / 60;
-
-        // Paliers de points (du plus haut au plus bas)
-        $tiers = [
-            ['min' => 30, 'points' => 10],
-            ['min' => 15, 'points' => 5],
-            ['min' => 5, 'points' => 2],
-            ['min' => 1, 'points' => 1],
-            ['min' => 0, 'points' => 0],
-        ];
-
-        // Trouver le palier actuel et le suivant
-        $currentPoints = $this->getPointsForMinutes($diffMinutes);
-        $nextTier = null;
-
-        // Chercher le prochain palier (meilleur que l'actuel)
-        foreach ($tiers as $tier) {
-            if ($tier['points'] > $currentPoints && $diffMinutes < $tier['min']) {
-                $nextTier = $tier;
-                // On continue pour trouver le prochain palier accessible (le plus proche)
-            }
-        }
-
-        // Prendre le palier le plus proche (dernier trouvé avec points > current)
-        if ($nextTier) {
-            // Recalculer pour avoir le palier immédiatement supérieur
-            $nextTier = null;
-            foreach (array_reverse($tiers) as $tier) {
-                if ($tier['points'] > $currentPoints) {
-                    $nextTier = $tier;
-                    break;
-                }
-            }
-        }
-
-        // Envoyer en "minutes depuis réveil" comme ScoringService
+        // Calculer la cible en minutes depuis réveil (même logique que ScoringService)
         $targetMinutesSinceWake = $this->calculateTargetMinutesSinceWake($nextIndex, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
 
-        $result = [
+        return [
             'status' => 'points_info',
             'wakeup_timestamp' => $todayWakeUp ? $todayWakeUp->getWakeDateTime()->getTimestamp() : null,
             'target_minutes' => $targetMinutesSinceWake,
         ];
-
-        return $result;
-    }
-
-    /**
-     * Calcule le temps cible pour la prochaine clope
-     * - Première clope : basé sur hier (temps depuis réveil)
-     * - Suivantes : moyenne pondérée entre temps absolu et intervalle
-     */
-    private function calculateTargetTime(int $nextIndex, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): \DateTime
-    {
-        $yesterdayCig = $yesterdayCigs[$nextIndex];
-
-        // Temps cible méthode 1 : même temps depuis réveil qu'hier
-        // Ne peut fonctionner que si on a les deux réveils (aujourd'hui ET hier)
-        if ($todayWakeUp && $yesterdayWakeUp) {
-            $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
-            $targetAbsolute = clone $todayWakeUp->getWakeDateTime();
-            $targetAbsolute->modify("+{$yesterdayMinutesSinceWake} minutes");
-        } else {
-            // Fallback : même heure absolue qu'hier
-            $targetAbsolute = clone $yesterdayCig->getSmokedAt();
-            $targetAbsolute->modify('+1 day');
-        }
-
-        // Première clope : uniquement temps absolu
-        if ($nextIndex === 0) {
-            return $targetAbsolute;
-        }
-
-        // Clopes suivantes : moyenne pondérée
-        // Méthode 2 : clope précédente d'aujourd'hui + intervalle d'hier
-        $yesterdayPrevCig = $yesterdayCigs[$nextIndex - 1];
-        $yesterdayInterval = $yesterdayCig->getSmokedAt()->getTimestamp() - $yesterdayPrevCig->getSmokedAt()->getTimestamp();
-
-        $todayPrevCig = $todayCigs[$nextIndex - 1];
-        $targetInterval = clone $todayPrevCig->getSmokedAt();
-        $targetInterval->modify("+{$yesterdayInterval} seconds");
-
-        // Moyenne des deux méthodes (basé sur timestamps = indépendant du timezone)
-        $avgTimestamp = ($targetAbsolute->getTimestamp() + $targetInterval->getTimestamp()) / 2;
-
-        return (new \DateTime())->setTimestamp((int) $avgTimestamp);
     }
 
     /**
