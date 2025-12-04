@@ -273,20 +273,15 @@
         btn.disabled = true;
         btn.textContent = '⏳ Enregistrement...';
 
-        // Envoyer l'heure locale du client
-        var now = new Date();
-        var localTime = now.getFullYear() + '-' +
-            String(now.getMonth() + 1).padStart(2, '0') + '-' +
-            String(now.getDate()).padStart(2, '0') + 'T' +
-            String(now.getHours()).padStart(2, '0') + ':' +
-            String(now.getMinutes()).padStart(2, '0');
+        // Envoyer le timestamp Unix (secondes)
+        var timestamp = Math.floor(Date.now() / 1000);
 
         fetch('{{ path('app_log_cigarette') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'custom_time=' + encodeURIComponent(localTime)
+            body: 'timestamp=' + timestamp
         })
         .then(function(response) {
             if (!response.ok) throw new Error('Network error');
@@ -300,8 +295,8 @@
             }
         })
         .catch(function(err) {
-            // Mode offline : ajouter à la queue avec l'heure locale
-            addToOfflineQueue('log_cigarette', { custom_time: localTime });
+            // Mode offline : ajouter à la queue avec le timestamp
+            addToOfflineQueue('log_cigarette', { timestamp: timestamp });
             showToast('Clope enregistrée (hors-ligne)');
             // Incrémenter visuellement le compteur
             var countEl = document.getElementById('todayCount');
@@ -324,13 +319,14 @@
 
     window.logRetroactive = function() {
         var customTime = document.getElementById('customTime').value;
+        var timestamp = Math.floor(new Date(customTime).getTime() / 1000);
 
         fetch('{{ path('app_log_cigarette') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'custom_time=' + encodeURIComponent(customTime) + '&is_retroactive=1'
+            body: 'timestamp=' + timestamp + '&is_retroactive=1'
         })
         .then(function(response) {
             if (!response.ok) throw new Error('Network error');
@@ -344,7 +340,7 @@
             }
         })
         .catch(function(err) {
-            addToOfflineQueue('log_cigarette', { custom_time: customTime });
+            addToOfflineQueue('log_cigarette', { timestamp: timestamp });
             showToast('Clope ajoutée (hors-ligne)');
             closeModal();
         });
@@ -387,13 +383,18 @@
 
     window.saveWakeUp = function() {
         var wakeTime = document.getElementById('wakeTime').value;
+        // Créer un timestamp à partir de l'heure saisie + date d'aujourd'hui
+        var today = new Date();
+        var parts = wakeTime.split(':');
+        today.setHours(parseInt(parts[0]), parseInt(parts[1]), 0, 0);
+        var timestamp = Math.floor(today.getTime() / 1000);
 
         fetch('{{ path('app_log_wakeup') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'wake_time=' + encodeURIComponent(wakeTime)
+            body: 'timestamp=' + timestamp
         })
         .then(function(response) {
             if (!response.ok) throw new Error('Network error');
@@ -408,7 +409,7 @@
             }
         })
         .catch(function(err) {
-            addToOfflineQueue('log_wakeup', { wake_time: wakeTime });
+            addToOfflineQueue('log_wakeup', { timestamp: timestamp });
             showToast('Réveil enregistré (hors-ligne)');
             document.getElementById('wakeupDisplay').textContent = wakeTime;
             closeWakeUpModal();
