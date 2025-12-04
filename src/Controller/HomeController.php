@@ -85,7 +85,7 @@ class HomeController extends AbstractController
                     $debug['target_final'] = (new \DateTime())->setTimestamp((int)$avgTimestamp)->format('H:i');
                 }
 
-                $debug['now'] = (new \DateTime())->format('H:i');
+                $debug['now'] = (new \DateTime('now', new \DateTimeZone('Europe/Paris')))->format('H:i');
             }
         }
         $nextCigTarget['debug'] = $debug;
@@ -262,17 +262,18 @@ class HomeController extends AbstractController
      */
     private function calculateTargetTime(int $nextIndex, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): \DateTime
     {
+        $tz = new \DateTimeZone('Europe/Paris');
         $yesterdayCig = $yesterdayCigs[$nextIndex];
 
         // Temps cible méthode 1 : même temps depuis réveil qu'hier
         // Ne peut fonctionner que si on a les deux réveils (aujourd'hui ET hier)
         if ($todayWakeUp && $yesterdayWakeUp) {
             $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
-            $targetAbsolute = clone $todayWakeUp->getWakeDateTime();
+            $targetAbsolute = \DateTime::createFromInterface($todayWakeUp->getWakeDateTime())->setTimezone($tz);
             $targetAbsolute->modify("+{$yesterdayMinutesSinceWake} minutes");
         } else {
             // Fallback : même heure absolue qu'hier
-            $targetAbsolute = clone $yesterdayCig->getSmokedAt();
+            $targetAbsolute = \DateTime::createFromInterface($yesterdayCig->getSmokedAt())->setTimezone($tz);
             $targetAbsolute->modify('+1 day');
         }
 
@@ -287,13 +288,13 @@ class HomeController extends AbstractController
         $yesterdayInterval = $yesterdayCig->getSmokedAt()->getTimestamp() - $yesterdayPrevCig->getSmokedAt()->getTimestamp();
 
         $todayPrevCig = $todayCigs[$nextIndex - 1];
-        $targetInterval = clone $todayPrevCig->getSmokedAt();
+        $targetInterval = \DateTime::createFromInterface($todayPrevCig->getSmokedAt())->setTimezone($tz);
         $targetInterval->modify("+{$yesterdayInterval} seconds");
 
         // Moyenne des deux méthodes
         $avgTimestamp = ($targetAbsolute->getTimestamp() + $targetInterval->getTimestamp()) / 2;
 
-        return (new \DateTime())->setTimestamp((int) $avgTimestamp);
+        return (new \DateTime('now', $tz))->setTimestamp((int) $avgTimestamp);
     }
 
     private function getPenaltyForMinutes(float $diffMinutes): int
@@ -323,13 +324,14 @@ class HomeController extends AbstractController
     #[Route('/log', name: 'app_log_cigarette', methods: ['POST'])]
     public function logCigarette(Request $request): JsonResponse
     {
+        $tz = new \DateTimeZone('Europe/Paris');
         $cigarette = new Cigarette();
 
         $customTime = $request->request->get('custom_time');
         $isRetroactive = $request->request->getBoolean('is_retroactive', false);
 
         if ($customTime) {
-            $smokedAt = \DateTime::createFromFormat('Y-m-d\TH:i', $customTime);
+            $smokedAt = \DateTime::createFromFormat('Y-m-d\TH:i', $customTime, $tz);
             if ($smokedAt) {
                 $cigarette->setSmokedAt($smokedAt);
                 $cigarette->setIsRetroactive($isRetroactive);
@@ -339,7 +341,7 @@ class HomeController extends AbstractController
         $this->entityManager->persist($cigarette);
         $this->entityManager->flush();
 
-        $today = new \DateTime();
+        $today = new \DateTime('now', $tz);
         $dailyScore = $this->scoringService->calculateDailyScore($today);
         $todayCount = $this->cigaretteRepository->countByDate($today);
 
@@ -356,7 +358,8 @@ class HomeController extends AbstractController
     #[Route('/wakeup', name: 'app_log_wakeup', methods: ['POST'])]
     public function logWakeUp(Request $request): JsonResponse
     {
-        $today = new \DateTime();
+        $tz = new \DateTimeZone('Europe/Paris');
+        $today = new \DateTime('now', $tz);
         $today->setTime(0, 0, 0);
 
         // Chercher si un réveil existe déjà pour aujourd'hui
@@ -369,9 +372,9 @@ class HomeController extends AbstractController
 
         $customTime = $request->request->get('wake_time');
         if ($customTime) {
-            $wakeTime = \DateTime::createFromFormat('H:i', $customTime);
+            $wakeTime = \DateTime::createFromFormat('H:i', $customTime, $tz);
         } else {
-            $wakeTime = new \DateTime();
+            $wakeTime = new \DateTime('now', $tz);
         }
 
         $wakeUp->setWakeTime($wakeTime);
