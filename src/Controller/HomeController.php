@@ -326,12 +326,16 @@ class HomeController extends AbstractController
     {
         $cigarette = new Cigarette();
 
-        // Le client envoie l'heure locale (Y-m-d H:i) - on la stocke telle quelle
+        // Le client envoie l'heure locale + son décalage timezone
         $localTime = $request->request->get('local_time');
+        $tzOffset = $request->request->getInt('tz_offset', 0); // En minutes, positif pour Est
         $isRetroactive = $request->request->getBoolean('is_retroactive', false);
 
         if ($localTime) {
-            $smokedAt = \DateTime::createFromFormat('Y-m-d H:i', $localTime);
+            // Créer le timezone à partir de l'offset
+            $tzString = sprintf('%+03d:%02d', intdiv($tzOffset, 60), abs($tzOffset) % 60);
+            $tz = new \DateTimeZone($tzString);
+            $smokedAt = \DateTime::createFromFormat('Y-m-d H:i', $localTime, $tz);
             if ($smokedAt) {
                 $cigarette->setSmokedAt($smokedAt);
                 $cigarette->setIsRetroactive($isRetroactive);
@@ -358,10 +362,15 @@ class HomeController extends AbstractController
     #[Route('/wakeup', name: 'app_log_wakeup', methods: ['POST'])]
     public function logWakeUp(Request $request): JsonResponse
     {
-        // Le client envoie l'heure locale (HH:MM) - on la stocke telle quelle
+        // Le client envoie l'heure locale + son décalage timezone
         $wakeTimeStr = $request->request->get('wake_time');
+        $tzOffset = $request->request->getInt('tz_offset', 0);
 
-        $today = new \DateTime();
+        // Créer le timezone à partir de l'offset
+        $tzString = sprintf('%+03d:%02d', intdiv($tzOffset, 60), abs($tzOffset) % 60);
+        $tz = new \DateTimeZone($tzString);
+
+        $today = new \DateTime('now', $tz);
         $today->setTime(0, 0, 0);
 
         // Chercher si un réveil existe déjà pour aujourd'hui
@@ -373,10 +382,10 @@ class HomeController extends AbstractController
         }
 
         if ($wakeTimeStr) {
-            // Créer un DateTime avec juste l'heure (sans conversion timezone)
-            $wakeTime = \DateTime::createFromFormat('H:i', $wakeTimeStr);
+            // Créer un DateTime avec l'heure dans le bon timezone
+            $wakeTime = \DateTime::createFromFormat('H:i', $wakeTimeStr, $tz);
         } else {
-            $wakeTime = new \DateTime();
+            $wakeTime = new \DateTime('now', $tz);
         }
 
         $wakeUp->setWakeTime($wakeTime);

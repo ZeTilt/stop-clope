@@ -273,20 +273,21 @@
         btn.disabled = true;
         btn.textContent = '⏳ Enregistrement...';
 
-        // Envoyer l'heure locale (YYYY-MM-DD HH:MM)
+        // Envoyer l'heure locale + offset timezone
         var now = new Date();
         var localTime = now.getFullYear() + '-' +
             String(now.getMonth() + 1).padStart(2, '0') + '-' +
             String(now.getDate()).padStart(2, '0') + ' ' +
             String(now.getHours()).padStart(2, '0') + ':' +
             String(now.getMinutes()).padStart(2, '0');
+        var tzOffset = -now.getTimezoneOffset(); // En minutes, positif pour Est de UTC
 
         fetch('{{ path('app_log_cigarette') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'local_time=' + encodeURIComponent(localTime)
+            body: 'local_time=' + encodeURIComponent(localTime) + '&tz_offset=' + tzOffset
         })
         .then(function(response) {
             if (!response.ok) throw new Error('Network error');
@@ -300,8 +301,8 @@
             }
         })
         .catch(function(err) {
-            // Mode offline : ajouter à la queue avec l'heure locale
-            addToOfflineQueue('log_cigarette', { local_time: localTime });
+            // Mode offline : ajouter à la queue avec l'heure locale + timezone
+            addToOfflineQueue('log_cigarette', { local_time: localTime, tz_offset: tzOffset });
             showToast('Clope enregistrée (hors-ligne)');
             // Incrémenter visuellement le compteur
             var countEl = document.getElementById('todayCount');
@@ -326,13 +327,14 @@
         var customTime = document.getElementById('customTime').value;
         // Convertir le format datetime-local (YYYY-MM-DDTHH:MM) en (YYYY-MM-DD HH:MM)
         var localTime = customTime.replace('T', ' ');
+        var tzOffset = -new Date().getTimezoneOffset();
 
         fetch('{{ path('app_log_cigarette') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'local_time=' + encodeURIComponent(localTime) + '&is_retroactive=1'
+            body: 'local_time=' + encodeURIComponent(localTime) + '&tz_offset=' + tzOffset + '&is_retroactive=1'
         })
         .then(function(response) {
             if (!response.ok) throw new Error('Network error');
@@ -346,7 +348,7 @@
             }
         })
         .catch(function(err) {
-            addToOfflineQueue('log_cigarette', { local_time: localTime });
+            addToOfflineQueue('log_cigarette', { local_time: localTime, tz_offset: tzOffset });
             showToast('Clope ajoutée (hors-ligne)');
             closeModal();
         });
@@ -389,13 +391,14 @@
 
     window.saveWakeUp = function() {
         var wakeTime = document.getElementById('wakeTime').value;
+        var tzOffset = -new Date().getTimezoneOffset();
 
         fetch('{{ path('app_log_wakeup') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'wake_time=' + encodeURIComponent(wakeTime)
+            body: 'wake_time=' + encodeURIComponent(wakeTime) + '&tz_offset=' + tzOffset
         })
         .then(function(response) {
             if (!response.ok) throw new Error('Network error');
@@ -410,7 +413,7 @@
             }
         })
         .catch(function(err) {
-            addToOfflineQueue('log_wakeup', { wake_time: wakeTime });
+            addToOfflineQueue('log_wakeup', { wake_time: wakeTime, tz_offset: tzOffset });
             showToast('Réveil enregistré (hors-ligne)');
             document.getElementById('wakeupDisplay').textContent = wakeTime;
             closeWakeUpModal();
