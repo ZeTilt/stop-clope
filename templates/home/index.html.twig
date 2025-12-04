@@ -60,7 +60,7 @@
     <div class="card" style="padding: 15px; text-align: center;">
         {% if next_cig_target.status == 'waiting' %}
             <div style="color: var(--accent); font-size: 0.85rem;">Pour ne pas perdre de points</div>
-            <div id="countdown" style="font-size: 2rem; font-weight: 700; color: var(--accent);" data-target-timestamp="{{ next_cig_target.target_timestamp }}">
+            <div id="countdown" style="font-size: 2rem; font-weight: 700; color: var(--accent);" data-target-time="{{ next_cig_target.target_time }}">
                 --:--
             </div>
             {% if next_cig_target.current_penalty %}
@@ -70,7 +70,7 @@
             {% endif %}
         {% elseif next_cig_target.status == 'bonus' %}
             <div style="color: var(--warning); font-size: 0.85rem;">Pour gagner {{ next_cig_target.next_tier.label }}</div>
-            <div id="countdown" style="font-size: 2rem; font-weight: 700; color: var(--warning);" data-target-timestamp="{{ next_cig_target.target_timestamp }}">
+            <div id="countdown" style="font-size: 2rem; font-weight: 700; color: var(--warning);" data-target-time="{{ next_cig_target.target_time }}">
                 --:--
             </div>
             <div style="color: var(--success); font-size: 0.85rem; margin-top: 5px;">
@@ -245,21 +245,27 @@
 
     // Compte à rebours en temps réel (basé sur l'heure de l'appareil)
     var countdownEl = document.getElementById('countdown');
-    if (countdownEl && countdownEl.dataset.targetTimestamp) {
-        var targetTimestamp = parseInt(countdownEl.dataset.targetTimestamp);
+    if (countdownEl && countdownEl.dataset.targetTime) {
+        var targetTime = countdownEl.dataset.targetTime; // Format "HH:MM"
+        var targetParts = targetTime.split(':');
+        var targetHour = parseInt(targetParts[0]);
+        var targetMin = parseInt(targetParts[1]);
 
         var updateCountdown = function() {
-            var nowTimestamp = Math.floor(Date.now() / 1000);
-            var seconds = targetTimestamp - nowTimestamp;
+            var now = new Date();
+            var nowMinutes = now.getHours() * 60 + now.getMinutes();
+            var targetMinutes = targetHour * 60 + targetMin;
+            var diffMinutes = targetMinutes - nowMinutes;
 
-            if (seconds <= 0) {
+            // Si la cible est passée (différence négative)
+            if (diffMinutes <= 0) {
                 countdownEl.textContent = '✓ Tu peux fumer sans pénalité';
                 countdownEl.style.color = 'var(--success)';
                 return;
             }
 
-            var hours = Math.floor(seconds / 3600);
-            var mins = Math.floor((seconds % 3600) / 60);
+            var hours = Math.floor(diffMinutes / 60);
+            var mins = diffMinutes % 60;
 
             countdownEl.textContent = hours + 'h' + mins.toString().padStart(2, '0');
         };

@@ -227,7 +227,7 @@ class HomeController extends AbstractController
         if ($diffMinutes < 0) {
             return [
                 'status' => 'waiting',
-                'target_timestamp' => $targetTime->getTimestamp(),
+                'target_time' => $targetTime->format('H:i'),
                 'current_penalty' => $this->getPenaltyForMinutes($diffMinutes),
             ];
         }
@@ -236,11 +236,12 @@ class HomeController extends AbstractController
         if ($currentTier && $currentTier['points'] > 0 && $nextTier) {
             $secondsToNextTier = ($nextTier['min'] * 60) - $diffSeconds;
             if ($secondsToNextTier > 0) {
-                // Timestamp cible = maintenant + secondes restantes pour le prochain palier
-                $nextTierTimestamp = $targetTime->getTimestamp() + ($nextTier['min'] * 60);
+                // Heure cible pour le prochain palier
+                $nextTierTarget = clone $targetTime;
+                $nextTierTarget->modify("+{$nextTier['min']} minutes");
                 return [
                     'status' => 'bonus',
-                    'target_timestamp' => $nextTierTimestamp,
+                    'target_time' => $nextTierTarget->format('H:i'),
                     'next_tier' => $nextTier,
                     'current_points' => $currentTier['points'],
                     'current_label' => $currentTier['label'],
