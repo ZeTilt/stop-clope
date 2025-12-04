@@ -92,11 +92,25 @@ class ScoringService
         $targetMinutes = $this->calculateTargetMinutes($nextIndex, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
         $wakeupTimestamp = $todayWakeUp->getWakeDateTime()->getTimestamp();
 
+        // Calculer ce que serait le diff maintenant (pour debug)
+        $nowMinutesSinceWake = (time() - $wakeupTimestamp) / 60;
+        $currentDiff = $nowMinutesSinceWake - $targetMinutes;
+
         return [
             'status' => 'active',
             'wakeup_timestamp' => $wakeupTimestamp,
             'target_minutes' => $targetMinutes,
             'tiers' => self::TIMING_TIERS,
+            // Debug
+            'debug' => [
+                'wakeup_datetime' => $todayWakeUp->getWakeDateTime()->format('Y-m-d H:i:s'),
+                'wakeup_time_raw' => $todayWakeUp->getWakeTime()->format('H:i'),
+                'now_timestamp' => time(),
+                'now_minutes_since_wake' => round($nowMinutesSinceWake, 1),
+                'target_minutes' => round($targetMinutes, 1),
+                'current_diff' => round($currentDiff, 1),
+                'current_points' => self::getPointsForDiff($currentDiff),
+            ],
         ];
     }
 
