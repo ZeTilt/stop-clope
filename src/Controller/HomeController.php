@@ -355,17 +355,13 @@ class HomeController extends AbstractController
     #[Route('/wakeup', name: 'app_log_wakeup', methods: ['POST'])]
     public function logWakeUp(Request $request): JsonResponse
     {
-        $timestamp = $request->request->get('timestamp');
+        // Le client envoie l'heure locale (HH:MM) - on la stocke telle quelle
+        $wakeTimeStr = $request->request->get('wake_time');
 
-        if ($timestamp) {
-            $wakeDateTime = (new \DateTime())->setTimestamp((int) $timestamp);
-        } else {
-            $wakeDateTime = new \DateTime();
-        }
+        $today = new \DateTime();
+        $today->setTime(0, 0, 0);
 
-        $today = (clone $wakeDateTime)->setTime(0, 0, 0);
-
-        // Chercher si un réveil existe déjà pour cette date
+        // Chercher si un réveil existe déjà pour aujourd'hui
         $wakeUp = $this->wakeUpRepository->findByDate($today);
 
         if (!$wakeUp) {
@@ -373,7 +369,14 @@ class HomeController extends AbstractController
             $wakeUp->setDate($today);
         }
 
-        $wakeUp->setWakeTime($wakeDateTime);
+        if ($wakeTimeStr) {
+            // Créer un DateTime avec juste l'heure (sans conversion timezone)
+            $wakeTime = \DateTime::createFromFormat('H:i', $wakeTimeStr);
+        } else {
+            $wakeTime = new \DateTime();
+        }
+
+        $wakeUp->setWakeTime($wakeTime);
 
         $this->entityManager->persist($wakeUp);
         $this->entityManager->flush();

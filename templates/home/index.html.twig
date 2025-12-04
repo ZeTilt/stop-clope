@@ -383,18 +383,13 @@
 
     window.saveWakeUp = function() {
         var wakeTime = document.getElementById('wakeTime').value;
-        // Créer un timestamp à partir de l'heure saisie + date d'aujourd'hui
-        var today = new Date();
-        var parts = wakeTime.split(':');
-        today.setHours(parseInt(parts[0]), parseInt(parts[1]), 0, 0);
-        var timestamp = Math.floor(today.getTime() / 1000);
 
         fetch('{{ path('app_log_wakeup') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: 'timestamp=' + timestamp
+            body: 'wake_time=' + encodeURIComponent(wakeTime)
         })
         .then(function(response) {
             if (!response.ok) throw new Error('Network error');
@@ -409,7 +404,7 @@
             }
         })
         .catch(function(err) {
-            addToOfflineQueue('log_wakeup', { timestamp: timestamp });
+            addToOfflineQueue('log_wakeup', { wake_time: wakeTime });
             showToast('Réveil enregistré (hors-ligne)');
             document.getElementById('wakeupDisplay').textContent = wakeTime;
             closeWakeUpModal();
