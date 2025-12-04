@@ -60,7 +60,7 @@
     <div class="card" style="padding: 15px; text-align: center;">
         {% if next_cig_target.status == 'active' %}
             <div id="points-display"
-                 data-wakeup-timestamp="{{ next_cig_target.wakeup_timestamp }}"
+                 data-wake-minutes="{{ next_cig_target.wake_minutes }}"
                  data-target-minutes="{{ next_cig_target.target_minutes }}">
                 <div id="current-points-msg">Chargement...</div>
                 <div id="next-tier-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bg-lighter); display: none;">
@@ -88,18 +88,6 @@
             <div style="color: var(--text-secondary); font-size: 0.9rem;">
                 📊 {{ next_cig_target.message }}
             </div>
-        {% endif %}
-
-        {# DEBUG temporaire #}
-        {% if next_cig_target.debug is defined %}
-        <div style="margin-top: 15px; padding: 10px; background: #333; border-radius: 8px; text-align: left; font-size: 0.7rem; font-family: monospace;">
-            <div style="color: #ff0; margin-bottom: 5px;">DEBUG SERVER:</div>
-            {% for key, value in next_cig_target.debug %}
-                <div style="color: #0f0;">{{ key }}: {{ value }}</div>
-            {% endfor %}
-            <div style="color: #ff0; margin-top: 5px;">DEBUG CLIENT:</div>
-            <div id="debug-client" style="color: #0ff;"></div>
-        </div>
         {% endif %}
     </div>
     {% endif %}
@@ -233,10 +221,10 @@
     document.getElementById('wakeUpModal').classList.add('active');
     {% endif %}
 
-    // Calcul des points côté client (même logique que ScoringService)
+    // Calcul des points côté client (même logique que ScoringService - PAS DE TIMESTAMPS)
     var pointsDisplay = document.getElementById('points-display');
-    if (pointsDisplay && pointsDisplay.dataset.wakeupTimestamp && pointsDisplay.dataset.targetMinutes) {
-        var wakeupTimestamp = parseInt(pointsDisplay.dataset.wakeupTimestamp);
+    if (pointsDisplay && pointsDisplay.dataset.wakeMinutes && pointsDisplay.dataset.targetMinutes) {
+        var wakeMinutes = parseInt(pointsDisplay.dataset.wakeMinutes);
         var targetMinutes = parseFloat(pointsDisplay.dataset.targetMinutes);
 
         // Paliers identiques à ScoringService
@@ -244,41 +232,29 @@
             { min: 30, points: 10 },
             { min: 15, points: 5 },
             { min: 5, points: 2 },
-            { min: 0, points: 1 },  // > 0 donne 1pt
+            { min: 0, points: 1 },
         ];
 
-        // Scoring identique à ScoringService
+        // Scoring identique à ScoringService (avec nouveaux malus modérés)
         function getPointsForDiff(diff) {
             if (diff >= 30) return 10;
             if (diff >= 15) return 5;
             if (diff >= 5) return 2;
             if (diff > 0) return 1;
-            if (diff === 0) return 0;
+            if (diff === 0) return -1;
             if (diff >= -5) return -2;
-            if (diff >= -15) return -5;
-            if (diff >= -30) return -8;
-            return -10;
+            if (diff >= -15) return -3;
+            if (diff >= -30) return -5;
+            return -8;
         }
 
         function updatePointsDisplay() {
-            var nowTimestamp = Math.floor(Date.now() / 1000);
-            var currentMinutesSinceWake = (nowTimestamp - wakeupTimestamp) / 60;
+            // Calcul basé sur l'heure locale UNIQUEMENT (pas de timestamp)
+            var now = new Date();
+            var nowMinutes = now.getHours() * 60 + now.getMinutes();
+            var currentMinutesSinceWake = nowMinutes - wakeMinutes;
             var diff = currentMinutesSinceWake - targetMinutes;
             var currentPoints = getPointsForDiff(diff);
-
-            // Debug client
-            var debugClient = document.getElementById('debug-client');
-            if (debugClient) {
-                var now = new Date();
-                debugClient.innerHTML =
-                    'now_local: ' + now.toLocaleTimeString() + '<br>' +
-                    'now_timestamp: ' + nowTimestamp + '<br>' +
-                    'wakeup_timestamp: ' + wakeupTimestamp + '<br>' +
-                    'minutes_since_wake: ' + currentMinutesSinceWake.toFixed(1) + '<br>' +
-                    'target_minutes: ' + targetMinutes.toFixed(1) + '<br>' +
-                    'diff: ' + diff.toFixed(1) + '<br>' +
-                    'points: ' + currentPoints;
-            }
 
             var currentMsg = document.getElementById('current-points-msg');
             var nextInfo = document.getElementById('next-tier-info');
@@ -295,7 +271,7 @@
                 } else if (currentPoints === 0) {
                     currentMsg.innerHTML = '<span style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 600;">Tu gagnerais 0 pt</span>';
                 } else {
-                    currentMsg.innerHTML = '<span style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">Tu perdrais ' + currentPoints + ' pts</span>';
+                    currentMsg.innerHTML = '<span style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">Tu perdrais ' + Math.abs(currentPoints) + ' pts</span>';
                 }
 
                 // Trouver le prochain palier
