@@ -135,16 +135,20 @@
     <div class="card">
         <h3 style="margin-bottom: 10px;">Détail des points</h3>
         <div class="score-breakdown">
-            {% for key, detail in daily_score.details %}
-                {% if detail.score != 0 %}
+            {% if daily_score.details.comparisons is defined %}
+                {% for comp in daily_score.details.comparisons %}
                 <div class="breakdown-item">
-                    <span>{{ detail.label }}</span>
-                    <span class="breakdown-score {{ detail.score > 0 ? 'positive' : 'negative' }}">
-                        {{ detail.score > 0 ? '+' : '' }}{{ detail.score }}
+                    <span>Clope #{{ comp.index }} ({{ comp.diff > 0 ? '+' : '' }}{{ comp.diff }} min)</span>
+                    <span class="breakdown-score {{ comp.points > 0 ? 'positive' : 'negative' }}">
+                        {{ comp.points > 0 ? '+' : '' }}{{ comp.points }}
                     </span>
                 </div>
-                {% endif %}
-            {% endfor %}
+                {% endfor %}
+            {% elseif daily_score.details.message is defined %}
+                <div class="breakdown-item">
+                    <span>{{ daily_score.details.message }}</span>
+                </div>
+            {% endif %}
         </div>
     </div>
 
