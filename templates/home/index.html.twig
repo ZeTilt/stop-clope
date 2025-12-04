@@ -58,7 +58,7 @@
     <!-- Compte à rebours et paliers de points -->
     {% if next_cig_target %}
     <div class="card" style="padding: 15px; text-align: center;">
-        {% if next_cig_target.status == 'points_info' %}
+        {% if next_cig_target.status == 'active' %}
             <div id="points-display"
                  data-wakeup-timestamp="{{ next_cig_target.wakeup_timestamp }}"
                  data-target-minutes="{{ next_cig_target.target_minutes }}">
@@ -67,6 +67,10 @@
                     <div id="next-tier-msg" style="color: var(--warning); font-size: 0.85rem;"></div>
                     <div id="countdown" style="font-size: 1.5rem; font-weight: 700; color: var(--warning); margin-top: 5px;"></div>
                 </div>
+            </div>
+        {% elseif next_cig_target.status == 'no_wakeup' %}
+            <div style="color: var(--warning); font-size: 0.9rem;">
+                ⏰ {{ next_cig_target.message }}
             </div>
         {% elseif next_cig_target.status == 'ahead' %}
             <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
@@ -84,16 +88,6 @@
             <div style="color: var(--text-secondary); font-size: 0.9rem;">
                 📊 {{ next_cig_target.message }}
             </div>
-        {% endif %}
-
-        {# DEBUG temporaire #}
-        {% if next_cig_target.debug is defined %}
-        <div style="margin-top: 15px; padding: 10px; background: #333; border-radius: 8px; text-align: left; font-size: 0.7rem; font-family: monospace;">
-            <div style="color: #ff0; margin-bottom: 5px;">DEBUG:</div>
-            {% for key, value in next_cig_target.debug %}
-                <div style="color: #0f0;">{{ key }}: {{ value }}</div>
-            {% endfor %}
-        </div>
         {% endif %}
     </div>
     {% endif %}

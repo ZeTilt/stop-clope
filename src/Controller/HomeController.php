@@ -37,59 +37,8 @@ class HomeController extends AbstractController
         $rank = $this->scoringService->getCurrentRank();
         $stats = $this->cigaretteRepository->getDailyStats(7);
 
-        // Calculer le compte à rebours pour la prochaine clope sans pénalité
-        $nextCigTarget = $this->calculateNextCigTarget($todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
-
-        // DEBUG temporaire - à supprimer
-        $debug = [
-            'today_wakeup' => $todayWakeUp ? $todayWakeUp->getWakeDateTime()->format('Y-m-d H:i') : 'NULL',
-            'yesterday_wakeup' => $yesterdayWakeUp ? $yesterdayWakeUp->getWakeDateTime()->format('Y-m-d H:i') : 'NULL',
-            'today_cigs_count' => count($todayCigs),
-            'yesterday_cigs_count' => count($yesterdayCigs),
-        ];
-        if (count($todayCigs) > 0 && count($yesterdayCigs) > count($todayCigs)) {
-            $nextIndex = count($todayCigs);
-            $yesterdayCig = $yesterdayCigs[$nextIndex];
-            $debug['next_index'] = $nextIndex;
-            $debug['yesterday_cig_for_comparison'] = $yesterdayCig->getSmokedAt()->format('Y-m-d H:i');
-            if ($todayWakeUp && $yesterdayWakeUp) {
-                $debug['yesterday_minutes_since_wake'] = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
-            }
-            // Debug du calcul complet
-            if ($nextIndex > 0 && isset($yesterdayCigs[$nextIndex - 1]) && isset($todayCigs[$nextIndex - 1])) {
-                $yesterdayPrevCig = $yesterdayCigs[$nextIndex - 1];
-                $todayPrevCig = $todayCigs[$nextIndex - 1];
-                $yesterdayInterval = $yesterdayCig->getSmokedAt()->getTimestamp() - $yesterdayPrevCig->getSmokedAt()->getTimestamp();
-
-                $debug['yesterday_prev_cig'] = $yesterdayPrevCig->getSmokedAt()->format('H:i');
-                $debug['yesterday_interval_sec'] = $yesterdayInterval;
-                $debug['yesterday_interval_min'] = round($yesterdayInterval / 60);
-                $debug['today_prev_cig'] = $todayPrevCig->getSmokedAt()->format('H:i');
-
-                // Calcul targetAbsolute
-                if ($todayWakeUp && $yesterdayWakeUp) {
-                    $minutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
-                    $targetAbsolute = clone $todayWakeUp->getWakeDateTime();
-                    $targetAbsolute->modify("+{$minutesSinceWake} minutes");
-                    $debug['target_absolute'] = $targetAbsolute->format('H:i');
-                }
-
-                // Calcul targetInterval
-                $targetInterval = clone $todayPrevCig->getSmokedAt();
-                $targetInterval->modify("+{$yesterdayInterval} seconds");
-                $debug['target_interval'] = $targetInterval->format('H:i');
-
-                // Moyenne
-                if (isset($targetAbsolute)) {
-                    $avgTimestamp = ($targetAbsolute->getTimestamp() + $targetInterval->getTimestamp()) / 2;
-                    $debug['target_final'] = (new \DateTime())->setTimestamp((int)$avgTimestamp)->format('H:i');
-                }
-
-                $debug['now_timestamp'] = time();
-                $debug['target_timestamp'] = isset($targetAbsolute) ? (int)$avgTimestamp : null;
-            }
-        }
-        $nextCigTarget['debug'] = $debug;
+        // Calculer le compte à rebours pour la prochaine clope (via ScoringService)
+        $nextCigTarget = $this->scoringService->getNextCigaretteInfo($today);
 
         // Message d'encouragement contextuel
         $encouragement = $this->getEncouragementMessage($todayCigs, $yesterdayCigs, $dailyScore);
@@ -171,94 +120,6 @@ class HomeController extends AbstractController
         }
 
         return null;
-    }
-
-    private function calculateNextCigTarget(array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): ?array
-    {
-        // Premier jour : pas de comparaison possible
-        if (empty($yesterdayCigs)) {
-            return [
-                'status' => 'first_day',
-                'message' => 'Premier jour - pas de comparaison',
-            ];
-        }
-
-        $todayCount = count($todayCigs);
-        $nextIndex = $todayCount; // La prochaine sera à cet index
-
-        if (!isset($yesterdayCigs[$nextIndex])) {
-            $yesterdayTotal = count($yesterdayCigs);
-            if ($todayCount < $yesterdayTotal) {
-                return ['status' => 'ahead', 'message' => 'Tu as moins de clopes qu\'hier !'];
-            } elseif ($todayCount == $yesterdayTotal) {
-                return ['status' => 'equal', 'message' => 'Tu as égalé hier (' . $yesterdayTotal . ' clopes)'];
-            } else {
-                return ['status' => 'exceeded', 'message' => 'Tu as dépassé hier (' . $yesterdayTotal . ' clopes)'];
-            }
-        }
-
-        // Calculer la cible en minutes depuis réveil (même logique que ScoringService)
-        $targetMinutesSinceWake = $this->calculateTargetMinutesSinceWake($nextIndex, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
-
-        return [
-            'status' => 'points_info',
-            'wakeup_timestamp' => $todayWakeUp ? $todayWakeUp->getWakeDateTime()->getTimestamp() : null,
-            'target_minutes' => $targetMinutesSinceWake,
-        ];
-    }
-
-    /**
-     * Calcule les minutes cibles depuis le réveil (même logique que ScoringService)
-     */
-    private function calculateTargetMinutesSinceWake(int $index, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): float
-    {
-        $yesterdayCig = $yesterdayCigs[$index];
-        $useRelativeTime = ($todayWakeUp && $yesterdayWakeUp);
-
-        $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
-
-        // Première clope : uniquement temps absolu
-        if ($index === 0) {
-            if (!$useRelativeTime && $todayWakeUp) {
-                $yesterdayHour = (int) $yesterdayCig->getSmokedAt()->format('H');
-                $yesterdayMin = (int) $yesterdayCig->getSmokedAt()->format('i');
-                $todayWakeMinutes = (int) $todayWakeUp->getWakeTime()->format('H') * 60 + (int) $todayWakeUp->getWakeTime()->format('i');
-                return ($yesterdayHour * 60 + $yesterdayMin) - $todayWakeMinutes;
-            }
-            return $yesterdayMinutesSinceWake;
-        }
-
-        // Clopes suivantes : moyenne pondérée
-        $yesterdayPrevCig = $yesterdayCigs[$index - 1];
-        $yesterdayPrevMinutes = $this->getMinutesSinceWakeUp($yesterdayPrevCig->getSmokedAt(), $yesterdayWakeUp);
-        $yesterdayInterval = $yesterdayMinutesSinceWake - $yesterdayPrevMinutes;
-
-        $todayPrevCig = $todayCigs[$index - 1];
-        $todayPrevMinutes = $this->getMinutesSinceWakeUp($todayPrevCig->getSmokedAt(), $todayWakeUp);
-
-        $targetInterval = $todayPrevMinutes + $yesterdayInterval;
-        $targetAbsolute = $yesterdayMinutesSinceWake;
-
-        if (!$useRelativeTime && $todayWakeUp) {
-            $yesterdayHour = (int) $yesterdayCig->getSmokedAt()->format('H');
-            $yesterdayMin = (int) $yesterdayCig->getSmokedAt()->format('i');
-            $todayWakeMinutes = (int) $todayWakeUp->getWakeTime()->format('H') * 60 + (int) $todayWakeUp->getWakeTime()->format('i');
-            $targetAbsolute = ($yesterdayHour * 60 + $yesterdayMin) - $todayWakeMinutes;
-        }
-
-        return ($targetAbsolute + $targetInterval) / 2;
-    }
-
-    private function getMinutesSinceWakeUp(\DateTimeInterface $cigTime, $wakeUp): int
-    {
-        if ($wakeUp === null) {
-            return (int) $cigTime->format('H') * 60 + (int) $cigTime->format('i');
-        }
-
-        $wakeDateTime = $wakeUp->getWakeDateTime();
-        $diff = $cigTime->getTimestamp() - $wakeDateTime->getTimestamp();
-
-        return max(0, (int) ($diff / 60));
     }
 
     #[Route('/log', name: 'app_log_cigarette', methods: ['POST'])]

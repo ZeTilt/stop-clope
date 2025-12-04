@@ -19,10 +19,86 @@ class ScoringService
         4001 => 'Maître du souffle',
     ];
 
+    // Paliers de points (utilisés partout)
+    private const TIMING_TIERS = [
+        ['min' => 30, 'points' => 10],
+        ['min' => 15, 'points' => 5],
+        ['min' => 5, 'points' => 2],
+        ['min' => 0, 'points' => 1],  // > 0 donne 1pt
+    ];
+
     public function __construct(
         private CigaretteRepository $cigaretteRepository,
         private WakeUpRepository $wakeUpRepository
     ) {}
+
+    /**
+     * Calcule les points pour une différence donnée (en minutes)
+     * Positif = après la cible (bonus), Négatif = avant la cible (malus)
+     */
+    public static function getPointsForDiff(float $diff): int
+    {
+        return match (true) {
+            $diff >= 30 => 10,
+            $diff >= 15 => 5,
+            $diff >= 5 => 2,
+            $diff > 0 => 1,
+            $diff == 0 => 0,
+            $diff >= -5 => -2,
+            $diff >= -15 => -5,
+            $diff >= -30 => -8,
+            default => -10,
+        };
+    }
+
+    /**
+     * Calcule les infos pour la prochaine clope (utilisé par le timer)
+     * Retourne : status, wakeup_timestamp, target_minutes, current_minutes, current_points, next_tier
+     */
+    public function getNextCigaretteInfo(\DateTimeInterface $date): array
+    {
+        $todayCigs = $this->cigaretteRepository->findByDate($date);
+        $yesterday = (clone $date)->modify('-1 day');
+        $yesterdayCigs = $this->cigaretteRepository->findByDate($yesterday);
+        $todayWakeUp = $this->wakeUpRepository->findByDate($date);
+        $yesterdayWakeUp = $this->wakeUpRepository->findByDate($yesterday);
+
+        // Premier jour : pas de comparaison
+        if (empty($yesterdayCigs)) {
+            return ['status' => 'first_day', 'message' => 'Premier jour - pas de comparaison'];
+        }
+
+        $todayCount = count($todayCigs);
+        $nextIndex = $todayCount;
+
+        // Vérifier si on a une clope de référence hier
+        if (!isset($yesterdayCigs[$nextIndex])) {
+            $yesterdayTotal = count($yesterdayCigs);
+            if ($todayCount < $yesterdayTotal) {
+                return ['status' => 'ahead', 'message' => 'Tu as moins de clopes qu\'hier !'];
+            } elseif ($todayCount == $yesterdayTotal) {
+                return ['status' => 'equal', 'message' => 'Tu as égalé hier (' . $yesterdayTotal . ' clopes)'];
+            } else {
+                return ['status' => 'exceeded', 'message' => 'Tu as dépassé hier (' . $yesterdayTotal . ' clopes)'];
+            }
+        }
+
+        // Pas de réveil aujourd'hui
+        if (!$todayWakeUp) {
+            return ['status' => 'no_wakeup', 'message' => 'Enregistre ton heure de réveil'];
+        }
+
+        // Calculer la cible
+        $targetMinutes = $this->calculateTargetMinutes($nextIndex, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
+        $wakeupTimestamp = $todayWakeUp->getWakeDateTime()->getTimestamp();
+
+        return [
+            'status' => 'active',
+            'wakeup_timestamp' => $wakeupTimestamp,
+            'target_minutes' => $targetMinutes,
+            'tiers' => self::TIMING_TIERS,
+        ];
+    }
 
     public function calculateDailyScore(\DateTimeInterface $date): array
     {
@@ -88,19 +164,7 @@ class ScoringService
 
             // Différence : positif = plus tard que la cible (mieux)
             $diff = $todayMinutesSinceWake - $targetMinutes;
-
-            // Scoring
-            $cigScore = match (true) {
-                $diff >= 30 => 10,
-                $diff >= 15 => 5,
-                $diff >= 5 => 2,
-                $diff > 0 => 1,
-                $diff == 0 => 0,
-                $diff >= -5 => -2,
-                $diff >= -15 => -5,
-                $diff >= -30 => -8,
-                default => -10,
-            };
+            $cigScore = self::getPointsForDiff($diff);
 
             $score += $cigScore;
             $comparisons[] = [
