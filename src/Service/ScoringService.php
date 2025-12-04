@@ -127,10 +127,23 @@ class ScoringService
     private function calculateTargetMinutes(int $index, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): float
     {
         $yesterdayCig = $yesterdayCigs[$index];
+
+        // Si on a les deux réveils, on peut calculer en temps relatif
+        // Sinon, on utilise les temps absolus (heures de la journée)
+        $useRelativeTime = ($todayWakeUp && $yesterdayWakeUp);
+
         $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
 
         // Première clope : uniquement temps absolu
         if ($index === 0) {
+            // Si pas de réveil hier, retourner le temps depuis réveil d'aujourd'hui équivalent
+            if (!$useRelativeTime && $todayWakeUp) {
+                // Temps absolu d'hier = même heure aujourd'hui
+                $yesterdayHour = (int) $yesterdayCig->getSmokedAt()->format('H');
+                $yesterdayMin = (int) $yesterdayCig->getSmokedAt()->format('i');
+                $todayWakeMinutes = (int) $todayWakeUp->getWakeTime()->format('H') * 60 + (int) $todayWakeUp->getWakeTime()->format('i');
+                return ($yesterdayHour * 60 + $yesterdayMin) - $todayWakeMinutes;
+            }
             return $yesterdayMinutesSinceWake;
         }
 
@@ -145,8 +158,17 @@ class ScoringService
         // Méthode intervalle : clope précédente d'aujourd'hui + intervalle d'hier
         $targetInterval = $todayPrevMinutes + $yesterdayInterval;
 
+        // Si pas de réveil hier, la cible absolue doit aussi être calculée différemment
+        $targetAbsolute = $yesterdayMinutesSinceWake;
+        if (!$useRelativeTime && $todayWakeUp) {
+            $yesterdayHour = (int) $yesterdayCig->getSmokedAt()->format('H');
+            $yesterdayMin = (int) $yesterdayCig->getSmokedAt()->format('i');
+            $todayWakeMinutes = (int) $todayWakeUp->getWakeTime()->format('H') * 60 + (int) $todayWakeUp->getWakeTime()->format('i');
+            $targetAbsolute = ($yesterdayHour * 60 + $yesterdayMin) - $todayWakeMinutes;
+        }
+
         // Moyenne des deux méthodes
-        return ($yesterdayMinutesSinceWake + $targetInterval) / 2;
+        return ($targetAbsolute + $targetInterval) / 2;
     }
 
     private function getMinutesSinceWakeUp(\DateTimeInterface $cigTime, $wakeUp): int

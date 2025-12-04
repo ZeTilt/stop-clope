@@ -40,6 +40,24 @@ class HomeController extends AbstractController
         // Calculer le compte à rebours pour la prochaine clope sans pénalité
         $nextCigTarget = $this->calculateNextCigTarget($todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
 
+        // DEBUG temporaire - à supprimer
+        $debug = [
+            'today_wakeup' => $todayWakeUp ? $todayWakeUp->getWakeDateTime()->format('Y-m-d H:i') : 'NULL',
+            'yesterday_wakeup' => $yesterdayWakeUp ? $yesterdayWakeUp->getWakeDateTime()->format('Y-m-d H:i') : 'NULL',
+            'today_cigs_count' => count($todayCigs),
+            'yesterday_cigs_count' => count($yesterdayCigs),
+        ];
+        if (count($todayCigs) > 0 && count($yesterdayCigs) > count($todayCigs)) {
+            $nextIndex = count($todayCigs);
+            $yesterdayCig = $yesterdayCigs[$nextIndex];
+            $debug['next_index'] = $nextIndex;
+            $debug['yesterday_cig_for_comparison'] = $yesterdayCig->getSmokedAt()->format('Y-m-d H:i');
+            if ($todayWakeUp && $yesterdayWakeUp) {
+                $debug['yesterday_minutes_since_wake'] = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
+            }
+        }
+        $nextCigTarget['debug'] = $debug;
+
         // Message d'encouragement contextuel
         $encouragement = $this->getEncouragementMessage($todayCigs, $yesterdayCigs, $dailyScore);
 
@@ -218,13 +236,15 @@ class HomeController extends AbstractController
     private function calculateTargetTime(int $nextIndex, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): \DateTime
     {
         $yesterdayCig = $yesterdayCigs[$nextIndex];
-        $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
 
         // Temps cible méthode 1 : même temps depuis réveil qu'hier
-        if ($todayWakeUp) {
+        // Ne peut fonctionner que si on a les deux réveils (aujourd'hui ET hier)
+        if ($todayWakeUp && $yesterdayWakeUp) {
+            $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
             $targetAbsolute = clone $todayWakeUp->getWakeDateTime();
             $targetAbsolute->modify("+{$yesterdayMinutesSinceWake} minutes");
         } else {
+            // Fallback : même heure absolue qu'hier
             $targetAbsolute = clone $yesterdayCig->getSmokedAt();
             $targetAbsolute->modify('+1 day');
         }

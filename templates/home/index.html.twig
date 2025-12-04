@@ -101,6 +101,16 @@
                 📊 {{ next_cig_target.message }}
             </div>
         {% endif %}
+
+        {# DEBUG temporaire #}
+        {% if next_cig_target.debug is defined %}
+        <div style="margin-top: 15px; padding: 10px; background: #333; border-radius: 8px; text-align: left; font-size: 0.7rem; font-family: monospace;">
+            <div style="color: #ff0; margin-bottom: 5px;">DEBUG:</div>
+            {% for key, value in next_cig_target.debug %}
+                <div style="color: #0f0;">{{ key }}: {{ value }}</div>
+            {% endfor %}
+        </div>
+        {% endif %}
     </div>
     {% endif %}
 
