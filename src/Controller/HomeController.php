@@ -237,22 +237,14 @@ class HomeController extends AbstractController
             }
         }
 
+        // Envoyer en "minutes depuis réveil" comme ScoringService
+        $targetMinutesSinceWake = $this->calculateTargetMinutesSinceWake($nextIndex, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
+
         $result = [
             'status' => 'points_info',
-            'current_points' => $currentPoints,
-            'target_timestamp' => $targetTime->getTimestamp(),
+            'wakeup_timestamp' => $todayWakeUp ? $todayWakeUp->getWakeDateTime()->getTimestamp() : null,
+            'target_minutes' => $targetMinutesSinceWake,
         ];
-
-        if ($nextTier) {
-            $minutesToNext = $nextTier['min'] - $diffMinutes;
-            if ($minutesToNext > 0) {
-                $nextTierTarget = clone $targetTime;
-                $nextTierTarget->modify("+{$nextTier['min']} minutes");
-                $result['next_points'] = $nextTier['points'];
-                $result['minutes_to_next'] = (int) ceil($minutesToNext);
-                $result['next_tier_timestamp'] = $nextTierTarget->getTimestamp();
-            }
-        }
 
         return $result;
     }
@@ -298,22 +290,46 @@ class HomeController extends AbstractController
         return (new \DateTime())->setTimestamp((int) $avgTimestamp);
     }
 
-    private function getPointsForMinutes(float $diffMinutes): int
+    /**
+     * Calcule les minutes cibles depuis le réveil (même logique que ScoringService)
+     */
+    private function calculateTargetMinutesSinceWake(int $index, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): float
     {
-        return match (true) {
-            // Bonus (après l'heure cible)
-            $diffMinutes >= 30 => 10,
-            $diffMinutes >= 15 => 5,
-            $diffMinutes >= 5 => 2,
-            $diffMinutes >= 1 => 1,
-            $diffMinutes >= 0 => 0,
-            // Pénalités (avant l'heure cible)
-            $diffMinutes >= -1 => -1,
-            $diffMinutes >= -5 => -2,
-            $diffMinutes >= -15 => -5,
-            $diffMinutes >= -30 => -8,
-            default => -10,
-        };
+        $yesterdayCig = $yesterdayCigs[$index];
+        $useRelativeTime = ($todayWakeUp && $yesterdayWakeUp);
+
+        $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
+
+        // Première clope : uniquement temps absolu
+        if ($index === 0) {
+            if (!$useRelativeTime && $todayWakeUp) {
+                $yesterdayHour = (int) $yesterdayCig->getSmokedAt()->format('H');
+                $yesterdayMin = (int) $yesterdayCig->getSmokedAt()->format('i');
+                $todayWakeMinutes = (int) $todayWakeUp->getWakeTime()->format('H') * 60 + (int) $todayWakeUp->getWakeTime()->format('i');
+                return ($yesterdayHour * 60 + $yesterdayMin) - $todayWakeMinutes;
+            }
+            return $yesterdayMinutesSinceWake;
+        }
+
+        // Clopes suivantes : moyenne pondérée
+        $yesterdayPrevCig = $yesterdayCigs[$index - 1];
+        $yesterdayPrevMinutes = $this->getMinutesSinceWakeUp($yesterdayPrevCig->getSmokedAt(), $yesterdayWakeUp);
+        $yesterdayInterval = $yesterdayMinutesSinceWake - $yesterdayPrevMinutes;
+
+        $todayPrevCig = $todayCigs[$index - 1];
+        $todayPrevMinutes = $this->getMinutesSinceWakeUp($todayPrevCig->getSmokedAt(), $todayWakeUp);
+
+        $targetInterval = $todayPrevMinutes + $yesterdayInterval;
+        $targetAbsolute = $yesterdayMinutesSinceWake;
+
+        if (!$useRelativeTime && $todayWakeUp) {
+            $yesterdayHour = (int) $yesterdayCig->getSmokedAt()->format('H');
+            $yesterdayMin = (int) $yesterdayCig->getSmokedAt()->format('i');
+            $todayWakeMinutes = (int) $todayWakeUp->getWakeTime()->format('H') * 60 + (int) $todayWakeUp->getWakeTime()->format('i');
+            $targetAbsolute = ($yesterdayHour * 60 + $yesterdayMin) - $todayWakeMinutes;
+        }
+
+        return ($targetAbsolute + $targetInterval) / 2;
     }
 
     private function getMinutesSinceWakeUp(\DateTimeInterface $cigTime, $wakeUp): int

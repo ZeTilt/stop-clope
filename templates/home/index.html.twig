@@ -59,7 +59,9 @@
     {% if next_cig_target %}
     <div class="card" style="padding: 15px; text-align: center;">
         {% if next_cig_target.status == 'points_info' %}
-            <div id="points-display" data-target-timestamp="{{ next_cig_target.target_timestamp }}">
+            <div id="points-display"
+                 data-wakeup-timestamp="{{ next_cig_target.wakeup_timestamp }}"
+                 data-target-minutes="{{ next_cig_target.target_minutes }}">
                 <div id="current-points-msg">Chargement...</div>
                 <div id="next-tier-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bg-lighter); display: none;">
                     <div id="next-tier-msg" style="color: var(--warning); font-size: 0.85rem;"></div>
@@ -225,36 +227,38 @@
     document.getElementById('wakeUpModal').classList.add('active');
     {% endif %}
 
-    // Calcul des points côté client (basé sur l'heure de l'appareil)
+    // Calcul des points côté client (même logique que ScoringService)
     var pointsDisplay = document.getElementById('points-display');
-    if (pointsDisplay && pointsDisplay.dataset.targetTimestamp) {
-        var targetTimestamp = parseInt(pointsDisplay.dataset.targetTimestamp);
+    if (pointsDisplay && pointsDisplay.dataset.wakeupTimestamp && pointsDisplay.dataset.targetMinutes) {
+        var wakeupTimestamp = parseInt(pointsDisplay.dataset.wakeupTimestamp);
+        var targetMinutes = parseFloat(pointsDisplay.dataset.targetMinutes);
+
+        // Paliers identiques à ScoringService
         var tiers = [
             { min: 30, points: 10 },
             { min: 15, points: 5 },
             { min: 5, points: 2 },
-            { min: 1, points: 1 },
-            { min: 0, points: 0 }
+            { min: 0, points: 1 },  // > 0 donne 1pt
         ];
 
-        function getPointsForMinutes(diffMinutes) {
-            if (diffMinutes >= 30) return 10;
-            if (diffMinutes >= 15) return 5;
-            if (diffMinutes >= 5) return 2;
-            if (diffMinutes >= 1) return 1;
-            if (diffMinutes >= 0) return 0;
-            if (diffMinutes >= -1) return -1;
-            if (diffMinutes >= -5) return -2;
-            if (diffMinutes >= -15) return -5;
-            if (diffMinutes >= -30) return -8;
+        // Scoring identique à ScoringService
+        function getPointsForDiff(diff) {
+            if (diff >= 30) return 10;
+            if (diff >= 15) return 5;
+            if (diff >= 5) return 2;
+            if (diff > 0) return 1;
+            if (diff === 0) return 0;
+            if (diff >= -5) return -2;
+            if (diff >= -15) return -5;
+            if (diff >= -30) return -8;
             return -10;
         }
 
         function updatePointsDisplay() {
             var nowTimestamp = Math.floor(Date.now() / 1000);
-            var diffSeconds = nowTimestamp - targetTimestamp;
-            var diffMinutes = diffSeconds / 60;
-            var currentPoints = getPointsForMinutes(diffMinutes);
+            var currentMinutesSinceWake = (nowTimestamp - wakeupTimestamp) / 60;
+            var diff = currentMinutesSinceWake - targetMinutes;
+            var currentPoints = getPointsForDiff(diff);
 
             var currentMsg = document.getElementById('current-points-msg');
             var nextInfo = document.getElementById('next-tier-info');
@@ -284,7 +288,7 @@
                 }
 
                 if (nextTier) {
-                    var minutesToNext = Math.ceil(nextTier.min - diffMinutes);
+                    var minutesToNext = Math.ceil(nextTier.min - diff);
                     if (minutesToNext > 0) {
                         var bonus = nextTier.points - currentPoints;
                         nextMsg.innerHTML = 'Attends ' + minutesToNext + ' min pour +' + nextTier.points + ' pts <span style="color: var(--success);">(+' + bonus + ' de plus)</span>';
