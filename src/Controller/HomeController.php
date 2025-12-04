@@ -133,51 +133,27 @@ class HomeController extends AbstractController
         }
 
         $todayCount = count($todayCigs);
-
-        // Quelle est la prochaine clope à comparer ?
         $nextIndex = $todayCount; // La prochaine sera à cet index
 
         if (!isset($yesterdayCigs[$nextIndex])) {
-            // Pas de clope correspondante hier = tu as déjà dépassé le total d'hier
             $yesterdayTotal = count($yesterdayCigs);
             if ($todayCount < $yesterdayTotal) {
-                return [
-                    'status' => 'ahead',
-                    'message' => 'Tu as moins de clopes qu\'hier !',
-                ];
+                return ['status' => 'ahead', 'message' => 'Tu as moins de clopes qu\'hier !'];
             } elseif ($todayCount == $yesterdayTotal) {
-                return [
-                    'status' => 'equal',
-                    'message' => 'Tu as égalé hier (' . $yesterdayTotal . ' clopes)',
-                ];
+                return ['status' => 'equal', 'message' => 'Tu as égalé hier (' . $yesterdayTotal . ' clopes)'];
             } else {
-                return [
-                    'status' => 'exceeded',
-                    'message' => 'Tu as dépassé hier (' . $yesterdayTotal . ' clopes)',
-                ];
+                return ['status' => 'exceeded', 'message' => 'Tu as dépassé hier (' . $yesterdayTotal . ' clopes)'];
             }
         }
 
-        // Calculer le temps depuis le réveil de la clope d'hier
-        $yesterdayCig = $yesterdayCigs[$nextIndex];
-        $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
-
-        // Calculer l'heure cible aujourd'hui (réveil + même délai = 0 point)
-        if ($todayWakeUp) {
-            $baseTime = clone $todayWakeUp->getWakeDateTime();
-            $baseTime->modify("+{$yesterdayMinutesSinceWake} minutes");
-        } else {
-            // Pas de réveil aujourd'hui, utiliser l'heure absolue d'hier
-            $baseTime = clone $yesterdayCig->getSmokedAt();
-            $baseTime->modify('+1 day');
-        }
+        // Calculer le temps cible
+        $targetTime = $this->calculateTargetTime($nextIndex, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
 
         $now = new \DateTime();
-        $diffSeconds = $now->getTimestamp() - $baseTime->getTimestamp();
+        $diffSeconds = $now->getTimestamp() - $targetTime->getTimestamp();
         $diffMinutes = $diffSeconds / 60;
 
-        // Paliers de points selon le temps depuis l'heure cible
-        // Positif = en avance sur hier (bonus), Négatif = en retard (pénalité)
+        // Paliers de points
         $tiers = [
             ['min' => 30, 'points' => 10, 'label' => '+10 pts'],
             ['min' => 15, 'points' => 5, 'label' => '+5 pts'],
@@ -186,11 +162,9 @@ class HomeController extends AbstractController
             ['min' => 0, 'points' => -1, 'label' => '-1 pt'],
         ];
 
-        // Trouver le palier actuel et le prochain
         $currentTier = null;
         $nextTier = null;
-
-        foreach ($tiers as $i => $tier) {
+        foreach ($tiers as $tier) {
             if ($diffMinutes >= $tier['min']) {
                 $currentTier = $tier;
                 break;
@@ -198,71 +172,81 @@ class HomeController extends AbstractController
             $nextTier = $tier;
         }
 
-        // Si on est encore en négatif (avant l'heure cible)
+        // Avant l'heure cible
         if ($diffMinutes < 0) {
             $secondsToZero = abs($diffSeconds);
             $hours = floor($secondsToZero / 3600);
             $mins = floor(($secondsToZero % 3600) / 60);
-
-            // Calculer le temps jusqu'au prochain palier positif
-            $nextTierInfo = null;
-            if ($nextTier) {
-                $secondsToNextTier = ($nextTier['min'] * 60) - $diffSeconds;
-                $h = floor($secondsToNextTier / 3600);
-                $m = floor(($secondsToNextTier % 3600) / 60);
-                $nextTierInfo = [
-                    'time' => sprintf('%dh%02d', $h, $m),
-                    'points' => $nextTier['points'],
-                    'label' => $nextTier['label'],
-                ];
-            }
 
             return [
                 'status' => 'waiting',
                 'message' => sprintf('Encore %dh%02d pour ne pas perdre de points', $hours, $mins),
                 'seconds_remaining' => $secondsToZero,
                 'current_penalty' => $this->getPenaltyForMinutes($diffMinutes),
-                'next_tier' => $nextTierInfo,
             ];
         }
 
-        // On est au-delà de l'heure cible (zone de bonus ou neutre)
+        // Zone de bonus
         if ($currentTier && $currentTier['points'] > 0 && $nextTier) {
-            // Calculer le temps jusqu'au prochain palier de bonus
             $secondsToNextTier = ($nextTier['min'] * 60) - $diffSeconds;
             if ($secondsToNextTier > 0) {
                 $hours = floor($secondsToNextTier / 3600);
                 $mins = floor(($secondsToNextTier % 3600) / 60);
-
                 return [
                     'status' => 'bonus',
                     'message' => sprintf('Encore %dh%02d pour gagner %s', $hours, $mins, $nextTier['label']),
                     'seconds_remaining' => $secondsToNextTier,
                     'current_points' => $currentTier['points'],
                     'current_label' => $currentTier['label'],
-                    'next_tier' => [
-                        'points' => $nextTier['points'],
-                        'label' => $nextTier['label'],
-                    ],
                 ];
             }
         }
 
-        // Zone max de bonus atteinte
+        // Max bonus
         if ($currentTier && $currentTier['points'] >= 10) {
-            return [
-                'status' => 'max_bonus',
-                'message' => 'Bonus max atteint (+10 pts) !',
-                'current_points' => 10,
-            ];
+            return ['status' => 'max_bonus', 'message' => 'Bonus max atteint (+10 pts) !', 'current_points' => 10];
         }
 
-        // Zone neutre ou légère pénalité
-        return [
-            'status' => 'ok',
-            'message' => 'Tu peux fumer sans pénalité',
-            'current_points' => $currentTier ? $currentTier['points'] : 0,
-        ];
+        return ['status' => 'ok', 'message' => 'Tu peux fumer sans pénalité', 'current_points' => $currentTier ? $currentTier['points'] : 0];
+    }
+
+    /**
+     * Calcule le temps cible pour la prochaine clope
+     * - Première clope : basé sur hier (temps depuis réveil)
+     * - Suivantes : moyenne pondérée entre temps absolu et intervalle
+     */
+    private function calculateTargetTime(int $nextIndex, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): \DateTime
+    {
+        $yesterdayCig = $yesterdayCigs[$nextIndex];
+        $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
+
+        // Temps cible méthode 1 : même temps depuis réveil qu'hier
+        if ($todayWakeUp) {
+            $targetAbsolute = clone $todayWakeUp->getWakeDateTime();
+            $targetAbsolute->modify("+{$yesterdayMinutesSinceWake} minutes");
+        } else {
+            $targetAbsolute = clone $yesterdayCig->getSmokedAt();
+            $targetAbsolute->modify('+1 day');
+        }
+
+        // Première clope : uniquement temps absolu
+        if ($nextIndex === 0) {
+            return $targetAbsolute;
+        }
+
+        // Clopes suivantes : moyenne pondérée
+        // Méthode 2 : clope précédente d'aujourd'hui + intervalle d'hier
+        $yesterdayPrevCig = $yesterdayCigs[$nextIndex - 1];
+        $yesterdayInterval = $yesterdayCig->getSmokedAt()->getTimestamp() - $yesterdayPrevCig->getSmokedAt()->getTimestamp();
+
+        $todayPrevCig = $todayCigs[$nextIndex - 1];
+        $targetInterval = clone $todayPrevCig->getSmokedAt();
+        $targetInterval->modify("+{$yesterdayInterval} seconds");
+
+        // Moyenne des deux méthodes
+        $avgTimestamp = ($targetAbsolute->getTimestamp() + $targetInterval->getTimestamp()) / 2;
+
+        return (new \DateTime())->setTimestamp((int) $avgTimestamp);
     }
 
     private function getPenaltyForMinutes(float $diffMinutes): int

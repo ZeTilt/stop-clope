@@ -46,16 +46,6 @@ class ScoringService
         $details['daily_reduction'] = $reductionScore;
         $totalScore += $reductionScore['score'];
 
-        // 3. Première clope (temps depuis réveil)
-        $firstCigScore = $this->calculateFirstCigaretteScore($todayCigs, $todayWakeUp);
-        $details['first_cigarette'] = $firstCigScore;
-        $totalScore += $firstCigScore['score'];
-
-        // 4. Intervalle moyen
-        $intervalScore = $this->calculateIntervalScore($todayCigs);
-        $details['average_interval'] = $intervalScore;
-        $totalScore += $intervalScore['score'];
-
         // 5. Streaks
         $streakScore = $this->calculateStreakBonus($date);
         $details['streak'] = $streakScore;
@@ -92,20 +82,20 @@ class ScoringService
                 continue;
             }
 
-            // Calculer le temps depuis le réveil pour chaque cigarette
+            // Calculer le temps cible pour cette clope
+            $targetMinutes = $this->calculateTargetMinutes($index, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
             $todayMinutesSinceWake = $this->getMinutesSinceWakeUp($todayCig->getSmokedAt(), $todayWakeUp);
-            $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCigs[$index]->getSmokedAt(), $yesterdayWakeUp);
 
-            // Différence : positif = plus tard aujourd'hui (mieux)
-            $diff = $todayMinutesSinceWake - $yesterdayMinutesSinceWake;
+            // Différence : positif = plus tard que la cible (mieux)
+            $diff = $todayMinutesSinceWake - $targetMinutes;
 
-            // Scoring : seul "plus tard" est positif, même moment = -1
+            // Scoring
             $cigScore = match (true) {
                 $diff >= 30 => 10,
                 $diff >= 15 => 5,
                 $diff >= 5 => 2,
-                $diff > 0 => 1,       // Même un peu plus tard = petit bonus
-                $diff === 0 => -1,     // Pile au même moment = -1
+                $diff > 0 => 1,
+                $diff == 0 => 0,
                 $diff >= -5 => -2,
                 $diff >= -15 => -5,
                 $diff >= -30 => -8,
@@ -115,18 +105,48 @@ class ScoringService
             $score += $cigScore;
             $comparisons[] = [
                 'position' => $index + 1,
-                'diff_minutes' => $diff,
+                'diff_minutes' => round($diff),
                 'score' => $cigScore,
             ];
         }
 
         $label = match (true) {
-            $score > 0 => "Clopes retardées vs hier",
-            $score < 0 => "Clopes avancées vs hier",
-            default => "Timing identique à hier",
+            $score > 0 => "Clopes retardées vs cible",
+            $score < 0 => "Clopes avancées vs cible",
+            default => "Timing conforme",
         };
 
         return ['score' => $score, 'label' => $label, 'comparisons' => $comparisons];
+    }
+
+    /**
+     * Calcule le temps cible (en minutes depuis réveil) pour une clope donnée
+     * - Première clope : temps depuis réveil d'hier
+     * - Suivantes : moyenne entre temps absolu et intervalle
+     */
+    private function calculateTargetMinutes(int $index, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): float
+    {
+        $yesterdayCig = $yesterdayCigs[$index];
+        $yesterdayMinutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
+
+        // Première clope : uniquement temps absolu
+        if ($index === 0) {
+            return $yesterdayMinutesSinceWake;
+        }
+
+        // Clopes suivantes : moyenne pondérée
+        $yesterdayPrevCig = $yesterdayCigs[$index - 1];
+        $yesterdayPrevMinutes = $this->getMinutesSinceWakeUp($yesterdayPrevCig->getSmokedAt(), $yesterdayWakeUp);
+        $yesterdayInterval = $yesterdayMinutesSinceWake - $yesterdayPrevMinutes;
+
+        $todayPrevCig = $todayCigs[$index - 1];
+        $todayPrevMinutes = $this->getMinutesSinceWakeUp($todayPrevCig->getSmokedAt(), $todayWakeUp);
+
+        // Méthode intervalle : clope précédente d'aujourd'hui + intervalle d'hier
+        $targetInterval = $todayPrevMinutes + $yesterdayInterval;
+
+        // Moyenne des deux méthodes
+        return ($yesterdayMinutesSinceWake + $targetInterval) / 2;
     }
 
     private function getMinutesSinceWakeUp(\DateTimeInterface $cigTime, $wakeUp): int
@@ -329,8 +349,7 @@ class ScoringService
     {
         return ($details['time_comparison']['score'] ?? 0) > 0
             && ($details['daily_reduction']['score'] ?? 0) > 0
-            && ($details['first_cigarette']['score'] ?? 0) > 0
-            && ($details['average_interval']['score'] ?? 0) > 0;
+            && ($details['streak']['score'] ?? 0) > 0;
     }
 
     public function getTotalScore(): int
