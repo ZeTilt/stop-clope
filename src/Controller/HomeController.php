@@ -326,13 +326,16 @@ class HomeController extends AbstractController
     {
         $cigarette = new Cigarette();
 
-        $timestamp = $request->request->get('timestamp');
+        // Le client envoie l'heure locale (Y-m-d H:i) - on la stocke telle quelle
+        $localTime = $request->request->get('local_time');
         $isRetroactive = $request->request->getBoolean('is_retroactive', false);
 
-        if ($timestamp) {
-            $smokedAt = (new \DateTime())->setTimestamp((int) $timestamp);
-            $cigarette->setSmokedAt($smokedAt);
-            $cigarette->setIsRetroactive($isRetroactive);
+        if ($localTime) {
+            $smokedAt = \DateTime::createFromFormat('Y-m-d H:i', $localTime);
+            if ($smokedAt) {
+                $cigarette->setSmokedAt($smokedAt);
+                $cigarette->setIsRetroactive($isRetroactive);
+            }
         }
 
         $this->entityManager->persist($cigarette);
