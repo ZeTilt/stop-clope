@@ -55,6 +55,38 @@ class HomeController extends AbstractController
             if ($todayWakeUp && $yesterdayWakeUp) {
                 $debug['yesterday_minutes_since_wake'] = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
             }
+            // Debug du calcul complet
+            if ($nextIndex > 0 && isset($yesterdayCigs[$nextIndex - 1]) && isset($todayCigs[$nextIndex - 1])) {
+                $yesterdayPrevCig = $yesterdayCigs[$nextIndex - 1];
+                $todayPrevCig = $todayCigs[$nextIndex - 1];
+                $yesterdayInterval = $yesterdayCig->getSmokedAt()->getTimestamp() - $yesterdayPrevCig->getSmokedAt()->getTimestamp();
+
+                $debug['yesterday_prev_cig'] = $yesterdayPrevCig->getSmokedAt()->format('H:i');
+                $debug['yesterday_interval_sec'] = $yesterdayInterval;
+                $debug['yesterday_interval_min'] = round($yesterdayInterval / 60);
+                $debug['today_prev_cig'] = $todayPrevCig->getSmokedAt()->format('H:i');
+
+                // Calcul targetAbsolute
+                if ($todayWakeUp && $yesterdayWakeUp) {
+                    $minutesSinceWake = $this->getMinutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp);
+                    $targetAbsolute = clone $todayWakeUp->getWakeDateTime();
+                    $targetAbsolute->modify("+{$minutesSinceWake} minutes");
+                    $debug['target_absolute'] = $targetAbsolute->format('H:i');
+                }
+
+                // Calcul targetInterval
+                $targetInterval = clone $todayPrevCig->getSmokedAt();
+                $targetInterval->modify("+{$yesterdayInterval} seconds");
+                $debug['target_interval'] = $targetInterval->format('H:i');
+
+                // Moyenne
+                if (isset($targetAbsolute)) {
+                    $avgTimestamp = ($targetAbsolute->getTimestamp() + $targetInterval->getTimestamp()) / 2;
+                    $debug['target_final'] = (new \DateTime())->setTimestamp((int)$avgTimestamp)->format('H:i');
+                }
+
+                $debug['now'] = (new \DateTime())->format('H:i');
+            }
         }
         $nextCigTarget['debug'] = $debug;
 
