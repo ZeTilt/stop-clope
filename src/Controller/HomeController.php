@@ -204,57 +204,56 @@ class HomeController extends AbstractController
         $diffSeconds = $now->getTimestamp() - $targetTime->getTimestamp();
         $diffMinutes = $diffSeconds / 60;
 
-        // Paliers de points
+        // Paliers de points (du plus haut au plus bas)
         $tiers = [
-            ['min' => 30, 'points' => 10, 'label' => '+10 pts'],
-            ['min' => 15, 'points' => 5, 'label' => '+5 pts'],
-            ['min' => 5, 'points' => 2, 'label' => '+2 pts'],
-            ['min' => 1, 'points' => 1, 'label' => '+1 pt'],
-            ['min' => 0, 'points' => -1, 'label' => '-1 pt'],
+            ['min' => 30, 'points' => 10],
+            ['min' => 15, 'points' => 5],
+            ['min' => 5, 'points' => 2],
+            ['min' => 1, 'points' => 1],
+            ['min' => 0, 'points' => 0],
         ];
 
-        $currentTier = null;
+        // Trouver le palier actuel et le suivant
+        $currentPoints = $this->getPointsForMinutes($diffMinutes);
         $nextTier = null;
+
+        // Chercher le prochain palier (meilleur que l'actuel)
         foreach ($tiers as $tier) {
-            if ($diffMinutes >= $tier['min']) {
-                $currentTier = $tier;
-                break;
+            if ($tier['points'] > $currentPoints && $diffMinutes < $tier['min']) {
+                $nextTier = $tier;
+                // On continue pour trouver le prochain palier accessible (le plus proche)
             }
-            $nextTier = $tier;
         }
 
-        // Avant l'heure cible
-        if ($diffMinutes < 0) {
-            return [
-                'status' => 'waiting',
-                'target_time' => $targetTime->format('H:i'),
-                'current_penalty' => $this->getPenaltyForMinutes($diffMinutes),
-            ];
+        // Prendre le palier le plus proche (dernier trouvé avec points > current)
+        if ($nextTier) {
+            // Recalculer pour avoir le palier immédiatement supérieur
+            $nextTier = null;
+            foreach (array_reverse($tiers) as $tier) {
+                if ($tier['points'] > $currentPoints) {
+                    $nextTier = $tier;
+                    break;
+                }
+            }
         }
 
-        // Zone de bonus
-        if ($currentTier && $currentTier['points'] > 0 && $nextTier) {
-            $secondsToNextTier = ($nextTier['min'] * 60) - $diffSeconds;
-            if ($secondsToNextTier > 0) {
-                // Heure cible pour le prochain palier
+        $result = [
+            'status' => 'points_info',
+            'current_points' => $currentPoints,
+        ];
+
+        if ($nextTier) {
+            $minutesToNext = $nextTier['min'] - $diffMinutes;
+            if ($minutesToNext > 0) {
                 $nextTierTarget = clone $targetTime;
                 $nextTierTarget->modify("+{$nextTier['min']} minutes");
-                return [
-                    'status' => 'bonus',
-                    'target_time' => $nextTierTarget->format('H:i'),
-                    'next_tier' => $nextTier,
-                    'current_points' => $currentTier['points'],
-                    'current_label' => $currentTier['label'],
-                ];
+                $result['next_points'] = $nextTier['points'];
+                $result['minutes_to_next'] = (int) ceil($minutesToNext);
+                $result['target_time'] = $nextTierTarget->format('H:i');
             }
         }
 
-        // Max bonus
-        if ($currentTier && $currentTier['points'] >= 10) {
-            return ['status' => 'max_bonus', 'message' => 'Bonus max atteint (+10 pts) !', 'current_points' => 10];
-        }
-
-        return ['status' => 'ok', 'message' => 'Tu peux fumer sans pénalité', 'current_points' => $currentTier ? $currentTier['points'] : 0];
+        return $result;
     }
 
     /**
@@ -298,15 +297,21 @@ class HomeController extends AbstractController
         return (new \DateTime())->setTimestamp((int) $avgTimestamp);
     }
 
-    private function getPenaltyForMinutes(float $diffMinutes): int
+    private function getPointsForMinutes(float $diffMinutes): int
     {
         return match (true) {
-            $diffMinutes <= -30 => -10,
-            $diffMinutes <= -15 => -8,
-            $diffMinutes <= -5 => -5,
-            $diffMinutes <= -1 => -2,
-            $diffMinutes < 0 => -1,
-            default => 0,
+            // Bonus (après l'heure cible)
+            $diffMinutes >= 30 => 10,
+            $diffMinutes >= 15 => 5,
+            $diffMinutes >= 5 => 2,
+            $diffMinutes >= 1 => 1,
+            $diffMinutes >= 0 => 0,
+            // Pénalités (avant l'heure cible)
+            $diffMinutes >= -1 => -1,
+            $diffMinutes >= -5 => -2,
+            $diffMinutes >= -15 => -5,
+            $diffMinutes >= -30 => -8,
+            default => -10,
         };
     }
 

@@ -58,32 +58,40 @@
     <!-- Compte à rebours et paliers de points -->
     {% if next_cig_target %}
     <div class="card" style="padding: 15px; text-align: center;">
-        {% if next_cig_target.status == 'waiting' %}
-            <div style="color: var(--accent); font-size: 0.85rem;">Pour ne pas perdre de points</div>
-            <div id="countdown" style="font-size: 2rem; font-weight: 700; color: var(--accent);" data-target-time="{{ next_cig_target.target_time }}">
-                --:--
-            </div>
-            {% if next_cig_target.current_penalty %}
-                <div style="color: var(--text-secondary); font-size: 0.8rem; margin-top: 5px;">
-                    Si tu fumes maintenant : {{ next_cig_target.current_penalty }} pts
+        {% if next_cig_target.status == 'points_info' %}
+            {# Points actuels #}
+            {% if next_cig_target.current_points >= 10 %}
+                <div style="color: var(--success); font-size: 1.3rem; font-weight: 700;">
+                    🏆 Tu gagnerais +{{ next_cig_target.current_points }} pts (max !)
+                </div>
+            {% elseif next_cig_target.current_points > 0 %}
+                <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
+                    Tu gagnerais +{{ next_cig_target.current_points }} pts
+                </div>
+            {% elseif next_cig_target.current_points == 0 %}
+                <div style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 600;">
+                    Tu gagnerais 0 pt
+                </div>
+            {% else %}
+                <div style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">
+                    Tu perdrais {{ next_cig_target.current_points }} pts
                 </div>
             {% endif %}
-        {% elseif next_cig_target.status == 'bonus' %}
-            <div style="color: var(--warning); font-size: 0.85rem;">Pour gagner {{ next_cig_target.next_tier.label }}</div>
-            <div id="countdown" style="font-size: 2rem; font-weight: 700; color: var(--warning);" data-target-time="{{ next_cig_target.target_time }}">
-                --:--
-            </div>
-            <div style="color: var(--success); font-size: 0.85rem; margin-top: 5px;">
-                Actuellement : {{ next_cig_target.current_label }}
-            </div>
-        {% elseif next_cig_target.status == 'max_bonus' %}
-            <div style="color: var(--success); font-size: 1.3rem; font-weight: 700;">
-                🏆 {{ next_cig_target.message }}
-            </div>
-        {% elseif next_cig_target.status == 'ok' %}
-            <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
-                ✓ {{ next_cig_target.message }}
-            </div>
+
+            {# Prochain palier si disponible #}
+            {% if next_cig_target.next_points is defined %}
+                <div style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bg-lighter);">
+                    <div style="color: var(--warning); font-size: 0.85rem;">
+                        Attends {{ next_cig_target.minutes_to_next }} min pour +{{ next_cig_target.next_points }} pts
+                        <span style="color: var(--success);">(+{{ next_cig_target.next_points - next_cig_target.current_points }} de plus)</span>
+                    </div>
+                    <div id="countdown" style="font-size: 1.5rem; font-weight: 700; color: var(--warning); margin-top: 5px;"
+                         data-target-time="{{ next_cig_target.target_time }}"
+                         data-next-points="{{ next_cig_target.next_points }}">
+                        --:--
+                    </div>
+                </div>
+            {% endif %}
         {% elseif next_cig_target.status == 'ahead' %}
             <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
                 🎉 {{ next_cig_target.message }}
@@ -250,6 +258,7 @@
         var targetParts = targetTime.split(':');
         var targetHour = parseInt(targetParts[0]);
         var targetMin = parseInt(targetParts[1]);
+        var nextPoints = countdownEl.dataset.nextPoints ? parseInt(countdownEl.dataset.nextPoints) : null;
 
         var updateCountdown = function() {
             var now = new Date();
@@ -257,17 +266,23 @@
             var targetMinutes = targetHour * 60 + targetMin;
             var diffMinutes = targetMinutes - nowMinutes;
 
-            // Si la cible est passée (différence négative)
+            // Si la cible est passée, recharger pour afficher le nouveau palier
             if (diffMinutes <= 0) {
-                countdownEl.textContent = '✓ Tu peux fumer sans pénalité';
+                countdownEl.textContent = nextPoints ? '+' + nextPoints + ' pts atteint !' : '✓';
                 countdownEl.style.color = 'var(--success)';
+                // Recharger après 2 secondes pour mettre à jour l'affichage
+                setTimeout(function() { location.reload(); }, 2000);
                 return;
             }
 
-            var hours = Math.floor(diffMinutes / 60);
-            var mins = diffMinutes % 60;
-
-            countdownEl.textContent = hours + 'h' + mins.toString().padStart(2, '0');
+            // Afficher en minutes ou heures+minutes
+            if (diffMinutes >= 60) {
+                var hours = Math.floor(diffMinutes / 60);
+                var mins = diffMinutes % 60;
+                countdownEl.textContent = hours + 'h' + mins.toString().padStart(2, '0');
+            } else {
+                countdownEl.textContent = diffMinutes + ' min';
+            }
         };
 
         updateCountdown();
