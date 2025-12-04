@@ -69,39 +69,38 @@ class ScoringService
     }
 
     /**
-     * Calcule la cible (en minutes depuis réveil) pour la clope d'index donné
+     * Calcule la cible (en minutes depuis réveil) pour la prochaine clope
+     * Basé uniquement sur la dernière clope d'aujourd'hui + intervalle d'hier
      */
     public function calculateTargetMinutes(int $index, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): float
     {
-        if (!isset($yesterdayCigs[$index]) || !$todayWakeUp) {
+        if (!$todayWakeUp) {
             return 0;
         }
 
-        $yesterdayCig = $yesterdayCigs[$index];
         $avgInterval = $this->getYesterdayAverageInterval($yesterdayCigs, $yesterdayWakeUp);
 
-        // Méthode absolue : même temps depuis réveil qu'hier
-        if ($yesterdayWakeUp) {
-            $targetAbsolute = self::minutesSinceWakeUp($yesterdayCig->getSmokedAt(), $yesterdayWakeUp->getWakeTime());
-        } else {
-            $targetAbsolute = self::timeToMinutes($yesterdayCig->getSmokedAt());
-        }
-
-        // Première clope : moyenne entre temps absolu et intervalle moyen
+        // Première clope : temps depuis réveil de la 1ère clope d'hier
         if ($index === 0) {
-            return ($targetAbsolute + $avgInterval) / 2;
+            if (isset($yesterdayCigs[0]) && $yesterdayWakeUp) {
+                return self::minutesSinceWakeUp($yesterdayCigs[0]->getSmokedAt(), $yesterdayWakeUp->getWakeTime());
+            }
+            return $avgInterval;
         }
 
-        // Clopes suivantes : moyenne entre temps absolu et méthode intervalle
-        $yesterdayPrevCig = $yesterdayCigs[$index - 1];
-        $yesterdayInterval = self::timeToMinutes($yesterdayCig->getSmokedAt()) - self::timeToMinutes($yesterdayPrevCig->getSmokedAt());
-
+        // Clopes suivantes : dernière clope d'aujourd'hui + intervalle d'hier
         $todayPrevCig = $todayCigs[$index - 1];
         $todayPrevMinutes = self::minutesSinceWakeUp($todayPrevCig->getSmokedAt(), $todayWakeUp->getWakeTime());
 
-        $targetInterval = $todayPrevMinutes + $yesterdayInterval;
+        // Si on a une référence hier pour cet intervalle
+        if (isset($yesterdayCigs[$index]) && isset($yesterdayCigs[$index - 1])) {
+            $yesterdayInterval = self::timeToMinutes($yesterdayCigs[$index]->getSmokedAt())
+                               - self::timeToMinutes($yesterdayCigs[$index - 1]->getSmokedAt());
+            return $todayPrevMinutes + $yesterdayInterval;
+        }
 
-        return ($targetAbsolute + $targetInterval) / 2;
+        // Sinon (on dépasse hier) : utiliser l'intervalle moyen
+        return $todayPrevMinutes + $avgInterval;
     }
 
     /**
@@ -126,28 +125,28 @@ class ScoringService
         }
 
         $nextIndex = count($todayCigs);
-
-        // Vérifier si on a une clope de référence hier
-        if (!isset($yesterdayCigs[$nextIndex])) {
-            $yesterdayTotal = count($yesterdayCigs);
-            if (count($todayCigs) < $yesterdayTotal) {
-                return ['status' => 'ahead', 'message' => 'Tu as moins de clopes qu\'hier !'];
-            } elseif (count($todayCigs) == $yesterdayTotal) {
-                return ['status' => 'equal', 'message' => 'Tu as égalé hier (' . $yesterdayTotal . ' clopes)'];
-            } else {
-                return ['status' => 'exceeded', 'message' => 'Tu as dépassé hier (' . $yesterdayTotal . ' clopes)'];
-            }
-        }
-
-        // Calculer la cible en minutes depuis réveil
-        $targetMinutes = $this->calculateTargetMinutes($nextIndex, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
+        $yesterdayTotal = count($yesterdayCigs);
         $wakeUpMinutes = self::timeToMinutes($todayWakeUp->getWakeTime());
 
+        // Calculer la cible (fonctionne aussi si on dépasse hier)
+        $targetMinutes = $this->calculateTargetMinutes($nextIndex, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
+
+        // Déterminer le statut
+        $status = 'active';
+        $exceeded = false;
+        if ($nextIndex >= $yesterdayTotal) {
+            $exceeded = true;
+            $status = 'exceeded';
+        }
+
         return [
-            'status' => 'active',
+            'status' => $status,
             'wake_time' => $todayWakeUp->getWakeTime()->format('H:i'),
             'wake_minutes' => $wakeUpMinutes,
             'target_minutes' => round($targetMinutes, 1),
+            'exceeded' => $exceeded,
+            'yesterday_count' => $yesterdayTotal,
+            'today_count' => $nextIndex,
         ];
     }
 
@@ -174,12 +173,10 @@ class ScoringService
 
         $totalScore = 0;
         $comparisons = [];
+        $yesterdayCount = count($yesterdayCigs);
 
         foreach ($todayCigs as $index => $todayCig) {
-            if (!isset($yesterdayCigs[$index])) {
-                continue;
-            }
-
+            // Calculer la cible (fonctionne aussi si on dépasse hier)
             $targetMinutes = $this->calculateTargetMinutes($index, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
 
             if ($todayWakeUp) {
@@ -198,6 +195,7 @@ class ScoringService
                 'actual' => round($actualMinutes),
                 'diff' => round($diff),
                 'points' => $points,
+                'exceeded' => $index >= $yesterdayCount,
             ];
         }
 
@@ -205,7 +203,7 @@ class ScoringService
             'date' => $date->format('Y-m-d'),
             'total_score' => $totalScore,
             'cigarette_count' => count($todayCigs),
-            'yesterday_count' => count($yesterdayCigs),
+            'yesterday_count' => $yesterdayCount,
             'details' => [
                 'comparisons' => $comparisons,
             ],

@@ -58,7 +58,12 @@
     <!-- Compte à rebours et paliers de points -->
     {% if next_cig_target %}
     <div class="card" style="padding: 15px; text-align: center;">
-        {% if next_cig_target.status == 'active' %}
+        {% if next_cig_target.status == 'active' or next_cig_target.status == 'exceeded' %}
+            {% if next_cig_target.exceeded is defined and next_cig_target.exceeded %}
+                <div style="color: var(--accent); font-size: 0.85rem; margin-bottom: 10px;">
+                    ⚠️ Tu as dépassé hier ({{ next_cig_target.yesterday_count }} clopes) - intervalle moyen utilisé
+                </div>
+            {% endif %}
             <div id="points-display"
                  data-wake-minutes="{{ next_cig_target.wake_minutes }}"
                  data-target-minutes="{{ next_cig_target.target_minutes }}">
@@ -71,18 +76,6 @@
         {% elseif next_cig_target.status == 'no_wakeup' %}
             <div style="color: var(--warning); font-size: 0.9rem;">
                 ⏰ {{ next_cig_target.message }}
-            </div>
-        {% elseif next_cig_target.status == 'ahead' %}
-            <div style="color: var(--success); font-size: 1.1rem; font-weight: 600;">
-                🎉 {{ next_cig_target.message }}
-            </div>
-        {% elseif next_cig_target.status == 'equal' %}
-            <div style="color: var(--warning); font-size: 1.1rem; font-weight: 600;">
-                ⚖️ {{ next_cig_target.message }}
-            </div>
-        {% elseif next_cig_target.status == 'exceeded' %}
-            <div style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">
-                📈 {{ next_cig_target.message }}
             </div>
         {% elseif next_cig_target.status == 'first_day' %}
             <div style="color: var(--text-secondary); font-size: 0.9rem;">
@@ -138,7 +131,10 @@
             {% if daily_score.details.comparisons is defined %}
                 {% for comp in daily_score.details.comparisons %}
                 <div class="breakdown-item">
-                    <span>Clope #{{ comp.index }} ({{ comp.diff > 0 ? '+' : '' }}{{ comp.diff }} min)</span>
+                    <span>
+                        {% if comp.exceeded is defined and comp.exceeded %}⚠️ {% endif %}
+                        Clope #{{ comp.index }} ({{ comp.diff > 0 ? '+' : '' }}{{ comp.diff }} min)
+                    </span>
                     <span class="breakdown-score {{ comp.points > 0 ? 'positive' : 'negative' }}">
                         {{ comp.points > 0 ? '+' : '' }}{{ comp.points }}
                     </span>
