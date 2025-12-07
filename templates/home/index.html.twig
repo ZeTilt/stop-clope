@@ -66,7 +66,8 @@
             {% endif %}
             <div id="points-display"
                  data-wake-minutes="{{ next_cig_target.wake_minutes }}"
-                 data-target-minutes="{{ next_cig_target.target_minutes }}">
+                 data-target-minutes="{{ next_cig_target.target_minutes }}"
+                 data-avg-interval="{{ next_cig_target.avg_interval }}">
                 <div id="current-points-msg">Chargement...</div>
                 <div id="next-tier-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bg-lighter); display: none;">
                     <div id="next-tier-msg" style="color: var(--warning); font-size: 0.85rem;"></div>
@@ -226,26 +227,23 @@
     if (pointsDisplay && pointsDisplay.dataset.wakeMinutes && pointsDisplay.dataset.targetMinutes) {
         var wakeMinutes = parseInt(pointsDisplay.dataset.wakeMinutes);
         var targetMinutes = parseFloat(pointsDisplay.dataset.targetMinutes);
+        var avgInterval = parseFloat(pointsDisplay.dataset.avgInterval) || 60;
 
-        // Paliers identiques à ScoringService
-        var tiers = [
-            { min: 30, points: 10 },
-            { min: 15, points: 5 },
-            { min: 5, points: 2 },
-            { min: 0, points: 1 },
-        ];
-
-        // Scoring identique à ScoringService (avec nouveaux malus modérés)
+        // Scoring proportionnel à l'intervalle, sans plafond
+        // diff = intervalle → 10 pts, diff = 2*intervalle → 20 pts, etc.
         function getPointsForDiff(diff) {
-            if (diff >= 30) return 10;
-            if (diff >= 15) return 5;
-            if (diff >= 5) return 2;
-            if (diff > 0) return 1;
-            if (diff === 0) return -1;
-            if (diff >= -5) return -2;
-            if (diff >= -15) return -3;
-            if (diff >= -30) return -5;
-            return -8;
+            if (avgInterval <= 0) avgInterval = 60;
+            var ratio = diff / avgInterval;
+
+            if (diff > 0) {
+                // Positif : 10 pts par intervalle, minimum 1
+                return Math.max(1, Math.round(ratio * 10));
+            } else if (diff === 0) {
+                return -1;
+            } else {
+                // Négatif : malus proportionnel, plafonné à -10
+                return Math.max(-10, Math.round(ratio * 10));
+            }
         }
 
         function updatePointsDisplay() {
@@ -262,47 +260,32 @@
             var countdown = document.getElementById('countdown');
 
             // Afficher les points actuels
-            if (currentPoints >= 10) {
-                currentMsg.innerHTML = '<span style="color: var(--success); font-size: 1.3rem; font-weight: 700;">🏆 Tu gagnerais +' + currentPoints + ' pts (max !)</span>';
-                nextInfo.style.display = 'none';
+            if (currentPoints > 0) {
+                currentMsg.innerHTML = '<span style="color: var(--success); font-size: 1.1rem; font-weight: 600;">Tu gagnerais +' + currentPoints + ' pts</span>';
+            } else if (currentPoints === 0) {
+                currentMsg.innerHTML = '<span style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 600;">Tu gagnerais 0 pt</span>';
             } else {
-                if (currentPoints > 0) {
-                    currentMsg.innerHTML = '<span style="color: var(--success); font-size: 1.1rem; font-weight: 600;">Tu gagnerais +' + currentPoints + ' pts</span>';
-                } else if (currentPoints === 0) {
-                    currentMsg.innerHTML = '<span style="color: var(--text-secondary); font-size: 1.1rem; font-weight: 600;">Tu gagnerais 0 pt</span>';
+                currentMsg.innerHTML = '<span style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">Tu perdrais ' + Math.abs(currentPoints) + ' pts</span>';
+            }
+
+            // Prochain palier : +10 pts dans (intervalle - diff) minutes
+            var nextPoints = currentPoints + 10;
+            var minutesToNext = Math.ceil(avgInterval - (diff % avgInterval));
+            if (minutesToNext <= 0) minutesToNext = Math.ceil(avgInterval);
+
+            if (minutesToNext > 0 && minutesToNext < 180) { // Max 3h affichées
+                nextMsg.innerHTML = 'Attends ' + minutesToNext + ' min pour +' + nextPoints + ' pts <span style="color: var(--success);">(+10 de plus)</span>';
+
+                if (minutesToNext >= 60) {
+                    var h = Math.floor(minutesToNext / 60);
+                    var m = minutesToNext % 60;
+                    countdown.textContent = h + 'h' + m.toString().padStart(2, '0');
                 } else {
-                    currentMsg.innerHTML = '<span style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">Tu perdrais ' + Math.abs(currentPoints) + ' pts</span>';
+                    countdown.textContent = minutesToNext + ' min';
                 }
-
-                // Trouver le prochain palier
-                var nextTier = null;
-                for (var i = tiers.length - 1; i >= 0; i--) {
-                    if (tiers[i].points > currentPoints) {
-                        nextTier = tiers[i];
-                        break;
-                    }
-                }
-
-                if (nextTier) {
-                    var minutesToNext = Math.ceil(nextTier.min - diff);
-                    if (minutesToNext > 0) {
-                        var bonus = nextTier.points - currentPoints;
-                        nextMsg.innerHTML = 'Attends ' + minutesToNext + ' min pour +' + nextTier.points + ' pts <span style="color: var(--success);">(+' + bonus + ' de plus)</span>';
-
-                        if (minutesToNext >= 60) {
-                            var h = Math.floor(minutesToNext / 60);
-                            var m = minutesToNext % 60;
-                            countdown.textContent = h + 'h' + m.toString().padStart(2, '0');
-                        } else {
-                            countdown.textContent = minutesToNext + ' min';
-                        }
-                        nextInfo.style.display = 'block';
-                    } else {
-                        nextInfo.style.display = 'none';
-                    }
-                } else {
-                    nextInfo.style.display = 'none';
-                }
+                nextInfo.style.display = 'block';
+            } else {
+                nextInfo.style.display = 'none';
             }
         }
 

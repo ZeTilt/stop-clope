@@ -30,20 +30,32 @@ class ScoringService
 
     /**
      * Calcule les points pour une différence donnée (en minutes)
+     * Proportionnel à l'intervalle cible, sans plafond
+     *
+     * - diff = intervalle → 10 pts (tu as attendu 2x la cible)
+     * - diff = 2*intervalle → 20 pts, etc. (linéaire, sans plafond)
+     * - diff négatif → malus proportionnel
      */
-    public static function getPointsForDiff(float $diff): int
+    public static function getPointsForDiff(float $diff, float $interval): int
     {
-        return match (true) {
-            $diff >= 30 => 10,
-            $diff >= 15 => 5,
-            $diff >= 5 => 2,
-            $diff > 0 => 1,
-            $diff == 0 => -1,
-            $diff >= -5 => -2,
-            $diff >= -15 => -3,
-            $diff >= -30 => -5,
-            default => -8,
-        };
+        if ($interval <= 0) {
+            $interval = 60; // Défaut 1h pour éviter division par 0
+        }
+
+        // Ratio : combien de fois l'intervalle on a attendu en plus/moins
+        $ratio = $diff / $interval;
+
+        if ($diff > 0) {
+            // Positif : 10 pts par intervalle attendu en plus, minimum 1 pt
+            $points = (int) round($ratio * 10);
+            return max(1, $points);
+        } elseif ($diff == 0) {
+            return -1; // Pile à l'heure = léger malus
+        } else {
+            // Négatif : malus proportionnel, plafonné à -10
+            $points = (int) round($ratio * 10);
+            return max(-10, $points);
+        }
     }
 
     /**
@@ -171,8 +183,9 @@ class ScoringService
         $nextIndex = count($todayCigs);
         $wakeUpMinutes = self::timeToMinutes($todayWakeUp->getWakeTime());
 
-        // Calculer la cible avec moyenne lissée sur 7 jours
+        // Calculer la cible et l'intervalle moyen lissé sur 7 jours
         $targetMinutes = $this->calculateTargetMinutes($nextIndex, $todayCigs, $todayWakeUp, $date);
+        $avgInterval = $this->getSmoothedAverageInterval($date);
 
         // Nombre de clopes hier (pour info)
         $yesterday = (clone $date)->modify('-1 day');
@@ -192,6 +205,7 @@ class ScoringService
             'wake_time' => $todayWakeUp->getWakeTime()->format('H:i'),
             'wake_minutes' => $wakeUpMinutes,
             'target_minutes' => round($targetMinutes, 1),
+            'avg_interval' => round($avgInterval, 1),
             'exceeded' => $exceeded,
             'yesterday_count' => $yesterdayTotal,
             'today_count' => $nextIndex,
@@ -221,6 +235,9 @@ class ScoringService
         $yesterdayCigs = $this->cigaretteRepository->findByDate($yesterday);
         $yesterdayCount = count($yesterdayCigs);
 
+        // Intervalle moyen lissé (pour calcul des points)
+        $avgInterval = $this->getSmoothedAverageInterval($date);
+
         $totalScore = 0;
         $comparisons = [];
 
@@ -235,7 +252,7 @@ class ScoringService
             }
 
             $diff = $actualMinutes - $targetMinutes;
-            $points = self::getPointsForDiff($diff);
+            $points = self::getPointsForDiff($diff, $avgInterval);
 
             $totalScore += $points;
             $comparisons[] = [
