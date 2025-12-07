@@ -47,52 +47,107 @@ class ScoringService
     }
 
     /**
-     * Calcule l'intervalle moyen entre les clopes d'hier (en minutes)
+     * Calcule l'intervalle moyen d'une journée (en minutes)
      */
-    public function getYesterdayAverageInterval(array $yesterdayCigs, $yesterdayWakeUp): float
+    public function getDayAverageInterval(array $cigs): float
     {
-        if (count($yesterdayCigs) < 2) {
-            // Si une seule clope hier, retourner le temps depuis réveil de cette clope
-            if (count($yesterdayCigs) === 1 && $yesterdayWakeUp) {
-                return self::minutesSinceWakeUp($yesterdayCigs[0]->getSmokedAt(), $yesterdayWakeUp->getWakeTime());
-            }
-            return 60; // Défaut : 1 heure
+        if (count($cigs) < 2) {
+            return 0; // Pas assez de données
         }
 
-        $firstCig = $yesterdayCigs[0];
-        $lastCig = $yesterdayCigs[count($yesterdayCigs) - 1];
+        $firstCig = $cigs[0];
+        $lastCig = $cigs[count($cigs) - 1];
 
         $firstMinutes = self::timeToMinutes($firstCig->getSmokedAt());
         $lastMinutes = self::timeToMinutes($lastCig->getSmokedAt());
 
-        return ($lastMinutes - $firstMinutes) / (count($yesterdayCigs) - 1);
+        return ($lastMinutes - $firstMinutes) / (count($cigs) - 1);
+    }
+
+    /**
+     * Calcule l'intervalle moyen lissé sur les 7 derniers jours
+     */
+    public function getSmoothedAverageInterval(\DateTimeInterface $today): float
+    {
+        $intervals = [];
+
+        for ($i = 1; $i <= 7; $i++) {
+            $date = (clone $today)->modify("-{$i} day");
+            $cigs = $this->cigaretteRepository->findByDate($date);
+
+            $dayInterval = $this->getDayAverageInterval($cigs);
+            if ($dayInterval > 0) {
+                $intervals[] = $dayInterval;
+            }
+        }
+
+        if (empty($intervals)) {
+            return 60; // Défaut : 1 heure
+        }
+
+        return array_sum($intervals) / count($intervals);
+    }
+
+    /**
+     * Calcule le temps moyen de la 1ère clope (depuis réveil) sur les 7 derniers jours
+     */
+    public function getSmoothedFirstCigTime(\DateTimeInterface $today): float
+    {
+        $times = [];
+
+        for ($i = 1; $i <= 7; $i++) {
+            $date = (clone $today)->modify("-{$i} day");
+            $cigs = $this->cigaretteRepository->findByDate($date);
+            $wakeUp = $this->wakeUpRepository->findByDate($date);
+
+            if (!empty($cigs) && $wakeUp) {
+                $times[] = self::minutesSinceWakeUp($cigs[0]->getSmokedAt(), $wakeUp->getWakeTime());
+            }
+        }
+
+        if (empty($times)) {
+            return 30; // Défaut : 30 min après réveil
+        }
+
+        return array_sum($times) / count($times);
     }
 
     /**
      * Calcule la cible (en minutes depuis réveil) pour la prochaine clope
-     * Basé sur la dernière clope d'aujourd'hui + intervalle MOYEN d'hier
+     * Basé sur la dernière clope d'aujourd'hui + intervalle MOYEN lissé sur 7 jours
      */
-    public function calculateTargetMinutes(int $index, array $todayCigs, array $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp): float
+    public function calculateTargetMinutes(int $index, array $todayCigs, $todayWakeUp, \DateTimeInterface $today): float
     {
         if (!$todayWakeUp) {
             return 0;
         }
 
-        $avgInterval = $this->getYesterdayAverageInterval($yesterdayCigs, $yesterdayWakeUp);
-
-        // Première clope : temps depuis réveil de la 1ère clope d'hier
+        // Première clope : moyenne du temps de 1ère clope sur 7 jours
         if ($index === 0) {
-            if (isset($yesterdayCigs[0]) && $yesterdayWakeUp) {
-                return self::minutesSinceWakeUp($yesterdayCigs[0]->getSmokedAt(), $yesterdayWakeUp->getWakeTime());
-            }
-            return $avgInterval;
+            return $this->getSmoothedFirstCigTime($today);
         }
 
-        // Clopes suivantes : dernière clope d'aujourd'hui + intervalle MOYEN d'hier
+        // Clopes suivantes : dernière clope d'aujourd'hui + intervalle lissé
+        $avgInterval = $this->getSmoothedAverageInterval($today);
         $todayPrevCig = $todayCigs[$index - 1];
         $todayPrevMinutes = self::minutesSinceWakeUp($todayPrevCig->getSmokedAt(), $todayWakeUp->getWakeTime());
 
         return $todayPrevMinutes + $avgInterval;
+    }
+
+    /**
+     * Vérifie si on a des données historiques (au moins 1 jour dans les 7 derniers)
+     */
+    public function hasHistoricalData(\DateTimeInterface $today): bool
+    {
+        for ($i = 1; $i <= 7; $i++) {
+            $date = (clone $today)->modify("-{$i} day");
+            $cigs = $this->cigaretteRepository->findByDate($date);
+            if (!empty($cigs)) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /**
@@ -101,13 +156,10 @@ class ScoringService
     public function getNextCigaretteInfo(\DateTimeInterface $date): array
     {
         $todayCigs = $this->cigaretteRepository->findByDate($date);
-        $yesterday = (clone $date)->modify('-1 day');
-        $yesterdayCigs = $this->cigaretteRepository->findByDate($yesterday);
         $todayWakeUp = $this->wakeUpRepository->findByDate($date);
-        $yesterdayWakeUp = $this->wakeUpRepository->findByDate($yesterday);
 
-        // Premier jour : pas de comparaison
-        if (empty($yesterdayCigs)) {
+        // Premier jour : pas de données historiques
+        if (!$this->hasHistoricalData($date)) {
             return ['status' => 'first_day', 'message' => 'Premier jour - pas de comparaison'];
         }
 
@@ -117,16 +169,20 @@ class ScoringService
         }
 
         $nextIndex = count($todayCigs);
-        $yesterdayTotal = count($yesterdayCigs);
         $wakeUpMinutes = self::timeToMinutes($todayWakeUp->getWakeTime());
 
-        // Calculer la cible (fonctionne aussi si on dépasse hier)
-        $targetMinutes = $this->calculateTargetMinutes($nextIndex, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
+        // Calculer la cible avec moyenne lissée sur 7 jours
+        $targetMinutes = $this->calculateTargetMinutes($nextIndex, $todayCigs, $todayWakeUp, $date);
+
+        // Nombre de clopes hier (pour info)
+        $yesterday = (clone $date)->modify('-1 day');
+        $yesterdayCigs = $this->cigaretteRepository->findByDate($yesterday);
+        $yesterdayTotal = count($yesterdayCigs);
 
         // Déterminer le statut
         $status = 'active';
         $exceeded = false;
-        if ($nextIndex >= $yesterdayTotal) {
+        if ($yesterdayTotal > 0 && $nextIndex >= $yesterdayTotal) {
             $exceeded = true;
             $status = 'exceeded';
         }
@@ -148,13 +204,10 @@ class ScoringService
     public function calculateDailyScore(\DateTimeInterface $date): array
     {
         $todayCigs = $this->cigaretteRepository->findByDate($date);
-        $yesterday = (clone $date)->modify('-1 day');
-        $yesterdayCigs = $this->cigaretteRepository->findByDate($yesterday);
         $todayWakeUp = $this->wakeUpRepository->findByDate($date);
-        $yesterdayWakeUp = $this->wakeUpRepository->findByDate($yesterday);
 
-        // Premier jour : pas de comparaison
-        if (empty($yesterdayCigs)) {
+        // Premier jour : pas de données historiques
+        if (!$this->hasHistoricalData($date)) {
             return [
                 'date' => $date->format('Y-m-d'),
                 'total_score' => 0,
@@ -163,13 +216,17 @@ class ScoringService
             ];
         }
 
-        $totalScore = 0;
-        $comparisons = [];
+        // Nombre de clopes hier (pour info)
+        $yesterday = (clone $date)->modify('-1 day');
+        $yesterdayCigs = $this->cigaretteRepository->findByDate($yesterday);
         $yesterdayCount = count($yesterdayCigs);
 
+        $totalScore = 0;
+        $comparisons = [];
+
         foreach ($todayCigs as $index => $todayCig) {
-            // Calculer la cible (fonctionne aussi si on dépasse hier)
-            $targetMinutes = $this->calculateTargetMinutes($index, $todayCigs, $yesterdayCigs, $todayWakeUp, $yesterdayWakeUp);
+            // Calculer la cible avec moyenne lissée sur 7 jours
+            $targetMinutes = $this->calculateTargetMinutes($index, $todayCigs, $todayWakeUp, $date);
 
             if ($todayWakeUp) {
                 $actualMinutes = self::minutesSinceWakeUp($todayCig->getSmokedAt(), $todayWakeUp->getWakeTime());
@@ -187,7 +244,7 @@ class ScoringService
                 'actual' => round($actualMinutes),
                 'diff' => round($diff),
                 'points' => $points,
-                'exceeded' => $index >= $yesterdayCount,
+                'exceeded' => $yesterdayCount > 0 && $index >= $yesterdayCount,
             ];
         }
 
