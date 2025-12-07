@@ -271,13 +271,20 @@
                 currentMsg.innerHTML = '<span style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">Tu perdrais ' + Math.abs(currentPoints) + ' pts</span>';
             }
 
-            // Prochain palier : +10 pts dans (intervalle - diff) minutes
-            var nextPoints = currentPoints + 10;
-            var minutesToNext = Math.ceil(avgInterval - (diff % avgInterval));
-            if (minutesToNext <= 0) minutesToNext = Math.ceil(avgInterval);
+            // Prochain palier : chaque point compte !
+            // points = round(diff / interval * 10), donc prochain point quand diff augmente de interval/10
+            var pointStep = avgInterval / 10; // minutes pour gagner 1 pt de plus
+            var nextPointDiff = (currentPoints + 0.5) * avgInterval / 10; // diff nécessaire pour +1 pt
+            var minutesToNext = Math.ceil(nextPointDiff - diff);
+
+            if (minutesToNext <= 0) {
+                // On est déjà au-delà, calculer le prochain
+                minutesToNext = Math.ceil(pointStep - ((diff - nextPointDiff) % pointStep));
+            }
 
             if (minutesToNext > 0 && minutesToNext < 180) { // Max 3h affichées
-                nextMsg.innerHTML = 'Attends ' + minutesToNext + ' min pour +' + nextPoints + ' pts <span style="color: var(--success);">(+10 de plus)</span>';
+                var nextPoints = currentPoints + 1;
+                nextMsg.innerHTML = 'Dans <strong>' + minutesToNext + ' min</strong> → +' + nextPoints + ' pts';
 
                 if (minutesToNext >= 60) {
                     var h = Math.floor(minutesToNext / 60);
