@@ -64,6 +64,9 @@
                     ⚠️ Tu as dépassé hier ({{ next_cig_target.yesterday_count }} clopes) - intervalle moyen utilisé
                 </div>
             {% endif %}
+            <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 8px;">
+                🎯 Intervalle cible : <strong>{{ next_cig_target.avg_interval|round }} min</strong>
+            </div>
             <div id="points-display"
                  data-wake-minutes="{{ next_cig_target.wake_minutes }}"
                  data-target-minutes="{{ next_cig_target.target_minutes }}"
