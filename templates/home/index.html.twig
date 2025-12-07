@@ -233,19 +233,19 @@
         var avgInterval = parseFloat(pointsDisplay.dataset.avgInterval) || 60;
 
         // Scoring proportionnel à l'intervalle, sans plafond
-        // diff = intervalle → 10 pts, diff = 2*intervalle → 20 pts, etc.
+        // diff = intervalle → 20 pts, diff = 2*intervalle → 40 pts, etc.
         function getPointsForDiff(diff) {
             if (avgInterval <= 0) avgInterval = 60;
             var ratio = diff / avgInterval;
 
             if (diff > 0) {
-                // Positif : 10 pts par intervalle, minimum 1
-                return Math.max(1, Math.round(ratio * 10));
+                // Positif : 20 pts par intervalle, minimum 1
+                return Math.max(1, Math.round(ratio * 20));
             } else if (diff === 0) {
                 return -1;
             } else {
-                // Négatif : malus proportionnel, plafonné à -10
-                return Math.max(-10, Math.round(ratio * 10));
+                // Négatif : malus proportionnel, plafonné à -20
+                return Math.max(-20, Math.round(ratio * 20));
             }
         }
 
@@ -272,9 +272,9 @@
             }
 
             // Prochain palier : chaque point compte !
-            // points = round(diff / interval * 10), donc prochain point quand diff augmente de interval/10
-            var pointStep = avgInterval / 10; // minutes pour gagner 1 pt de plus
-            var nextPointDiff = (currentPoints + 0.5) * avgInterval / 10; // diff nécessaire pour +1 pt
+            // points = round(diff / interval * 20), donc prochain point quand diff augmente de interval/20
+            var pointStep = avgInterval / 20; // minutes pour gagner 1 pt de plus
+            var nextPointDiff = (currentPoints + 0.5) * avgInterval / 20; // diff nécessaire pour +1 pt
             var minutesToNext = Math.ceil(nextPointDiff - diff);
 
             if (minutesToNext <= 0) {

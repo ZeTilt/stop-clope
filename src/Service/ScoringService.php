@@ -30,11 +30,11 @@ class ScoringService
 
     /**
      * Calcule les points pour une différence donnée (en minutes)
-     * Proportionnel à l'intervalle cible, sans plafond
+     * Proportionnel à l'intervalle cible, sans plafond pour les bonus
      *
-     * - diff = intervalle → 10 pts (tu as attendu 2x la cible)
-     * - diff = 2*intervalle → 20 pts, etc. (linéaire, sans plafond)
-     * - diff négatif → malus proportionnel
+     * - diff = intervalle → 20 pts (tu as attendu 2x la cible)
+     * - diff = 2*intervalle → 40 pts, etc. (linéaire, sans plafond)
+     * - diff négatif → malus proportionnel, plafonné à -20
      */
     public static function getPointsForDiff(float $diff, float $interval): int
     {
@@ -46,15 +46,15 @@ class ScoringService
         $ratio = $diff / $interval;
 
         if ($diff > 0) {
-            // Positif : 10 pts par intervalle attendu en plus, minimum 1 pt
-            $points = (int) round($ratio * 10);
+            // Positif : 20 pts par intervalle attendu en plus, minimum 1 pt
+            $points = (int) round($ratio * 20);
             return max(1, $points);
         } elseif ($diff == 0) {
             return -1; // Pile à l'heure = léger malus
         } else {
-            // Négatif : malus proportionnel, plafonné à -10
-            $points = (int) round($ratio * 10);
-            return max(-10, $points);
+            // Négatif : malus proportionnel, plafonné à -20
+            $points = (int) round($ratio * 20);
+            return max(-20, $points);
         }
     }
 
