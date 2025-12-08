@@ -271,20 +271,30 @@
                 currentMsg.innerHTML = '<span style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">Tu perdrais ' + Math.abs(currentPoints) + ' pts</span>';
             }
 
-            // Prochain palier : chaque point compte !
-            // points = round(diff / interval * 20), donc prochain point quand diff augmente de interval/20
+            // Calcul du prochain palier
             var pointStep = avgInterval / 20; // minutes pour gagner 1 pt de plus
-            var nextPointDiff = (currentPoints + 0.5) * avgInterval / 20; // diff nécessaire pour +1 pt
-            var minutesToNext = Math.ceil(nextPointDiff - diff);
+            var minutesToNext, nextPoints, nextLabel;
 
-            if (minutesToNext <= 0) {
-                // On est déjà au-delà, calculer le prochain
-                minutesToNext = Math.ceil(pointStep - ((diff - nextPointDiff) % pointStep));
+            if (currentPoints < 1) {
+                // En négatif ou nul : afficher le temps pour passer en positif (+1 pt)
+                // +1 pt quand diff >= 0.5 * avgInterval / 20 = avgInterval / 40
+                var diffForPositive = avgInterval / 40;
+                minutesToNext = Math.ceil(diffForPositive - diff);
+                nextPoints = 1;
+                nextLabel = 'Zone positive dans';
+            } else {
+                // Déjà en positif : afficher le prochain palier
+                var nextPointDiff = (currentPoints + 0.5) * avgInterval / 20;
+                minutesToNext = Math.ceil(nextPointDiff - diff);
+                if (minutesToNext <= 0) {
+                    minutesToNext = Math.ceil(pointStep - ((diff - nextPointDiff) % pointStep));
+                }
+                nextPoints = currentPoints + 1;
+                nextLabel = 'Prochain palier dans';
             }
 
             if (minutesToNext > 0 && minutesToNext < 180) { // Max 3h affichées
-                var nextPoints = currentPoints + 1;
-                nextMsg.innerHTML = 'Dans <strong>' + minutesToNext + ' min</strong> → +' + nextPoints + ' pts';
+                nextMsg.innerHTML = nextLabel + ' <strong>' + minutesToNext + ' min</strong> → +' + nextPoints + ' pts';
 
                 if (minutesToNext >= 60) {
                     var h = Math.floor(minutesToNext / 60);
