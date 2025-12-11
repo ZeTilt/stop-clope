@@ -305,11 +305,36 @@ class ScoringService
             ];
         }
 
+        // Bonus de réduction : si moins de clopes qu'hier
+        $reductionBonus = 0;
+        if ($yesterdayCount > 0 && count($todayCigs) < $yesterdayCount) {
+            $reductionBonus = ($yesterdayCount - count($todayCigs)) * 5; // 5 pts par clope en moins
+        }
+
+        // Bonus de régularité : si tous les intervalles sont positifs (aucun malus)
+        $regularityBonus = 0;
+        if (count($todayCigs) >= 3) {
+            $allPositive = true;
+            foreach ($comparisons as $comp) {
+                if ($comp['points'] < 0) {
+                    $allPositive = false;
+                    break;
+                }
+            }
+            if ($allPositive) {
+                $regularityBonus = 10; // Bonus de régularité
+            }
+        }
+
+        $totalScore += $reductionBonus + $regularityBonus;
+
         return [
             'date' => $date->format('Y-m-d'),
             'total_score' => $totalScore,
             'cigarette_count' => count($todayCigs),
             'yesterday_count' => $yesterdayCount,
+            'reduction_bonus' => $reductionBonus,
+            'regularity_bonus' => $regularityBonus,
             'details' => [
                 'comparisons' => $comparisons,
             ],
@@ -428,6 +453,65 @@ class ScoringService
         }
 
         return $totalScore;
+    }
+
+    /**
+     * Calcule le streak actuel (jours consécutifs avec score positif)
+     * @return array ['current' => int, 'best' => int, 'today_positive' => bool]
+     */
+    public function getStreak(): array
+    {
+        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
+        if (!$firstDate) {
+            return ['current' => 0, 'best' => 0, 'today_positive' => false];
+        }
+
+        $today = new \DateTime();
+        $today->setTime(23, 59, 59);
+
+        // Charger toutes les données
+        $allCigarettes = $this->cigaretteRepository->findByDateRange($firstDate, $today);
+        $allWakeups = $this->wakeUpRepository->findByDateRange($firstDate, $today);
+
+        $currentStreak = 0;
+        $bestStreak = 0;
+        $tempStreak = 0;
+        $todayPositive = false;
+
+        $currentDate = clone $firstDate;
+        $todayStr = (new \DateTime())->format('Y-m-d');
+
+        while ($currentDate <= $today) {
+            $dateStr = $currentDate->format('Y-m-d');
+            $dailyScore = $this->calculateDailyScoreFromData($currentDate, $allCigarettes, $allWakeups);
+
+            if ($dailyScore > 0) {
+                $tempStreak++;
+                if ($dateStr === $todayStr) {
+                    $todayPositive = true;
+                }
+            } else {
+                // Score nul ou négatif : reset du streak temporaire
+                if ($tempStreak > $bestStreak) {
+                    $bestStreak = $tempStreak;
+                }
+                $tempStreak = 0;
+            }
+
+            $currentDate->modify('+1 day');
+        }
+
+        // Le streak actuel est le streak qui inclut aujourd'hui (ou hier si aujourd'hui pas encore positif)
+        $currentStreak = $tempStreak;
+        if ($tempStreak > $bestStreak) {
+            $bestStreak = $tempStreak;
+        }
+
+        return [
+            'current' => $currentStreak,
+            'best' => $bestStreak,
+            'today_positive' => $todayPositive,
+        ];
     }
 
     /**

@@ -48,6 +48,7 @@ class HomeController extends AbstractController
         $dailyScore = $this->scoringService->calculateDailyScore($today);
         $rank = $this->scoringService->getCurrentRank();
         $stats = $this->cigaretteRepository->getDailyStats(7);
+        $streak = $this->scoringService->getStreak();
 
         // Calculer le compte à rebours pour la prochaine clope (via ScoringService)
         $nextCigTarget = $this->scoringService->getNextCigaretteInfo($today);
@@ -64,6 +65,7 @@ class HomeController extends AbstractController
             'weekly_stats' => $stats,
             'next_cig_target' => $nextCigTarget,
             'encouragement' => $encouragement,
+            'streak' => $streak,
             'show_wakeup_modal' => $todayWakeUp === null,
         ]);
     }
@@ -73,26 +75,65 @@ class HomeController extends AbstractController
         $todayCount = count($todayCigs);
         $yesterdayCount = count($yesterdayCigs);
         $minRecord = $this->cigaretteRepository->getMinDailyCount();
+        $totalScore = $dailyScore['total_score'];
+
+        // Messages variés pour chaque situation
+        $zeroMessages = [
+            ['icon' => '🏆', 'message' => 'Zéro clope ! Tu gères !'],
+            ['icon' => '🌟', 'message' => 'Journée parfaite jusqu\'ici !'],
+            ['icon' => '💪', 'message' => 'Aucune clope, bravo !'],
+        ];
+
+        $recordMessages = [
+            ['icon' => '🎯', 'message' => 'Record en vue ! ' . $todayCount . ' clopes (record: ' . $minRecord . ')'],
+            ['icon' => '🔥', 'message' => 'Tu bats ton record ! Seulement ' . $todayCount . ' clopes'],
+            ['icon' => '⭐', 'message' => 'Nouveau record possible ! Continue !'],
+        ];
+
+        $lessMessages = [
+            ['icon' => '💪', 'message' => '%d clope(s) de moins qu\'hier à cette heure'],
+            ['icon' => '📉', 'message' => 'En avance ! %d de moins qu\'hier'],
+            ['icon' => '👏', 'message' => 'Super ! Tu as %d clope(s) d\'avance sur hier'],
+        ];
+
+        $moreMessages = [
+            ['icon' => '⚠️', 'message' => 'Attention : %d de plus qu\'hier à cette heure'],
+            ['icon' => '🔔', 'message' => 'Petit dépassement : +%d vs hier'],
+        ];
+
+        $goodScoreMessages = [
+            ['icon' => '👍', 'message' => 'Belle journée ! +' . $totalScore . ' pts'],
+            ['icon' => '🚀', 'message' => 'En forme aujourd\'hui ! Continue'],
+            ['icon' => '✨', 'message' => 'Très bon rythme, bravo !'],
+        ];
+
+        $morningMessages = [
+            ['icon' => '☀️', 'message' => 'Nouvelle journée, nouvelles opportunités !'],
+            ['icon' => '🌅', 'message' => 'C\'est parti pour une bonne journée !'],
+        ];
+
+        // Sélection basée sur l'heure pour la variété
+        $hour = (int) (new \DateTime())->format('H');
+        $seed = (int) (new \DateTime())->format('Ymd') + $todayCount;
 
         // Aucune clope aujourd'hui
         if ($todayCount === 0) {
-            return [
-                'type' => 'success',
-                'message' => 'Zéro clope ! Continue comme ça !',
-                'icon' => '🏆',
-            ];
+            // Le matin sans clope, message différent
+            if ($hour < 12) {
+                $msg = $morningMessages[$seed % count($morningMessages)];
+                return ['type' => 'success', 'message' => $msg['message'], 'icon' => $msg['icon']];
+            }
+            $msg = $zeroMessages[$seed % count($zeroMessages)];
+            return ['type' => 'success', 'message' => $msg['message'], 'icon' => $msg['icon']];
         }
 
         // Record en vue
         if ($minRecord !== null && $todayCount <= $minRecord) {
-            return [
-                'type' => 'success',
-                'message' => 'Record en vue ! Tu es à ' . $todayCount . ' clopes (record: ' . $minRecord . ')',
-                'icon' => '🎯',
-            ];
+            $msg = $recordMessages[$seed % count($recordMessages)];
+            return ['type' => 'success', 'message' => $msg['message'], 'icon' => $msg['icon']];
         }
 
-        // Moins de clopes qu'hier à cette heure
+        // Comparaison avec hier à la même heure
         $now = new \DateTime();
         $yesterdayAtSameTime = 0;
         foreach ($yesterdayCigs as $cig) {
@@ -105,29 +146,46 @@ class HomeController extends AbstractController
 
         if ($todayCount < $yesterdayAtSameTime) {
             $diff = $yesterdayAtSameTime - $todayCount;
+            $msg = $lessMessages[$seed % count($lessMessages)];
             return [
                 'type' => 'success',
-                'message' => 'Tu tiens bon ! ' . $diff . ' clope(s) de moins qu\'hier à cette heure',
-                'icon' => '💪',
+                'message' => sprintf($msg['message'], $diff),
+                'icon' => $msg['icon'],
             ];
         }
 
         // Plus de clopes qu'hier à cette heure
         if ($todayCount > $yesterdayAtSameTime && $yesterdayAtSameTime > 0) {
             $diff = $todayCount - $yesterdayAtSameTime;
+            $msg = $moreMessages[$seed % count($moreMessages)];
             return [
                 'type' => 'warning',
-                'message' => 'Attention ! ' . $diff . ' clope(s) de plus qu\'hier à cette heure',
-                'icon' => '⚠️',
+                'message' => sprintf($msg['message'], $diff),
+                'icon' => $msg['icon'],
             ];
         }
 
         // Score positif du jour
-        if ($dailyScore['total_score'] > 20) {
+        if ($totalScore > 20) {
+            $msg = $goodScoreMessages[$seed % count($goodScoreMessages)];
+            return ['type' => 'success', 'message' => $msg['message'], 'icon' => $msg['icon']];
+        }
+
+        // Score légèrement positif
+        if ($totalScore > 0 && $totalScore <= 20) {
             return [
                 'type' => 'success',
-                'message' => 'Belle journée ! Continue sur cette lancée',
-                'icon' => '👍',
+                'icon' => '👌',
+                'message' => 'Tu es dans le vert (+' . $totalScore . ' pts)',
+            ];
+        }
+
+        // Score négatif mais pas catastrophique
+        if ($totalScore < 0 && $totalScore >= -20) {
+            return [
+                'type' => 'warning',
+                'icon' => '💡',
+                'message' => 'Essaie d\'espacer un peu plus tes clopes',
             ];
         }
 
@@ -188,6 +246,9 @@ class HomeController extends AbstractController
         } catch (\Exception $e) {
             return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
         }
+
+        // Invalider le cache du scoring après mutation
+        $this->scoringService->invalidateCache();
 
         $today = new \DateTime();
         $dailyScore = $this->scoringService->calculateDailyScore($today);
@@ -283,6 +344,9 @@ class HomeController extends AbstractController
         } catch (\Exception $e) {
             return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
         }
+
+        // Invalider le cache du scoring après mutation
+        $this->scoringService->invalidateCache();
 
         $today = new \DateTime();
         $todayCount = $this->cigaretteRepository->countByDate($today);
@@ -427,6 +491,12 @@ class HomeController extends AbstractController
         }
 
         return new JsonResponse(['success' => true]);
+    }
+
+    #[Route('/onboarding', name: 'app_onboarding')]
+    public function onboarding(): Response
+    {
+        return $this->render('home/onboarding.html.twig');
     }
 
     #[Route('/history', name: 'app_history')]

@@ -1,0 +1,409 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}StopClope - Comment ça marche{% endblock %}
+
+{% block stylesheets %}
+{{ parent() }}
+<style>
+    body {
+        padding-bottom: 0;
+    }
+
+    .nav-bottom {
+        display: none;
+    }
+
+    .onboarding-container {
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .slides-wrapper {
+        flex: 1;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .slides {
+        display: flex;
+        transition: transform 0.4s ease;
+        height: 100%;
+    }
+
+    .slide {
+        min-width: 100%;
+        padding: 40px 20px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+    }
+
+    .slide-icon {
+        font-size: 5rem;
+        margin-bottom: 30px;
+    }
+
+    .slide-title {
+        font-size: 1.5rem;
+        font-weight: 700;
+        margin-bottom: 20px;
+        color: var(--text-primary);
+    }
+
+    .slide-content {
+        font-size: 1rem;
+        color: var(--text-secondary);
+        line-height: 1.6;
+        max-width: 320px;
+    }
+
+    .slide-content strong {
+        color: var(--success);
+    }
+
+    .slide-content .negative {
+        color: var(--accent);
+    }
+
+    .example-box {
+        background: var(--bg-card);
+        border-radius: 12px;
+        padding: 20px;
+        margin-top: 25px;
+        width: 100%;
+        max-width: 320px;
+    }
+
+    .example-title {
+        font-size: 0.85rem;
+        color: var(--text-secondary);
+        margin-bottom: 15px;
+    }
+
+    .example-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--bg-secondary);
+    }
+
+    .example-row:last-child {
+        border-bottom: none;
+    }
+
+    .example-label {
+        color: var(--text-secondary);
+        font-size: 0.9rem;
+    }
+
+    .example-value {
+        font-weight: 600;
+        font-size: 1.1rem;
+    }
+
+    .example-value.positive {
+        color: var(--success);
+    }
+
+    .example-value.negative {
+        color: var(--accent);
+    }
+
+    .timeline-item {
+        display: flex;
+        align-items: flex-start;
+        gap: 15px;
+        margin-bottom: 15px;
+        text-align: left;
+    }
+
+    .timeline-icon {
+        font-size: 1.5rem;
+        flex-shrink: 0;
+    }
+
+    .timeline-text {
+        font-size: 0.9rem;
+    }
+
+    .timeline-text strong {
+        color: var(--text-primary);
+    }
+
+    .dots {
+        display: flex;
+        justify-content: center;
+        gap: 10px;
+        padding: 20px;
+    }
+
+    .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--bg-card);
+        transition: all 0.3s;
+    }
+
+    .dot.active {
+        background: var(--accent);
+        width: 24px;
+        border-radius: 5px;
+    }
+
+    .onboarding-nav {
+        display: flex;
+        gap: 12px;
+        padding: 20px;
+        background: var(--bg-secondary);
+    }
+
+    .nav-btn {
+        flex: 1;
+        padding: 16px;
+        font-size: 1rem;
+        font-weight: 600;
+        border: none;
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .nav-btn.secondary {
+        background: var(--bg-card);
+        color: var(--text-primary);
+    }
+
+    .nav-btn.primary {
+        background: linear-gradient(135deg, var(--accent), var(--accent-light));
+        color: white;
+    }
+
+    .nav-btn:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+
+    .rank-preview {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        justify-content: center;
+        margin-top: 20px;
+    }
+
+    .rank-chip {
+        background: var(--bg-card);
+        padding: 8px 14px;
+        border-radius: 20px;
+        font-size: 0.8rem;
+    }
+
+    .rank-chip.current {
+        background: linear-gradient(135deg, var(--accent), var(--accent-light));
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block body %}
+<div class="onboarding-container">
+    <div class="slides-wrapper">
+        <div class="slides" id="slides">
+            <!-- Slide 1: Concept -->
+            <div class="slide">
+                <div class="slide-icon">🎯</div>
+                <h2 class="slide-title">Le principe</h2>
+                <div class="slide-content">
+                    <p>StopClope ne te demande pas d'arrêter du jour au lendemain.</p>
+                    <p style="margin-top: 15px;">
+                        Le but : <strong>espacer tes clopes progressivement</strong> en te comparant à ta propre moyenne des 7 derniers jours.
+                    </p>
+                    <p style="margin-top: 15px;">
+                        Chaque jour, l'app calcule l'intervalle idéal entre tes cigarettes basé sur ton historique.
+                    </p>
+                </div>
+            </div>
+
+            <!-- Slide 2: Scoring -->
+            <div class="slide">
+                <div class="slide-icon">📊</div>
+                <h2 class="slide-title">Comment gagner des points</h2>
+                <div class="slide-content">
+                    <p>
+                        Tu gagnes des points quand tu <strong>attends plus longtemps</strong> que ta moyenne.
+                    </p>
+                    <p style="margin-top: 10px;">
+                        Tu perds des points (max <span class="negative">-20</span>) si tu fumes <span class="negative">plus tôt</span> que prévu.
+                    </p>
+                </div>
+                <div class="example-box">
+                    <div class="example-title">Exemple (intervalle moyen : 60 min)</div>
+                    <div class="example-row">
+                        <span class="example-label">Tu attends 90 min</span>
+                        <span class="example-value positive">+10 pts</span>
+                    </div>
+                    <div class="example-row">
+                        <span class="example-label">Tu attends 120 min</span>
+                        <span class="example-value positive">+20 pts</span>
+                    </div>
+                    <div class="example-row">
+                        <span class="example-label">Tu attends 45 min</span>
+                        <span class="example-value negative">-5 pts</span>
+                    </div>
+                    <div class="example-row">
+                        <span class="example-label">Tu attends 30 min</span>
+                        <span class="example-value negative">-10 pts</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 3: Ranks -->
+            <div class="slide">
+                <div class="slide-icon">🏆</div>
+                <h2 class="slide-title">Grimpe les rangs</h2>
+                <div class="slide-content">
+                    <p>
+                        Accumule des points pour débloquer des rangs de plus en plus prestigieux !
+                    </p>
+                </div>
+                <div class="rank-preview">
+                    <span class="rank-chip current">Débutant</span>
+                    <span class="rank-chip">Apprenti 101+</span>
+                    <span class="rank-chip">Résistant 301+</span>
+                    <span class="rank-chip">Guerrier 601+</span>
+                    <span class="rank-chip">Champion 1001+</span>
+                    <span class="rank-chip">Héros 1501+</span>
+                    <span class="rank-chip">Légende 2501+</span>
+                    <span class="rank-chip">Maître du souffle 4001+</span>
+                </div>
+                <div class="slide-content" style="margin-top: 25px;">
+                    <p>Chaque rang est un objectif à atteindre. Plus tu espaces tes clopes, plus tu montes vite !</p>
+                </div>
+            </div>
+
+            <!-- Slide 4: Tips -->
+            <div class="slide">
+                <div class="slide-icon">💡</div>
+                <h2 class="slide-title">Conseils pour réussir</h2>
+                <div class="slide-content" style="text-align: left; max-width: 320px;">
+                    <div class="timeline-item">
+                        <span class="timeline-icon">⏰</span>
+                        <div class="timeline-text">
+                            <strong>Note ton réveil</strong> chaque matin pour un calcul précis de tes intervalles.
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <span class="timeline-icon">📱</span>
+                        <div class="timeline-text">
+                            <strong>Enregistre chaque clope</strong> au moment où tu la fumes, pas après.
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <span class="timeline-icon">🎯</span>
+                        <div class="timeline-text">
+                            <strong>Vise la zone verte</strong> : attends le temps indiqué sur l'accueil avant d'allumer.
+                        </div>
+                    </div>
+                    <div class="timeline-item">
+                        <span class="timeline-icon">📈</span>
+                        <div class="timeline-text">
+                            <strong>Progresse doucement</strong> : quelques minutes de plus chaque jour suffisent !
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="dots" role="tablist" aria-label="Étapes de l'onboarding">
+        <div class="dot active" role="tab" aria-selected="true" aria-label="Étape 1 sur 4"></div>
+        <div class="dot" role="tab" aria-selected="false" aria-label="Étape 2 sur 4"></div>
+        <div class="dot" role="tab" aria-selected="false" aria-label="Étape 3 sur 4"></div>
+        <div class="dot" role="tab" aria-selected="false" aria-label="Étape 4 sur 4"></div>
+    </div>
+
+    <div class="onboarding-nav">
+        <button class="nav-btn secondary" id="prevBtn" disabled>Précédent</button>
+        <button class="nav-btn primary" id="nextBtn">Suivant</button>
+    </div>
+</div>
+
+<script>
+    const slides = document.getElementById('slides');
+    const dots = document.querySelectorAll('.dot');
+    const prevBtn = document.getElementById('prevBtn');
+    const nextBtn = document.getElementById('nextBtn');
+    let currentSlide = 0;
+    const totalSlides = 4;
+
+    function updateSlide() {
+        slides.style.transform = `translateX(-${currentSlide * 100}%)`;
+
+        dots.forEach((dot, i) => {
+            dot.classList.toggle('active', i === currentSlide);
+            dot.setAttribute('aria-selected', i === currentSlide ? 'true' : 'false');
+        });
+
+        prevBtn.disabled = currentSlide === 0;
+
+        if (currentSlide === totalSlides - 1) {
+            nextBtn.textContent = 'Commencer';
+        } else {
+            nextBtn.textContent = 'Suivant';
+        }
+    }
+
+    nextBtn.addEventListener('click', () => {
+        if (currentSlide < totalSlides - 1) {
+            currentSlide++;
+            updateSlide();
+        } else {
+            // Marquer l'onboarding comme vu
+            localStorage.setItem('onboardingCompleted', 'true');
+            window.location.href = '{{ path('app_home') }}';
+        }
+    });
+
+    prevBtn.addEventListener('click', () => {
+        if (currentSlide > 0) {
+            currentSlide--;
+            updateSlide();
+        }
+    });
+
+    // Swipe support
+    let startX = 0;
+    let endX = 0;
+
+    slides.addEventListener('touchstart', (e) => {
+        startX = e.touches[0].clientX;
+    }, { passive: true });
+
+    slides.addEventListener('touchend', (e) => {
+        endX = e.changedTouches[0].clientX;
+        const diff = startX - endX;
+
+        if (Math.abs(diff) > 50) {
+            if (diff > 0 && currentSlide < totalSlides - 1) {
+                currentSlide++;
+                updateSlide();
+            } else if (diff < 0 && currentSlide > 0) {
+                currentSlide--;
+                updateSlide();
+            }
+        }
+    }, { passive: true });
+
+    // Click on dots
+    dots.forEach((dot, i) => {
+        dot.addEventListener('click', () => {
+            currentSlide = i;
+            updateSlide();
+        });
+    });
+</script>
+{% endblock %}

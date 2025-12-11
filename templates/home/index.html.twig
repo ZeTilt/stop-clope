@@ -40,13 +40,33 @@
     </div>
     {% endif %}
 
-    <!-- Score du jour -->
+    <!-- Score du jour + Streak -->
     <div class="card score-display">
         <div class="score-value {{ daily_score.total_score < 0 ? 'negative' : '' }}">
             {{ daily_score.total_score > 0 ? '+' : '' }}{{ daily_score.total_score }}
         </div>
         <div class="score-label">Points aujourd'hui</div>
-        <div class="rank-badge">{{ rank.rank }}</div>
+
+        {% if streak.current > 0 %}
+        <div style="margin-top: 15px; display: flex; justify-content: center; gap: 20px;">
+            <div style="text-align: center;">
+                <div style="font-size: 1.5rem; font-weight: 700; color: {{ streak.today_positive ? 'var(--success)' : 'var(--warning)' }};">
+                    🔥 {{ streak.current }}
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">Jours positifs</div>
+            </div>
+            {% if streak.best > streak.current %}
+            <div style="text-align: center;">
+                <div style="font-size: 1.2rem; font-weight: 600; color: var(--text-secondary);">
+                    ⭐ {{ streak.best }}
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">Record</div>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <div class="rank-badge" style="margin-top: 15px;">{{ rank.rank }}</div>
         <div class="progress-bar">
             <div class="progress-fill" style="width: {{ rank.progress }}%"></div>
         </div>
@@ -144,6 +164,22 @@
                     </span>
                 </div>
                 {% endfor %}
+
+                {# Bonus de réduction #}
+                {% if daily_score.reduction_bonus is defined and daily_score.reduction_bonus > 0 %}
+                <div class="breakdown-item" style="border-top: 1px dashed var(--bg-secondary); margin-top: 8px; padding-top: 8px;">
+                    <span>📉 Bonus réduction ({{ daily_score.yesterday_count - daily_score.cigarette_count }} clope(s) de moins)</span>
+                    <span class="breakdown-score positive">+{{ daily_score.reduction_bonus }}</span>
+                </div>
+                {% endif %}
+
+                {# Bonus de régularité #}
+                {% if daily_score.regularity_bonus is defined and daily_score.regularity_bonus > 0 %}
+                <div class="breakdown-item">
+                    <span>⭐ Bonus régularité</span>
+                    <span class="breakdown-score positive">+{{ daily_score.regularity_bonus }}</span>
+                </div>
+                {% endif %}
             {% elseif daily_score.details.message is defined %}
                 <div class="breakdown-item">
                     <span>{{ daily_score.details.message }}</span>
