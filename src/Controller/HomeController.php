@@ -67,6 +67,9 @@ class HomeController extends AbstractController
         // Objectif quotidien (personnalisé ou palier automatique)
         $goalProgress = $this->goalService->getDailyProgress();
 
+        // Vérifier si un nouveau palier est atteint (pour célébration)
+        $tierAchievement = $this->goalService->checkTierAchievement();
+
         return $this->render('home/index.html.twig', [
             'today_cigarettes' => $todayCigs,
             'yesterday_count' => count($yesterdayCigs),
@@ -79,6 +82,7 @@ class HomeController extends AbstractController
             'streak' => $streak,
             'show_wakeup_modal' => $todayWakeUp === null,
             'goal_progress' => $goalProgress,
+            'tier_achievement' => $tierAchievement,
         ]);
     }
 

@@ -30,6 +30,22 @@
         </div>
     </div>
 
+    <!-- Célébration nouveau palier -->
+    {% if tier_achievement.achieved %}
+    <div class="card tier-celebration" style="padding: 20px; text-align: center; background: linear-gradient(135deg, #ffd700, #ffec8b); border: 2px solid #ffd700;">
+        <div style="font-size: 3rem; margin-bottom: 10px;">🎉</div>
+        <div style="color: #000; font-weight: 700; font-size: 1.2rem;">
+            Nouveau palier atteint !
+        </div>
+        <div style="color: #333; font-size: 1rem; margin-top: 8px;">
+            {{ tier_achievement.message }}
+        </div>
+        {% if tier_achievement.new_tier == 0 %}
+        <div style="margin-top: 10px; font-size: 2rem;">🏆</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Message d'encouragement -->
     {% if encouragement %}
     <div class="card" style="padding: 15px; text-align: center; background: {{ encouragement.type == 'success' ? 'linear-gradient(135deg, var(--success), #00ff88)' : 'linear-gradient(135deg, var(--warning), #ffdb4d)' }};">
