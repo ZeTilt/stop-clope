@@ -451,6 +451,15 @@
                     icon: icon
                 });
 
+                // Afficher les nouveaux badges obtenus
+                if (data.new_badges && data.new_badges.length > 0) {
+                    data.new_badges.forEach(function(badge, index) {
+                        setTimeout(function() {
+                            showBadgeNotification(badge);
+                        }, 1500 + (index * 2000)); // Décalage pour afficher un par un
+                    });
+                }
+
                 // Animation du bouton
                 btn.classList.add('feedback-' + type);
                 setTimeout(function() {
@@ -496,6 +505,36 @@
                 scoreEl.style.transform = 'scale(1)';
             }, 100);
         }
+    }
+
+    // Afficher une notification de nouveau badge
+    function showBadgeNotification(badge) {
+        // Créer l'overlay
+        var overlay = document.createElement('div');
+        overlay.className = 'badge-notification-overlay';
+        overlay.innerHTML = '<div class="badge-notification">' +
+            '<div class="badge-notification-icon">' + badge.icon + '</div>' +
+            '<div class="badge-notification-title">Nouveau badge !</div>' +
+            '<div class="badge-notification-name">' + badge.name + '</div>' +
+            '<div class="badge-notification-desc">' + badge.description + '</div>' +
+            '<button class="big-button" onclick="this.closest(\'.badge-notification-overlay\').remove()">Super !</button>' +
+            '</div>';
+        document.body.appendChild(overlay);
+
+        // Animation d'entrée
+        requestAnimationFrame(function() {
+            overlay.classList.add('active');
+        });
+
+        // Auto-fermeture après 5 secondes
+        setTimeout(function() {
+            if (overlay.parentNode) {
+                overlay.classList.remove('active');
+                setTimeout(function() {
+                    if (overlay.parentNode) overlay.remove();
+                }, 300);
+            }
+        }, 5000);
     }
 
     // Mettre à jour l'affichage du streak

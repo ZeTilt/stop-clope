@@ -8,6 +8,7 @@ use App\Entity\WakeUp;
 use App\Repository\CigaretteRepository;
 use App\Repository\SettingsRepository;
 use App\Repository\WakeUpRepository;
+use App\Service\BadgeService;
 use App\Service\ScoringService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
@@ -27,6 +28,7 @@ class HomeController extends AbstractController
         private WakeUpRepository $wakeUpRepository,
         private SettingsRepository $settingsRepository,
         private ScoringService $scoringService,
+        private BadgeService $badgeService,
         private CsrfTokenManagerInterface $csrfTokenManager
     ) {}
 
@@ -329,6 +331,21 @@ class HomeController extends AbstractController
         $todayCount = $this->cigaretteRepository->countByDate($today);
         $streak = $this->scoringService->getStreak();
 
+        // Vérifier les nouveaux badges
+        $newBadges = $this->badgeService->checkAndAwardBadges();
+        $newBadgesInfo = [];
+        foreach ($newBadges as $code) {
+            $info = $this->badgeService->getBadgeInfo($code);
+            if ($info) {
+                $newBadgesInfo[] = [
+                    'code' => $code,
+                    'name' => $info['name'],
+                    'icon' => $info['icon'],
+                    'description' => $info['description'],
+                ];
+            }
+        }
+
         return new JsonResponse([
             'success' => true,
             'cigarette_id' => $cigarette->getId(),
@@ -337,6 +354,7 @@ class HomeController extends AbstractController
             'today_count' => $todayCount,
             'daily_score' => $dailyScore['total_score'],
             'streak' => $streak,
+            'new_badges' => $newBadgesInfo,
         ]);
     }
 
@@ -479,6 +497,10 @@ class HomeController extends AbstractController
         // Économies réalisées
         $savings = $this->calculateSavings();
 
+        // Vérifier et attribuer les nouveaux badges
+        $this->badgeService->checkAndAwardBadges();
+        $badges = $this->badgeService->getAllBadgesWithStatus();
+
         return $this->render('home/stats.html.twig', [
             'monthly_stats' => $stats,
             'weekly_scores' => $weeklyScores,
@@ -489,6 +511,7 @@ class HomeController extends AbstractController
             'weekly_comparison' => $weeklyComparison,
             'savings' => $savings,
             'first_date' => $firstDate,
+            'badges' => $badges,
         ]);
     }
 
