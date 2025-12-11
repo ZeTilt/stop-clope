@@ -2,8 +2,12 @@
 
 namespace App\Service;
 
+use App\Entity\DailyScore;
+use App\Entity\User;
 use App\Repository\CigaretteRepository;
+use App\Repository\DailyScoreRepository;
 use App\Repository\WakeUpRepository;
+use Symfony\Bundle\SecurityBundle\Security;
 
 class ScoringService
 {
@@ -12,8 +16,16 @@ class ScoringService
 
     public function __construct(
         private CigaretteRepository $cigaretteRepository,
-        private WakeUpRepository $wakeUpRepository
+        private WakeUpRepository $wakeUpRepository,
+        private DailyScoreRepository $dailyScoreRepository,
+        private Security $security
     ) {}
+
+    private function getCurrentUser(): ?User
+    {
+        $user = $this->security->getUser();
+        return $user instanceof User ? $user : null;
+    }
 
     /**
      * Charge les données historiques des 7 derniers jours en 2 requêtes
@@ -51,6 +63,65 @@ class ScoringService
     {
         $this->cachedHistoricalData = null;
         $this->cacheDate = null;
+    }
+
+    /**
+     * Persiste le score du jour dans DailyScore (optimisation performance)
+     */
+    public function persistDailyScore(\DateTimeInterface $date): void
+    {
+        $user = $this->getCurrentUser();
+        if (!$user) {
+            return;
+        }
+
+        $dateOnly = (clone $date)->setTime(0, 0, 0);
+        $dailyScoreData = $this->calculateDailyScore($date);
+        $cigs = $this->cigaretteRepository->findByDate($date);
+
+        // Calculer l'intervalle moyen
+        $avgInterval = null;
+        if (count($cigs) >= 2) {
+            $totalMinutes = 0;
+            for ($i = 1; $i < count($cigs); $i++) {
+                $diff = $cigs[$i]->getSmokedAt()->getTimestamp() - $cigs[$i - 1]->getSmokedAt()->getTimestamp();
+                $totalMinutes += $diff / 60;
+            }
+            $avgInterval = $totalMinutes / (count($cigs) - 1);
+        }
+
+        // Calculer le streak
+        $streakData = $this->getStreak();
+
+        $dailyScore = new DailyScore();
+        $dailyScore->setUser($user);
+        $dailyScore->setDate($dateOnly);
+        $dailyScore->setScore($dailyScoreData['total_score']);
+        $dailyScore->setCigaretteCount(count($cigs));
+        $dailyScore->setStreak($streakData['current']);
+        $dailyScore->setAverageInterval($avgInterval);
+
+        $this->dailyScoreRepository->upsert($dailyScore);
+    }
+
+    /**
+     * Récupère le score total depuis les DailyScore pré-calculés (O(1))
+     */
+    public function getTotalScoreOptimized(): int
+    {
+        return $this->dailyScoreRepository->getTotalScore();
+    }
+
+    /**
+     * Récupère le streak depuis les DailyScore pré-calculés (O(1))
+     */
+    public function getStreakOptimized(): array
+    {
+        return [
+            'current' => $this->dailyScoreRepository->getCurrentStreak(),
+            'best' => $this->dailyScoreRepository->getBestStreak(),
+            'today_positive' => false, // À calculer en temps réel si besoin
+        ];
     }
 
     /**

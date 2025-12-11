@@ -26,7 +26,7 @@
                 --warning: #D5B18A;
                 --error: #dc3545;
                 --text-primary: #F6F1EA;
-                --text-secondary: #a8a8a8;
+                --text-secondary: #c0c0c0; /* WCAG AA compliant ~5.3:1 */
                 --bg-light: #F6F1EA;
 
                 /* Border radius */
@@ -351,6 +351,12 @@
 
             .btn-confirm {
                 background: var(--accent);
+                color: var(--bg-primary);
+                font-weight: 500;
+            }
+
+            .btn-confirm.btn-danger {
+                background: var(--error);
                 color: white;
             }
 
@@ -365,11 +371,78 @@
                 opacity: 0;
                 transition: all 0.3s ease;
                 z-index: 1001;
+                display: flex;
+                align-items: center;
+                gap: 12px;
+                max-width: 90%;
             }
 
             .toast.show {
                 transform: translateX(-50%) translateY(0);
                 opacity: 1;
+            }
+
+            .toast.toast-success {
+                border-left: 4px solid var(--success);
+            }
+
+            .toast.toast-warning {
+                border-left: 4px solid var(--warning);
+            }
+
+            .toast.toast-error {
+                border-left: 4px solid var(--error);
+            }
+
+            .toast-icon {
+                font-size: 1.5rem;
+                flex-shrink: 0;
+            }
+
+            .toast-content {
+                display: flex;
+                flex-direction: column;
+                gap: 2px;
+            }
+
+            .toast-message {
+                font-weight: 500;
+            }
+
+            .toast-points {
+                font-size: 0.85rem;
+                color: var(--text-secondary);
+            }
+
+            .toast-points.positive {
+                color: var(--success);
+                font-weight: 600;
+            }
+
+            .toast-points.negative {
+                color: var(--error);
+                font-weight: 600;
+            }
+
+            /* Feedback animation pour le bouton principal */
+            @keyframes pulse-success {
+                0% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7); }
+                70% { box-shadow: 0 0 0 20px rgba(40, 167, 69, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(40, 167, 69, 0); }
+            }
+
+            @keyframes pulse-warning {
+                0% { box-shadow: 0 0 0 0 rgba(213, 177, 138, 0.7); }
+                70% { box-shadow: 0 0 0 20px rgba(213, 177, 138, 0); }
+                100% { box-shadow: 0 0 0 0 rgba(213, 177, 138, 0); }
+            }
+
+            .big-button.feedback-success {
+                animation: pulse-success 0.6s ease-out;
+            }
+
+            .big-button.feedback-warning {
+                animation: pulse-warning 0.6s ease-out;
             }
 
             .empty-state {
@@ -440,11 +513,23 @@
                 border-color: var(--accent);
             }
 
-            /* Improved text contrast (WCAG 1.4.3) */
+            /* Improved text contrast (WCAG 1.4.3 AA - minimum 4.5:1) */
             .score-label,
             .stat-label,
             .nav-item {
-                color: #b0b0b0; /* 4.5:1 contrast ratio */
+                color: #c0c0c0; /* ~5.3:1 contrast ratio on #24303E */
+            }
+
+            /* Secondary text needs higher contrast */
+            .input-group label,
+            .cig-badge,
+            .breakdown-item {
+                color: #c8c8c8; /* ~5.8:1 contrast ratio */
+            }
+
+            /* Warning messages with better contrast */
+            .breakdown-score.negative {
+                color: #E9B98A; /* Lighter accent for better contrast */
             }
 
             /* Loading spinner */
@@ -514,11 +599,44 @@
                 });
             }
 
-            function showToast(message) {
+            function showToast(message, options = {}) {
                 const toast = document.getElementById('toast');
-                toast.textContent = message;
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 2500);
+                const { type = 'info', points = null, icon = null } = options;
+
+                // Reset classes
+                toast.className = 'toast';
+
+                // Build toast content
+                let html = '';
+                if (icon) {
+                    html += '<span class="toast-icon">' + icon + '</span>';
+                }
+                html += '<div class="toast-content">';
+                html += '<span class="toast-message">' + message + '</span>';
+                if (points !== null && points !== undefined) {
+                    const pointsClass = points > 0 ? 'positive' : (points < 0 ? 'negative' : '');
+                    const pointsText = points > 0 ? '+' + points + ' pts' : points + ' pts';
+                    html += '<span class="toast-points ' + pointsClass + '">' + pointsText + '</span>';
+                }
+                html += '</div>';
+
+                toast.innerHTML = html;
+                toast.classList.add('toast-' + type, 'show');
+
+                // Haptic feedback (vibration) si supporté
+                if ('vibrate' in navigator) {
+                    if (type === 'success' || points > 0) {
+                        navigator.vibrate(50); // Vibration courte pour succès
+                    } else if (type === 'warning' || points < 0) {
+                        navigator.vibrate([50, 30, 50]); // Double vibration pour avertissement
+                    }
+                }
+
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    // Reset après animation
+                    setTimeout(() => toast.className = 'toast', 300);
+                }, 3000);
             }
 
             // Offline data management
