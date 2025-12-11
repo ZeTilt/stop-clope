@@ -21,8 +21,8 @@ class RegistrationFormType extends AbstractType
             ->add('email', EmailType::class, [
                 'attr' => ['autocomplete' => 'email', 'placeholder' => 'ton@email.com'],
                 'constraints' => [
-                    new NotBlank(['message' => 'Merci de saisir ton email']),
-                    new Email(['message' => 'Email invalide']),
+                    new NotBlank(message: 'Merci de saisir ton email'),
+                    new Email(message: 'Email invalide'),
                 ],
             ])
             ->add('plainPassword', RepeatedType::class, [
@@ -31,12 +31,12 @@ class RegistrationFormType extends AbstractType
                 'first_options' => [
                     'attr' => ['autocomplete' => 'new-password', 'placeholder' => 'Mot de passe'],
                     'constraints' => [
-                        new NotBlank(['message' => 'Merci de saisir un mot de passe']),
-                        new Length([
-                            'min' => 6,
-                            'minMessage' => 'Le mot de passe doit faire au moins {{ limit }} caractères',
-                            'max' => 4096,
-                        ]),
+                        new NotBlank(message: 'Merci de saisir un mot de passe'),
+                        new Length(
+                            min: 6,
+                            minMessage: 'Le mot de passe doit faire au moins {{ limit }} caractères',
+                            max: 4096,
+                        ),
                     ],
                 ],
                 'second_options' => [
