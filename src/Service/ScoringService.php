@@ -6,6 +6,7 @@ use App\Entity\DailyScore;
 use App\Entity\User;
 use App\Repository\CigaretteRepository;
 use App\Repository\DailyScoreRepository;
+use App\Repository\SettingsRepository;
 use App\Repository\WakeUpRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 
@@ -18,6 +19,7 @@ class ScoringService
         private CigaretteRepository $cigaretteRepository,
         private WakeUpRepository $wakeUpRepository,
         private DailyScoreRepository $dailyScoreRepository,
+        private SettingsRepository $settingsRepository,
         private Security $security
     ) {}
 
@@ -398,7 +400,13 @@ class ScoringService
             }
         }
 
-        $totalScore += $reductionBonus + $regularityBonus;
+        // Bonus/Malus vs objectif quotidien (palier ou personnalisé)
+        $goalBonus = $this->calculateGoalBonus(count($todayCigs), $date);
+
+        // Bonus réduction semaine/semaine
+        $weeklyReductionBonus = $this->calculateWeeklyReductionBonus($date);
+
+        $totalScore += $reductionBonus + $regularityBonus + $goalBonus + $weeklyReductionBonus;
 
         return [
             'date' => $date->format('Y-m-d'),
@@ -407,10 +415,91 @@ class ScoringService
             'yesterday_count' => $yesterdayCount,
             'reduction_bonus' => $reductionBonus,
             'regularity_bonus' => $regularityBonus,
+            'goal_bonus' => $goalBonus,
+            'weekly_reduction_bonus' => $weeklyReductionBonus,
             'details' => [
                 'comparisons' => $comparisons,
             ],
         ];
+    }
+
+    /**
+     * Calcule le bonus/malus basé sur l'objectif quotidien
+     * - En dessous de l'objectif : +10 pts par clope sous l'objectif
+     * - Au-dessus : -5 pts par clope au-dessus (plafonné à -20)
+     */
+    private function calculateGoalBonus(int $todayCount, \DateTimeInterface $date): int
+    {
+        // Récupérer l'objectif (personnalisé ou palier automatique)
+        $customGoal = $this->settingsRepository->get('daily_goal');
+
+        if ($customGoal !== null) {
+            $goal = (int) $customGoal;
+        } else {
+            // Calculer le palier automatique
+            $goal = $this->calculateAutoTier($date);
+        }
+
+        if ($goal <= 0) {
+            // Objectif zéro : bonus si 0 clope, malus sinon
+            return $todayCount === 0 ? 20 : max(-20, -$todayCount * 5);
+        }
+
+        $diff = $goal - $todayCount;
+
+        if ($diff >= 0) {
+            // En dessous ou égal à l'objectif : bonus
+            return $diff * 10;
+        } else {
+            // Au-dessus de l'objectif : malus (plafonné à -20)
+            return max(-20, $diff * 5);
+        }
+    }
+
+    /**
+     * Calcule le palier automatique basé sur la consommation initiale
+     * -1 clope/semaine depuis le début
+     */
+    private function calculateAutoTier(\DateTimeInterface $date): int
+    {
+        $initialDailyCigs = (int) $this->settingsRepository->get('initial_daily_cigs', '20');
+        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
+
+        if (!$firstDate) {
+            return $initialDailyCigs;
+        }
+
+        $daysSinceStart = max(0, $date->diff($firstDate)->days);
+        $weeksActive = (int) floor($daysSinceStart / 7);
+
+        return max(0, $initialDailyCigs - $weeksActive);
+    }
+
+    /**
+     * Calcule le bonus de réduction semaine/semaine
+     * Compare la moyenne de cette semaine vs semaine précédente
+     * +15 pts si réduction >= 1 clope/jour, +5 si stable
+     */
+    private function calculateWeeklyReductionBonus(\DateTimeInterface $date): int
+    {
+        $comparison = $this->cigaretteRepository->getWeeklyComparison();
+
+        if ($comparison === null) {
+            return 0; // Pas assez de données
+        }
+
+        $diffAvg = $comparison['diff_avg']; // Négatif = réduction
+
+        if ($diffAvg <= -1) {
+            // Réduction significative (>= 1 clope/jour de moins)
+            return 15;
+        } elseif ($diffAvg <= 0) {
+            // Légère réduction ou stable
+            return 5;
+        } else {
+            // Augmentation : pas de bonus
+            return 0;
+        }
     }
 
     /**
