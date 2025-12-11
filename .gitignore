@@ -30,3 +30,4 @@
 .env.local
 .claude/
 ###< project ###
+/ROADMAP.md

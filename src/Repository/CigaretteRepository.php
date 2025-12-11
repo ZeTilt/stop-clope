@@ -3,17 +3,32 @@
 namespace App\Repository;
 
 use App\Entity\Cigarette;
+use App\Entity\User;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * @extends ServiceEntityRepository<Cigarette>
  */
 class CigaretteRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
-    {
+    public function __construct(
+        ManagerRegistry $registry,
+        private Security $security
+    ) {
         parent::__construct($registry, Cigarette::class);
+    }
+
+    private function getCurrentUser(): ?User
+    {
+        $user = $this->security->getUser();
+        return $user instanceof User ? $user : null;
+    }
+
+    private function getUserId(): ?int
+    {
+        return $this->getCurrentUser()?->getId();
     }
 
     public function findByDate(\DateTimeInterface $date): array
@@ -21,14 +36,19 @@ class CigaretteRepository extends ServiceEntityRepository
         $start = (clone $date)->setTime(0, 0, 0);
         $end = (clone $date)->setTime(23, 59, 59);
 
-        return $this->createQueryBuilder('c')
+        $qb = $this->createQueryBuilder('c')
             ->where('c.smokedAt >= :start')
             ->andWhere('c.smokedAt <= :end')
             ->setParameter('start', $start)
             ->setParameter('end', $end)
-            ->orderBy('c.smokedAt', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('c.smokedAt', 'ASC');
+
+        $user = $this->getCurrentUser();
+        if ($user) {
+            $qb->andWhere('c.user = :user')->setParameter('user', $user);
+        }
+
+        return $qb->getQuery()->getResult();
     }
 
     public function findTodayCigarettes(): array
@@ -46,24 +66,34 @@ class CigaretteRepository extends ServiceEntityRepository
         $start = (clone $date)->setTime(0, 0, 0);
         $end = (clone $date)->setTime(23, 59, 59);
 
-        return (int) $this->createQueryBuilder('c')
+        $qb = $this->createQueryBuilder('c')
             ->select('COUNT(c.id)')
             ->where('c.smokedAt >= :start')
             ->andWhere('c.smokedAt <= :end')
             ->setParameter('start', $start)
-            ->setParameter('end', $end)
-            ->getQuery()
-            ->getSingleScalarResult();
+            ->setParameter('end', $end);
+
+        $user = $this->getCurrentUser();
+        if ($user) {
+            $qb->andWhere('c.user = :user')->setParameter('user', $user);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     public function getFirstCigaretteDate(): ?\DateTimeInterface
     {
-        $result = $this->createQueryBuilder('c')
+        $qb = $this->createQueryBuilder('c')
             ->select('c.smokedAt')
             ->orderBy('c.smokedAt', 'ASC')
-            ->setMaxResults(1)
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->setMaxResults(1);
+
+        $user = $this->getCurrentUser();
+        if ($user) {
+            $qb->where('c.user = :user')->setParameter('user', $user);
+        }
+
+        $result = $qb->getQuery()->getOneOrNullResult();
 
         return $result ? $result['smokedAt'] : null;
     }
@@ -76,19 +106,27 @@ class CigaretteRepository extends ServiceEntityRepository
         // Exclure aujourd'hui pour ne pas fausser les stats (journée incomplète)
         $endDate = $excludeToday ? (new \DateTime('yesterday'))->setTime(23, 59, 59) : new \DateTime();
 
+        $userId = $this->getUserId();
+        $userCondition = $userId ? 'AND user_id = :user_id' : '';
+
         $conn = $this->getEntityManager()->getConnection();
-        $sql = '
+        $sql = "
             SELECT DATE(smoked_at) as date, COUNT(id) as count
             FROM cigarette
-            WHERE smoked_at >= :start AND smoked_at <= :end
+            WHERE smoked_at >= :start AND smoked_at <= :end {$userCondition}
             GROUP BY DATE(smoked_at)
             ORDER BY date ASC
-        ';
+        ";
 
-        $results = $conn->executeQuery($sql, [
+        $params = [
             'start' => $startDate->format('Y-m-d H:i:s'),
             'end' => $endDate->format('Y-m-d H:i:s'),
-        ])->fetchAllAssociative();
+        ];
+        if ($userId) {
+            $params['user_id'] = $userId;
+        }
+
+        $results = $conn->executeQuery($sql, $params)->fetchAllAssociative();
 
         $stats = [];
         foreach ($results as $row) {
@@ -105,6 +143,9 @@ class CigaretteRepository extends ServiceEntityRepository
         // Exclure aujourd'hui pour ne pas fausser les stats
         $endCondition = $excludeToday ? 'AND DATE(smoked_at) < CURDATE()' : '';
 
+        $userId = $this->getUserId();
+        $userCondition = $userId ? 'AND user_id = :user_id' : '';
+
         // Compter les clopes par jour de la semaine ET le nombre de jours distincts
         $sql = "
             SELECT
@@ -112,12 +153,13 @@ class CigaretteRepository extends ServiceEntityRepository
                 COUNT(id) as count,
                 COUNT(DISTINCT DATE(smoked_at)) as day_count
             FROM cigarette
-            WHERE 1=1 {$endCondition}
+            WHERE 1=1 {$endCondition} {$userCondition}
             GROUP BY DAYOFWEEK(smoked_at)
             ORDER BY day_num
         ";
 
-        $results = $conn->executeQuery($sql)->fetchAllAssociative();
+        $params = $userId ? ['user_id' => $userId] : [];
+        $results = $conn->executeQuery($sql, $params)->fetchAllAssociative();
 
         // MySQL: 1=Dimanche, 2=Lundi, etc.
         $days = [1 => 'Dim', 2 => 'Lun', 3 => 'Mar', 4 => 'Mer', 5 => 'Jeu', 6 => 'Ven', 7 => 'Sam'];
@@ -135,23 +177,29 @@ class CigaretteRepository extends ServiceEntityRepository
     {
         $conn = $this->getEntityManager()->getConnection();
 
+        $userId = $this->getUserId();
+
         // Exclure aujourd'hui pour ne pas fausser les stats
-        $endCondition = $excludeToday ? 'WHERE DATE(smoked_at) < CURDATE()' : '';
+        $baseCondition = $excludeToday ? 'DATE(smoked_at) < CURDATE()' : '1=1';
+        $userCondition = $userId ? 'AND user_id = :user_id' : '';
+        $params = $userId ? ['user_id' => $userId] : [];
 
         // Nombre total de jours avec des données (hors aujourd'hui)
-        $totalDays = $conn->executeQuery("SELECT COUNT(DISTINCT DATE(smoked_at)) FROM cigarette {$endCondition}")->fetchOne();
+        $totalDays = $conn->executeQuery(
+            "SELECT COUNT(DISTINCT DATE(smoked_at)) FROM cigarette WHERE {$baseCondition} {$userCondition}",
+            $params
+        )->fetchOne();
         $totalDays = max(1, (int) $totalDays);
 
-        $whereClause = $excludeToday ? 'WHERE DATE(smoked_at) < CURDATE()' : '';
         $sql = "
             SELECT HOUR(smoked_at) as hour, COUNT(id) as count
             FROM cigarette
-            {$whereClause}
+            WHERE {$baseCondition} {$userCondition}
             GROUP BY HOUR(smoked_at)
             ORDER BY hour
         ";
 
-        $results = $conn->executeQuery($sql)->fetchAllAssociative();
+        $results = $conn->executeQuery($sql, $params)->fetchAllAssociative();
 
         $stats = array_fill(0, 24, 0);
         foreach ($results as $row) {
@@ -164,28 +212,38 @@ class CigaretteRepository extends ServiceEntityRepository
 
     public function getTotalCount(): int
     {
-        return (int) $this->createQueryBuilder('c')
-            ->select('COUNT(c.id)')
-            ->getQuery()
-            ->getSingleScalarResult();
+        $qb = $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)');
+
+        $user = $this->getCurrentUser();
+        if ($user) {
+            $qb->where('c.user = :user')->setParameter('user', $user);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
     public function getMinDailyCount(bool $excludeToday = true): ?int
     {
         $conn = $this->getEntityManager()->getConnection();
 
+        $userId = $this->getUserId();
+
         // Exclure aujourd'hui pour ne pas fausser le record (journée incomplète)
-        $whereClause = $excludeToday ? 'WHERE DATE(smoked_at) < CURDATE()' : '';
+        $baseCondition = $excludeToday ? 'DATE(smoked_at) < CURDATE()' : '1=1';
+        $userCondition = $userId ? 'AND user_id = :user_id' : '';
+        $params = $userId ? ['user_id' => $userId] : [];
+
         $sql = "
             SELECT COUNT(id) as count
             FROM cigarette
-            {$whereClause}
+            WHERE {$baseCondition} {$userCondition}
             GROUP BY DATE(smoked_at)
             ORDER BY count ASC
             LIMIT 1
         ";
 
-        $result = $conn->executeQuery($sql)->fetchOne();
+        $result = $conn->executeQuery($sql, $params)->fetchOne();
         return $result !== false ? (int) $result : null;
     }
 
@@ -229,14 +287,17 @@ class CigaretteRepository extends ServiceEntityRepository
     {
         $conn = $this->getEntityManager()->getConnection();
 
+        $userId = $this->getUserId();
+
         // Exclure aujourd'hui pour ne pas fausser les stats
         $endCondition = $excludeToday ? 'AND DATE(smoked_at) < CURDATE()' : '';
+        $userCondition = $userId ? 'AND user_id = :user_id' : '';
 
         // Single query for both weeks
         $sql = "
             SELECT DATE(smoked_at) as date, COUNT(id) as count
             FROM cigarette
-            WHERE smoked_at >= :start {$endCondition}
+            WHERE smoked_at >= :start {$endCondition} {$userCondition}
             GROUP BY DATE(smoked_at)
             ORDER BY date ASC
         ";
@@ -246,7 +307,12 @@ class CigaretteRepository extends ServiceEntityRepository
         $startDate = new \DateTime('-' . (13 + $offset) . ' days');
         $startDate->setTime(0, 0, 0);
 
-        $results = $conn->executeQuery($sql, ['start' => $startDate->format('Y-m-d H:i:s')])->fetchAllAssociative();
+        $params = ['start' => $startDate->format('Y-m-d H:i:s')];
+        if ($userId) {
+            $params['user_id'] = $userId;
+        }
+
+        $results = $conn->executeQuery($sql, $params)->fetchAllAssociative();
 
         // Build lookup map
         $countsByDate = [];
@@ -299,14 +365,19 @@ class CigaretteRepository extends ServiceEntityRepository
         $start = (clone $startDate)->setTime(0, 0, 0);
         $end = (clone $endDate)->setTime(23, 59, 59);
 
-        $cigarettes = $this->createQueryBuilder('c')
+        $qb = $this->createQueryBuilder('c')
             ->where('c.smokedAt >= :start')
             ->andWhere('c.smokedAt <= :end')
             ->setParameter('start', $start)
             ->setParameter('end', $end)
-            ->orderBy('c.smokedAt', 'ASC')
-            ->getQuery()
-            ->getResult();
+            ->orderBy('c.smokedAt', 'ASC');
+
+        $user = $this->getCurrentUser();
+        if ($user) {
+            $qb->andWhere('c.user = :user')->setParameter('user', $user);
+        }
+
+        $cigarettes = $qb->getQuery()->getResult();
 
         // Group by date
         $grouped = [];

@@ -86,12 +86,13 @@ class ScoringService
         // Ratio : combien de fois l'intervalle on a attendu en plus/moins
         $ratio = $diff / $interval;
 
-        if ($diff > 0) {
+        if ($diff > 0.001) {
             // Positif : 20 pts par intervalle attendu en plus, minimum 1 pt
             $points = (int) round($ratio * 20);
             return max(1, $points);
-        } elseif ($diff == 0) {
-            return -1; // Pile à l'heure = léger malus
+        } elseif (abs($diff) < 0.001) {
+            // Fix: comparaison float avec tolérance (pile à l'heure = léger malus)
+            return -1;
         } else {
             // Négatif : malus proportionnel, plafonné à -20
             $points = (int) round($ratio * 20);

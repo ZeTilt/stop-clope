@@ -3,6 +3,7 @@
 namespace App\Controller;
 
 use App\Entity\Cigarette;
+use App\Entity\User;
 use App\Entity\WakeUp;
 use App\Repository\CigaretteRepository;
 use App\Repository\SettingsRepository;
@@ -16,6 +17,7 @@ use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
+use Symfony\Component\Security\Http\Attribute\CurrentUser;
 
 class HomeController extends AbstractController
 {
@@ -240,6 +242,10 @@ class HomeController extends AbstractController
         $cigarette->setSmokedAt($smokedAt);
         $cigarette->setIsRetroactive($isRetroactive);
 
+        /** @var User $user */
+        $user = $this->getUser();
+        $cigarette->setUser($user);
+
         try {
             $this->entityManager->persist($cigarette);
             $this->entityManager->flush();
@@ -336,6 +342,13 @@ class HomeController extends AbstractController
         // Validate CSRF token
         if (!$this->validateCsrfToken($request)) {
             return new JsonResponse(['success' => false, 'error' => 'Invalid CSRF token'], 403);
+        }
+
+        // Fix IDOR: vérifier que la cigarette appartient à l'utilisateur connecté
+        /** @var User $user */
+        $user = $this->getUser();
+        if ($cigarette->getUser() !== $user) {
+            return new JsonResponse(['success' => false, 'error' => 'Access denied'], 403);
         }
 
         try {
@@ -512,6 +525,10 @@ class HomeController extends AbstractController
         $date = $request->query->get('date');
         if ($date) {
             $selectedDate = \DateTime::createFromFormat('Y-m-d', $date);
+            // Fix: valider le retour de createFromFormat
+            if (!$selectedDate) {
+                return $this->redirectToRoute('app_history');
+            }
         } else {
             $selectedDate = new \DateTime();
         }

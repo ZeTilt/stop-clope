@@ -4,7 +4,7 @@
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0">
         <meta name="csrf-token" content="{{ csrf_token('ajax') }}">
-        <meta name="theme-color" content="#1a1a2e">
+        <meta name="theme-color" content="#24303E">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="StopClope">
@@ -15,15 +15,28 @@
         {% block stylesheets %}
         <style>
             :root {
-                --bg-primary: #1a1a2e;
-                --bg-secondary: #16213e;
-                --bg-card: #0f3460;
-                --accent: #e94560;
-                --accent-light: #ff6b6b;
-                --success: #00d9a5;
-                --warning: #ffc107;
-                --text-primary: #ffffff;
-                --text-secondary: #a0a0a0;
+                /* Charte graphique Alre Web */
+                --bg-primary: #24303E;
+                --bg-secondary: #354252;
+                --bg-card: #354252;
+                --accent: #D5B18A;
+                --accent-light: #E9CBA9;
+                --accent-dark: #B89468;
+                --success: #28a745;
+                --warning: #D5B18A;
+                --error: #dc3545;
+                --text-primary: #F6F1EA;
+                --text-secondary: #a8a8a8;
+                --bg-light: #F6F1EA;
+
+                /* Border radius */
+                --radius-sm: 4px;
+                --radius-md: 8px;
+                --radius-lg: 12px;
+
+                /* Shadows */
+                --shadow-sm: 0 2px 4px rgba(0, 0, 0, 0.1);
+                --shadow-md: 0 4px 6px rgba(0, 0, 0, 0.15);
             }
 
             * {
@@ -58,9 +71,10 @@
 
             .card {
                 background: var(--bg-card);
-                border-radius: 16px;
+                border-radius: var(--radius-lg);
                 padding: 20px;
                 margin-bottom: 16px;
+                box-shadow: var(--shadow-sm);
             }
 
             .score-display {
@@ -75,7 +89,7 @@
             }
 
             .score-value.negative {
-                color: var(--accent);
+                color: var(--error);
             }
 
             .score-label {
@@ -114,13 +128,14 @@
                 padding: 25px;
                 font-size: 1.3rem;
                 font-weight: 600;
-                background: linear-gradient(135deg, var(--accent), var(--accent-light));
-                color: white;
+                background: linear-gradient(135deg, var(--accent), var(--accent-dark));
+                color: var(--bg-primary);
                 border: none;
-                border-radius: 16px;
+                border-radius: var(--radius-lg);
                 cursor: pointer;
                 transition: transform 0.2s, box-shadow 0.2s;
                 margin-bottom: 16px;
+                box-shadow: var(--shadow-md);
             }
 
             .big-button:active {
@@ -138,7 +153,7 @@
                 font-size: 1rem;
                 background: var(--bg-secondary);
                 color: var(--text-primary);
-                border: 2px solid var(--bg-card);
+                border: 2px solid var(--accent);
                 border-radius: 12px;
                 cursor: pointer;
                 margin-bottom: 12px;

@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: CigaretteRepository::class)]
 #[ORM\Index(columns: ['smoked_at'], name: 'idx_smoked_at')]
+#[ORM\Index(columns: ['user_id'], name: 'idx_user_id')]
 class Cigarette
 {
     #[ORM\Id]
@@ -23,6 +24,10 @@ class Cigarette
 
     #[ORM\Column(type: Types::BOOLEAN)]
     private bool $isRetroactive = false;
+
+    #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'cigarettes')]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $user = null;
 
     public function __construct()
     {
@@ -65,6 +70,17 @@ class Cigarette
     public function setIsRetroactive(bool $isRetroactive): static
     {
         $this->isRetroactive = $isRetroactive;
+        return $this;
+    }
+
+    public function getUser(): ?User
+    {
+        return $this->user;
+    }
+
+    public function setUser(?User $user): static
+    {
+        $this->user = $user;
         return $this;
     }
 }

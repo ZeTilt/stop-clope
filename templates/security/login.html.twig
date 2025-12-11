@@ -1,0 +1,173 @@
+{% extends 'base.html.twig' %}
+
+{% block title %}StopClope - Connexion{% endblock %}
+
+{% block body %}
+<div class="container">
+    <div class="auth-container">
+        <div class="auth-header">
+            <h1>StopClope</h1>
+            <p>Connecte-toi pour suivre ta progression</p>
+        </div>
+
+        {% for flash in app.flashes('success') %}
+            <div class="alert alert-success">{{ flash }}</div>
+        {% endfor %}
+
+        {% if error %}
+            <div class="alert alert-error">{{ error.messageKey|trans(error.messageData, 'security') }}</div>
+        {% endif %}
+
+        <form method="post" class="auth-form">
+            <div class="input-group">
+                <label for="username">Email</label>
+                <input type="email" value="{{ last_username }}" name="_username" id="username" autocomplete="email" required autofocus placeholder="ton@email.com">
+            </div>
+
+            <div class="input-group">
+                <label for="password">Mot de passe</label>
+                <input type="password" name="_password" id="password" autocomplete="current-password" required placeholder="Ton mot de passe">
+            </div>
+
+            <input type="hidden" name="_csrf_token" value="{{ csrf_token('authenticate') }}">
+
+            <div class="input-group">
+                <label class="checkbox-label">
+                    <input type="checkbox" name="_remember_me" id="_remember_me">
+                    <span>Se souvenir de moi</span>
+                </label>
+            </div>
+
+            <button class="big-button" type="submit">
+                Connexion
+            </button>
+        </form>
+
+        <div class="auth-footer">
+            <p>Pas encore de compte ?</p>
+            <a href="{{ path('app_register') }}" class="secondary-button">Creer un compte</a>
+        </div>
+    </div>
+</div>
+
+<style>
+    .auth-container {
+        max-width: 400px;
+        margin: 40px auto;
+    }
+
+    .auth-header {
+        text-align: center;
+        margin-bottom: 30px;
+    }
+
+    .auth-header h1 {
+        font-size: 2rem;
+        margin-bottom: 10px;
+    }
+
+    .auth-header p {
+        color: var(--text-secondary);
+    }
+
+    .auth-form {
+        background: var(--bg-card);
+        border-radius: 16px;
+        padding: 25px;
+    }
+
+    .input-group {
+        margin-bottom: 20px;
+    }
+
+    .input-group label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+
+    .input-group input[type="email"],
+    .input-group input[type="password"],
+    .input-group input[type="text"] {
+        width: 100%;
+        padding: 14px 16px;
+        border: 2px solid var(--bg-secondary);
+        border-radius: 12px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        font-size: 1rem;
+        transition: border-color 0.2s;
+    }
+
+    .input-group input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .input-group input::placeholder {
+        color: var(--text-secondary);
+        opacity: 0.7;
+    }
+
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        cursor: pointer;
+        font-size: 0.9rem;
+    }
+
+    .checkbox-label input[type="checkbox"] {
+        width: 18px;
+        height: 18px;
+        accent-color: var(--accent);
+    }
+
+    .alert {
+        padding: 14px 16px;
+        border-radius: 12px;
+        margin-bottom: 20px;
+        font-size: 0.9rem;
+    }
+
+    .alert-success {
+        background: rgba(0, 217, 165, 0.15);
+        color: var(--success);
+        border: 1px solid var(--success);
+    }
+
+    .alert-error {
+        background: rgba(233, 69, 96, 0.15);
+        color: var(--accent);
+        border: 1px solid var(--accent);
+    }
+
+    .auth-footer {
+        text-align: center;
+        margin-top: 25px;
+    }
+
+    .auth-footer p {
+        color: var(--text-secondary);
+        margin-bottom: 12px;
+    }
+
+    .secondary-button {
+        display: inline-block;
+        padding: 12px 24px;
+        background: transparent;
+        border: 2px solid var(--accent);
+        color: var(--accent);
+        border-radius: 12px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.2s;
+    }
+
+    .secondary-button:hover {
+        background: var(--accent);
+        color: white;
+    }
+</style>
+{% endblock %}
