@@ -12,6 +12,7 @@ use App\Service\BadgeService;
 use App\Service\GoalService;
 use App\Service\MessageService;
 use App\Service\ScoringService;
+use App\Service\StatsService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -33,6 +34,7 @@ class HomeController extends AbstractController
         private BadgeService $badgeService,
         private MessageService $messageService,
         private GoalService $goalService,
+        private StatsService $statsService,
         private CsrfTokenManagerInterface $csrfTokenManager
     ) {}
 
@@ -289,93 +291,26 @@ class HomeController extends AbstractController
     #[Route('/stats', name: 'app_stats')]
     public function stats(): Response
     {
-        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
-        $stats = $this->cigaretteRepository->getDailyStats(30);
+        // Utiliser le StatsService pour récupérer toutes les stats
+        $fullStats = $this->statsService->getFullStats();
         $rank = $this->scoringService->getCurrentRank();
-
-        // Ne calculer les scores que depuis le premier jour, en excluant aujourd'hui
-        $weeklyScores = [];
-        $date = new \DateTime('-7 days'); // Commencer 7 jours en arrière
-        $firstDateNormalized = $firstDate ? (clone $firstDate)->setTime(0, 0, 0) : null;
-        $todayNormalized = (new \DateTime())->setTime(0, 0, 0);
-
-        for ($i = 0; $i < 7; $i++) {
-            $currentDateNormalized = (clone $date)->setTime(0, 0, 0);
-            // N'inclure que les jours à partir du premier jour ET avant aujourd'hui
-            if ($firstDateNormalized && $currentDateNormalized >= $firstDateNormalized && $currentDateNormalized < $todayNormalized) {
-                $dailyScore = $this->scoringService->calculateDailyScore($date);
-                $weeklyScores[$date->format('Y-m-d')] = $dailyScore;
-            }
-            $date->modify('+1 day');
-        }
-
-        // Statistiques avancées
-        $weekdayStats = $this->cigaretteRepository->getWeekdayStats();
-        $hourlyStats = $this->cigaretteRepository->getHourlyStats();
-
-        // Intervalle moyen par jour
-        $dailyIntervals = $this->cigaretteRepository->getDailyAverageInterval(7);
-
-        // Comparaison semaine glissante
-        $weeklyComparison = $this->cigaretteRepository->getWeeklyComparison();
-
-        // Économies réalisées
-        $savings = $this->calculateSavings();
 
         // Vérifier et attribuer les nouveaux badges
         $this->badgeService->checkAndAwardBadges();
         $badges = $this->badgeService->getAllBadgesWithStatus();
 
         return $this->render('home/stats.html.twig', [
-            'monthly_stats' => $stats,
-            'weekly_scores' => $weeklyScores,
+            'monthly_stats' => $fullStats['monthly_stats'],
+            'weekly_scores' => $fullStats['weekly_scores'],
             'rank' => $rank,
-            'weekday_stats' => $weekdayStats,
-            'hourly_stats' => $hourlyStats,
-            'daily_intervals' => $dailyIntervals,
-            'weekly_comparison' => $weeklyComparison,
-            'savings' => $savings,
-            'first_date' => $firstDate,
+            'weekday_stats' => $fullStats['weekday_stats'],
+            'hourly_stats' => $fullStats['hourly_stats'],
+            'daily_intervals' => $fullStats['daily_intervals'],
+            'weekly_comparison' => $fullStats['weekly_comparison'],
+            'savings' => $fullStats['savings'],
+            'first_date' => $fullStats['first_date'],
             'badges' => $badges,
         ]);
-    }
-
-    private function calculateSavings(): array
-    {
-        $packPrice = (float) $this->settingsRepository->get('pack_price', '12.00');
-        $cigsPerPack = (int) $this->settingsRepository->get('cigs_per_pack', '20');
-        $initialDailyCigs = (int) $this->settingsRepository->get('initial_daily_cigs', '20');
-
-        // Prevent division by zero
-        if ($cigsPerPack <= 0) {
-            $cigsPerPack = 20;
-        }
-
-        $pricePerCig = $packPrice / $cigsPerPack;
-
-        // Calculer depuis le premier jour
-        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
-        if (!$firstDate) {
-            return ['total' => 0, 'daily_avg' => 0, 'cigs_avoided' => 0];
-        }
-
-        $totalCigs = $this->cigaretteRepository->getTotalCount();
-        $daysSinceStart = max(1, (new \DateTime())->diff($firstDate)->days + 1);
-
-        // Clopes qu'on aurait fumées sans changement
-        $expectedCigs = $initialDailyCigs * $daysSinceStart;
-        $cigsAvoided = max(0, $expectedCigs - $totalCigs);
-
-        $totalSaved = $cigsAvoided * $pricePerCig;
-        $dailyAvg = $totalCigs / $daysSinceStart;
-
-        return [
-            'total' => round($totalSaved, 2),
-            'cigs_avoided' => $cigsAvoided,
-            'daily_avg' => round($dailyAvg, 1),
-            'days' => $daysSinceStart,
-            'initial_daily' => $initialDailyCigs,
-        ];
     }
 
     #[Route('/settings', name: 'app_settings')]
@@ -446,7 +381,10 @@ class HomeController extends AbstractController
     #[Route('/onboarding', name: 'app_onboarding')]
     public function onboarding(): Response
     {
-        return $this->render('home/onboarding.html.twig');
+        return $this->render('home/onboarding.html.twig', [
+            'initial_daily_cigs' => $this->settingsRepository->get('initial_daily_cigs', '15'),
+            'pack_price' => $this->settingsRepository->get('pack_price', '12.00'),
+        ]);
     }
 
     #[Route('/history', name: 'app_history')]

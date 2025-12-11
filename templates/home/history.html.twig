@@ -40,6 +40,21 @@
         border-radius: 8px;
         font-size: 1rem;
     }
+
+    .swipe-hint {
+        text-align: center;
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 10px;
+        opacity: 0.7;
+    }
+
+    @media (hover: hover) {
+        /* Cacher l'indication sur desktop */
+        .swipe-hint {
+            display: none;
+        }
+    }
 </style>
 {% endblock %}
 
@@ -51,16 +66,18 @@
 
     <!-- Navigation de date -->
     <div class="date-nav">
-        <button onclick="changeDate(-1)" {{ selected_date|date('Y-m-d') == first_date|date('Y-m-d') ? 'disabled' : '' }}>◀</button>
+        <button onclick="changeDate(-1)" {{ selected_date|date('Y-m-d') == first_date|date('Y-m-d') ? 'disabled' : '' }} aria-label="Jour précédent">◀</button>
         <div>
             <input type="date" class="date-picker" id="datePicker"
                    value="{{ selected_date|date('Y-m-d') }}"
                    min="{{ first_date|date('Y-m-d') }}"
                    max="{{ 'now'|date('Y-m-d') }}"
-                   onchange="goToDate(this.value)">
+                   onchange="goToDate(this.value)"
+                   aria-label="Sélectionner une date">
         </div>
-        <button onclick="changeDate(1)" {{ selected_date|date('Y-m-d') == 'now'|date('Y-m-d') ? 'disabled' : '' }}>▶</button>
+        <button onclick="changeDate(1)" {{ selected_date|date('Y-m-d') == 'now'|date('Y-m-d') ? 'disabled' : '' }} aria-label="Jour suivant">▶</button>
     </div>
+    <p class="swipe-hint">Swipe pour changer de jour</p>
 
     <!-- Score du jour sélectionné -->
     <div class="card score-display" style="padding: 20px;">
@@ -179,6 +196,35 @@
         window.goToDate = function(date) {
             window.location.href = '{{ path('app_history') }}?date=' + date;
         };
+
+        // Swipe support pour navigation entre jours
+        var container = document.querySelector('.container');
+        var startX = 0;
+        var startY = 0;
+        var threshold = 80; // Minimum swipe distance
+
+        container.addEventListener('touchstart', function(e) {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        container.addEventListener('touchend', function(e) {
+            var endX = e.changedTouches[0].clientX;
+            var endY = e.changedTouches[0].clientY;
+            var diffX = startX - endX;
+            var diffY = startY - endY;
+
+            // Only trigger if horizontal swipe is dominant
+            if (Math.abs(diffX) > Math.abs(diffY) && Math.abs(diffX) > threshold) {
+                if (diffX > 0) {
+                    // Swipe left = jour suivant
+                    changeDate(1);
+                } else {
+                    // Swipe right = jour précédent
+                    changeDate(-1);
+                }
+            }
+        }, { passive: true });
     })();
 </script>
 {% endblock %}

@@ -10,17 +10,24 @@ use App\Repository\SettingsRepository;
 use App\Repository\WakeUpRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 
+/**
+ * Service principal de scoring
+ * Délègue les calculs spécifiques aux services dédiés :
+ * - IntervalCalculator : calculs d'intervalles
+ * - StreakService : gestion des streaks
+ * - RankService : calcul des rangs
+ */
 class ScoringService
 {
-    private ?array $cachedHistoricalData = null;
-    private ?string $cacheDate = null;
-
     public function __construct(
         private CigaretteRepository $cigaretteRepository,
         private WakeUpRepository $wakeUpRepository,
         private DailyScoreRepository $dailyScoreRepository,
         private SettingsRepository $settingsRepository,
-        private Security $security
+        private Security $security,
+        private IntervalCalculator $intervalCalculator,
+        private StreakService $streakService,
+        private RankService $rankService
     ) {}
 
     private function getCurrentUser(): ?User
@@ -30,42 +37,80 @@ class ScoringService
     }
 
     /**
-     * Charge les données historiques des 7 derniers jours en 2 requêtes
-     * @return array ['cigarettes' => [...], 'wakeups' => [...]]
-     */
-    private function loadHistoricalData(\DateTimeInterface $today): array
-    {
-        $todayStr = $today->format('Y-m-d');
-
-        // Utiliser le cache si disponible pour la même date
-        if ($this->cachedHistoricalData !== null && $this->cacheDate === $todayStr) {
-            return $this->cachedHistoricalData;
-        }
-
-        $startDate = (clone $today)->modify('-7 days');
-        $endDate = (clone $today)->modify('-1 day');
-
-        // 2 requêtes au lieu de 14
-        $cigarettes = $this->cigaretteRepository->findByDateRange($startDate, $endDate);
-        $wakeups = $this->wakeUpRepository->findByDateRange($startDate, $endDate);
-
-        $this->cachedHistoricalData = [
-            'cigarettes' => $cigarettes,
-            'wakeups' => $wakeups,
-        ];
-        $this->cacheDate = $todayStr;
-
-        return $this->cachedHistoricalData;
-    }
-
-    /**
      * Invalide le cache (à appeler après modification des données)
      */
     public function invalidateCache(): void
     {
-        $this->cachedHistoricalData = null;
-        $this->cacheDate = null;
+        $this->intervalCalculator->invalidateCache();
     }
+
+    // ========== Délégation aux services spécialisés ==========
+
+    /**
+     * @deprecated Utiliser IntervalCalculator::timeToMinutes() directement
+     */
+    public static function timeToMinutes(\DateTimeInterface $time): int
+    {
+        return IntervalCalculator::timeToMinutes($time);
+    }
+
+    /**
+     * @deprecated Utiliser IntervalCalculator::minutesSinceWakeUp() directement
+     */
+    public static function minutesSinceWakeUp(\DateTimeInterface $time, \DateTimeInterface $wakeTime): int
+    {
+        return IntervalCalculator::minutesSinceWakeUp($time, $wakeTime);
+    }
+
+    /**
+     * @deprecated Utiliser IntervalCalculator::getPointsForDiff() directement
+     */
+    public static function getPointsForDiff(float $diff, float $interval): int
+    {
+        return IntervalCalculator::getPointsForDiff($diff, $interval);
+    }
+
+    public function getDayAverageInterval(array $cigs): float
+    {
+        return $this->intervalCalculator->getDayAverageInterval($cigs);
+    }
+
+    public function getSmoothedAverageInterval(\DateTimeInterface $today): float
+    {
+        return $this->intervalCalculator->getSmoothedAverageInterval($today);
+    }
+
+    public function getSmoothedFirstCigTime(\DateTimeInterface $today): float
+    {
+        return $this->intervalCalculator->getSmoothedFirstCigTime($today);
+    }
+
+    public function calculateTargetMinutes(int $index, array $todayCigs, $todayWakeUp, \DateTimeInterface $today): float
+    {
+        return $this->intervalCalculator->calculateTargetMinutes($index, $todayCigs, $todayWakeUp, $today);
+    }
+
+    public function hasHistoricalData(\DateTimeInterface $today): bool
+    {
+        return $this->intervalCalculator->hasHistoricalData($today);
+    }
+
+    public function getStreak(): array
+    {
+        return $this->streakService->getStreak();
+    }
+
+    public function getStreakOptimized(): array
+    {
+        return $this->streakService->getStreakOptimized();
+    }
+
+    public function getCurrentRank(): array
+    {
+        return $this->rankService->getCurrentRank();
+    }
+
+    // ========== Méthodes de persistance ==========
 
     /**
      * Persiste le score du jour dans DailyScore (optimisation performance)
@@ -114,167 +159,7 @@ class ScoringService
         return $this->dailyScoreRepository->getTotalScore();
     }
 
-    /**
-     * Récupère le streak depuis les DailyScore pré-calculés (O(1))
-     */
-    public function getStreakOptimized(): array
-    {
-        return [
-            'current' => $this->dailyScoreRepository->getCurrentStreak(),
-            'best' => $this->dailyScoreRepository->getBestStreak(),
-            'today_positive' => false, // À calculer en temps réel si besoin
-        ];
-    }
-
-    /**
-     * Convertit une heure (HH:MM) en minutes depuis minuit
-     */
-    public static function timeToMinutes(\DateTimeInterface $time): int
-    {
-        return (int) $time->format('H') * 60 + (int) $time->format('i');
-    }
-
-    /**
-     * Calcule les minutes depuis le réveil pour une heure donnée
-     */
-    public static function minutesSinceWakeUp(\DateTimeInterface $time, \DateTimeInterface $wakeTime): int
-    {
-        return self::timeToMinutes($time) - self::timeToMinutes($wakeTime);
-    }
-
-    /**
-     * Calcule les points pour une différence donnée (en minutes)
-     * Proportionnel à l'intervalle cible, sans plafond pour les bonus
-     *
-     * - diff = intervalle → 20 pts (tu as attendu 2x la cible)
-     * - diff = 2*intervalle → 40 pts, etc. (linéaire, sans plafond)
-     * - diff négatif → malus proportionnel, plafonné à -20
-     */
-    public static function getPointsForDiff(float $diff, float $interval): int
-    {
-        if ($interval <= 0) {
-            $interval = 60; // Défaut 1h pour éviter division par 0
-        }
-
-        // Ratio : combien de fois l'intervalle on a attendu en plus/moins
-        $ratio = $diff / $interval;
-
-        if ($diff > 0.001) {
-            // Positif : 20 pts par intervalle attendu en plus, minimum 1 pt
-            $points = (int) round($ratio * 20);
-            return max(1, $points);
-        } elseif (abs($diff) < 0.001) {
-            // Fix: comparaison float avec tolérance (pile à l'heure = léger malus)
-            return -1;
-        } else {
-            // Négatif : malus proportionnel, plafonné à -20
-            $points = (int) round($ratio * 20);
-            return max(-20, $points);
-        }
-    }
-
-    /**
-     * Calcule l'intervalle moyen d'une journée (en minutes)
-     */
-    public function getDayAverageInterval(array $cigs): float
-    {
-        if (count($cigs) < 2) {
-            return 0; // Pas assez de données
-        }
-
-        $firstCig = $cigs[0];
-        $lastCig = $cigs[count($cigs) - 1];
-
-        $firstMinutes = self::timeToMinutes($firstCig->getSmokedAt());
-        $lastMinutes = self::timeToMinutes($lastCig->getSmokedAt());
-
-        return ($lastMinutes - $firstMinutes) / (count($cigs) - 1);
-    }
-
-    /**
-     * Calcule l'intervalle moyen lissé sur les 7 derniers jours
-     * Optimisé : utilise les données en cache (2 requêtes au lieu de 7)
-     */
-    public function getSmoothedAverageInterval(\DateTimeInterface $today): float
-    {
-        $historical = $this->loadHistoricalData($today);
-        $intervals = [];
-
-        for ($i = 1; $i <= 7; $i++) {
-            $dateStr = (clone $today)->modify("-{$i} day")->format('Y-m-d');
-            $cigs = $historical['cigarettes'][$dateStr] ?? [];
-
-            $dayInterval = $this->getDayAverageInterval($cigs);
-            if ($dayInterval > 0) {
-                $intervals[] = $dayInterval;
-            }
-        }
-
-        if (empty($intervals)) {
-            return 60; // Défaut : 1 heure
-        }
-
-        return array_sum($intervals) / count($intervals);
-    }
-
-    /**
-     * Calcule le temps moyen de la 1ère clope (depuis réveil) sur les 7 derniers jours
-     * Optimisé : utilise les données en cache (0 requête supplémentaire)
-     */
-    public function getSmoothedFirstCigTime(\DateTimeInterface $today): float
-    {
-        $historical = $this->loadHistoricalData($today);
-        $times = [];
-
-        for ($i = 1; $i <= 7; $i++) {
-            $dateStr = (clone $today)->modify("-{$i} day")->format('Y-m-d');
-            $cigs = $historical['cigarettes'][$dateStr] ?? [];
-            $wakeUp = $historical['wakeups'][$dateStr] ?? null;
-
-            if (!empty($cigs) && $wakeUp) {
-                $times[] = self::minutesSinceWakeUp($cigs[0]->getSmokedAt(), $wakeUp->getWakeTime());
-            }
-        }
-
-        if (empty($times)) {
-            return 30; // Défaut : 30 min après réveil
-        }
-
-        return array_sum($times) / count($times);
-    }
-
-    /**
-     * Calcule la cible (en minutes depuis réveil) pour la prochaine clope
-     * Basé sur la dernière clope d'aujourd'hui + intervalle MOYEN lissé sur 7 jours
-     */
-    public function calculateTargetMinutes(int $index, array $todayCigs, $todayWakeUp, \DateTimeInterface $today): float
-    {
-        if (!$todayWakeUp) {
-            return 0;
-        }
-
-        // Première clope : moyenne du temps de 1ère clope sur 7 jours
-        if ($index === 0) {
-            return $this->getSmoothedFirstCigTime($today);
-        }
-
-        // Clopes suivantes : dernière clope d'aujourd'hui + intervalle lissé
-        $avgInterval = $this->getSmoothedAverageInterval($today);
-        $todayPrevCig = $todayCigs[$index - 1];
-        $todayPrevMinutes = self::minutesSinceWakeUp($todayPrevCig->getSmokedAt(), $todayWakeUp->getWakeTime());
-
-        return $todayPrevMinutes + $avgInterval;
-    }
-
-    /**
-     * Vérifie si on a des données historiques (au moins 1 jour dans les 7 derniers)
-     * Optimisé : utilise les données en cache
-     */
-    public function hasHistoricalData(\DateTimeInterface $today): bool
-    {
-        $historical = $this->loadHistoricalData($today);
-        return !empty($historical['cigarettes']);
-    }
+    // ========== Calculs de score ==========
 
     /**
      * Calcule les infos pour la prochaine clope (utilisé par le timer)
@@ -295,7 +180,7 @@ class ScoringService
         }
 
         $nextIndex = count($todayCigs);
-        $wakeUpMinutes = self::timeToMinutes($todayWakeUp->getWakeTime());
+        $wakeUpMinutes = IntervalCalculator::timeToMinutes($todayWakeUp->getWakeTime());
 
         // Calculer la cible et l'intervalle moyen lissé sur 7 jours
         $targetMinutes = $this->calculateTargetMinutes($nextIndex, $todayCigs, $todayWakeUp, $date);
@@ -360,13 +245,16 @@ class ScoringService
             $targetMinutes = $this->calculateTargetMinutes($index, $todayCigs, $todayWakeUp, $date);
 
             if ($todayWakeUp) {
-                $actualMinutes = self::minutesSinceWakeUp($todayCig->getSmokedAt(), $todayWakeUp->getWakeTime());
+                $actualMinutes = IntervalCalculator::minutesSinceWakeUp(
+                    $todayCig->getSmokedAt(),
+                    $todayWakeUp->getWakeTime()
+                );
             } else {
-                $actualMinutes = self::timeToMinutes($todayCig->getSmokedAt());
+                $actualMinutes = IntervalCalculator::timeToMinutes($todayCig->getSmokedAt());
             }
 
             $diff = $actualMinutes - $targetMinutes;
-            $points = self::getPointsForDiff($diff, $avgInterval);
+            $points = IntervalCalculator::getPointsForDiff($diff, $avgInterval);
 
             $totalScore += $points;
             $comparisons[] = [
@@ -524,7 +412,6 @@ class ScoringService
         $currentDate = clone $firstDate;
 
         while ($currentDate <= $today) {
-            $dateStr = $currentDate->format('Y-m-d');
             $dailyScore = $this->calculateDailyScoreFromData(
                 $currentDate,
                 $allCigarettes,
@@ -555,36 +442,27 @@ class ScoringService
         }
 
         // Calculer l'intervalle moyen des 7 jours précédents
-        $intervals = [];
-        for ($i = 1; $i <= 7; $i++) {
-            $prevDateStr = (clone $date)->modify("-{$i} day")->format('Y-m-d');
-            $prevCigs = $allCigarettes[$prevDateStr] ?? [];
-
-            $dayInterval = $this->getDayAverageInterval($prevCigs);
-            if ($dayInterval > 0) {
-                $intervals[] = $dayInterval;
-            }
-        }
+        $avgInterval = $this->intervalCalculator->calculateSmoothedIntervalFromData($date, $allCigarettes);
 
         // Pas de données historiques = premier jour
-        if (empty($intervals)) {
+        $hasHistory = false;
+        for ($i = 1; $i <= 7; $i++) {
+            $prevDateStr = (clone $date)->modify("-{$i} day")->format('Y-m-d');
+            if (!empty($allCigarettes[$prevDateStr] ?? [])) {
+                $hasHistory = true;
+                break;
+            }
+        }
+        if (!$hasHistory) {
             return 0;
         }
 
-        $avgInterval = array_sum($intervals) / count($intervals);
-
         // Calculer le temps moyen de la 1ère clope
-        $firstCigTimes = [];
-        for ($i = 1; $i <= 7; $i++) {
-            $prevDateStr = (clone $date)->modify("-{$i} day")->format('Y-m-d');
-            $prevCigs = $allCigarettes[$prevDateStr] ?? [];
-            $prevWakeUp = $allWakeups[$prevDateStr] ?? null;
-
-            if (!empty($prevCigs) && $prevWakeUp) {
-                $firstCigTimes[] = self::minutesSinceWakeUp($prevCigs[0]->getSmokedAt(), $prevWakeUp->getWakeTime());
-            }
-        }
-        $avgFirstCigTime = !empty($firstCigTimes) ? array_sum($firstCigTimes) / count($firstCigTimes) : 30;
+        $avgFirstCigTime = $this->intervalCalculator->calculateSmoothedFirstCigTimeFromData(
+            $date,
+            $allCigarettes,
+            $allWakeups
+        );
 
         $totalScore = 0;
 
@@ -595,128 +473,30 @@ class ScoringService
             } else {
                 $prevCig = $todayCigs[$index - 1];
                 if ($todayWakeUp) {
-                    $prevMinutes = self::minutesSinceWakeUp($prevCig->getSmokedAt(), $todayWakeUp->getWakeTime());
+                    $prevMinutes = IntervalCalculator::minutesSinceWakeUp(
+                        $prevCig->getSmokedAt(),
+                        $todayWakeUp->getWakeTime()
+                    );
                 } else {
-                    $prevMinutes = self::timeToMinutes($prevCig->getSmokedAt());
+                    $prevMinutes = IntervalCalculator::timeToMinutes($prevCig->getSmokedAt());
                 }
                 $targetMinutes = $prevMinutes + $avgInterval;
             }
 
             if ($todayWakeUp) {
-                $actualMinutes = self::minutesSinceWakeUp($todayCig->getSmokedAt(), $todayWakeUp->getWakeTime());
+                $actualMinutes = IntervalCalculator::minutesSinceWakeUp(
+                    $todayCig->getSmokedAt(),
+                    $todayWakeUp->getWakeTime()
+                );
             } else {
-                $actualMinutes = self::timeToMinutes($todayCig->getSmokedAt());
+                $actualMinutes = IntervalCalculator::timeToMinutes($todayCig->getSmokedAt());
             }
 
             $diff = $actualMinutes - $targetMinutes;
-            $points = self::getPointsForDiff($diff, $avgInterval);
+            $points = IntervalCalculator::getPointsForDiff($diff, $avgInterval);
             $totalScore += $points;
         }
 
         return $totalScore;
-    }
-
-    /**
-     * Calcule le streak actuel (jours consécutifs avec score positif)
-     * @return array ['current' => int, 'best' => int, 'today_positive' => bool]
-     */
-    public function getStreak(): array
-    {
-        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
-        if (!$firstDate) {
-            return ['current' => 0, 'best' => 0, 'today_positive' => false];
-        }
-
-        $today = new \DateTime();
-        $today->setTime(23, 59, 59);
-
-        // Charger toutes les données
-        $allCigarettes = $this->cigaretteRepository->findByDateRange($firstDate, $today);
-        $allWakeups = $this->wakeUpRepository->findByDateRange($firstDate, $today);
-
-        $currentStreak = 0;
-        $bestStreak = 0;
-        $tempStreak = 0;
-        $todayPositive = false;
-
-        $currentDate = clone $firstDate;
-        $todayStr = (new \DateTime())->format('Y-m-d');
-
-        while ($currentDate <= $today) {
-            $dateStr = $currentDate->format('Y-m-d');
-            $dailyScore = $this->calculateDailyScoreFromData($currentDate, $allCigarettes, $allWakeups);
-
-            if ($dailyScore > 0) {
-                $tempStreak++;
-                if ($dateStr === $todayStr) {
-                    $todayPositive = true;
-                }
-            } else {
-                // Score nul ou négatif : reset du streak temporaire
-                if ($tempStreak > $bestStreak) {
-                    $bestStreak = $tempStreak;
-                }
-                $tempStreak = 0;
-            }
-
-            $currentDate->modify('+1 day');
-        }
-
-        // Le streak actuel est le streak qui inclut aujourd'hui (ou hier si aujourd'hui pas encore positif)
-        $currentStreak = $tempStreak;
-        if ($tempStreak > $bestStreak) {
-            $bestStreak = $tempStreak;
-        }
-
-        return [
-            'current' => $currentStreak,
-            'best' => $bestStreak,
-            'today_positive' => $todayPositive,
-        ];
-    }
-
-    /**
-     * Retourne le rang actuel
-     */
-    public function getCurrentRank(): array
-    {
-        $ranks = [
-            0 => 'Débutant',
-            101 => 'Apprenti',
-            301 => 'Résistant',
-            601 => 'Guerrier',
-            1001 => 'Champion',
-            1501 => 'Héros',
-            2501 => 'Légende',
-            4001 => 'Maître du souffle',
-        ];
-
-        $totalScore = $this->getTotalScore();
-        $currentRank = 'Débutant';
-        $nextRankThreshold = 101;
-        $currentThreshold = 0;
-
-        foreach ($ranks as $threshold => $rank) {
-            if ($totalScore >= $threshold) {
-                $currentRank = $rank;
-                $currentThreshold = $threshold;
-            } else {
-                $nextRankThreshold = $threshold;
-                break;
-            }
-        }
-
-        $progress = 0;
-        if ($nextRankThreshold > $currentThreshold) {
-            $progress = (($totalScore - $currentThreshold) / ($nextRankThreshold - $currentThreshold)) * 100;
-            $progress = min(100, max(0, $progress));
-        }
-
-        return [
-            'rank' => $currentRank,
-            'total_score' => $totalScore,
-            'next_rank_threshold' => $nextRankThreshold,
-            'progress' => round($progress),
-        ];
     }
 }

@@ -38,6 +38,7 @@
         flex-direction: column;
         align-items: center;
         text-align: center;
+        overflow-y: auto;
     }
 
     .slide-icon {
@@ -214,6 +215,102 @@
         background: linear-gradient(135deg, var(--accent), var(--accent-light));
         color: white;
     }
+
+    /* Setup slide specific styles */
+    .setup-card {
+        background: var(--bg-card);
+        border-radius: 12px;
+        padding: 25px;
+        margin-top: 20px;
+        width: 100%;
+        max-width: 320px;
+    }
+
+    .setup-input-group {
+        margin-bottom: 20px;
+    }
+
+    .setup-input-group:last-child {
+        margin-bottom: 0;
+    }
+
+    .setup-label {
+        display: block;
+        color: #c0c0c0;
+        font-size: 0.85rem;
+        margin-bottom: 8px;
+        text-align: left;
+    }
+
+    .setup-input {
+        width: 100%;
+        padding: 14px;
+        font-size: 1.1rem;
+        border: 2px solid var(--bg-secondary);
+        border-radius: 10px;
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        transition: border-color 0.2s;
+    }
+
+    .setup-input:focus {
+        outline: none;
+        border-color: var(--accent);
+    }
+
+    .setup-hint {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        margin-top: 6px;
+        text-align: left;
+    }
+
+    .setup-preview {
+        background: var(--bg-secondary);
+        border-radius: 8px;
+        padding: 15px;
+        margin-top: 15px;
+    }
+
+    .setup-preview-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        font-size: 0.9rem;
+    }
+
+    .setup-preview-value {
+        font-weight: 600;
+        color: var(--success);
+    }
+
+    .quick-select {
+        display: flex;
+        gap: 8px;
+        margin-top: 10px;
+        flex-wrap: wrap;
+    }
+
+    .quick-select-btn {
+        padding: 8px 14px;
+        border: 2px solid var(--bg-secondary);
+        background: var(--bg-secondary);
+        color: var(--text-primary);
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.85rem;
+        transition: all 0.2s;
+    }
+
+    .quick-select-btn:hover {
+        border-color: var(--accent);
+    }
+
+    .quick-select-btn.active {
+        border-color: var(--accent);
+        background: var(--accent);
+        color: var(--bg-primary);
+    }
 </style>
 {% endblock %}
 
@@ -269,7 +366,44 @@
                 </div>
             </div>
 
-            <!-- Slide 3: Ranks -->
+            <!-- Slide 3: Setup (Configuration initiale) -->
+            <div class="slide">
+                <div class="slide-icon">⚙️</div>
+                <h2 class="slide-title">Configuration</h2>
+                <div class="slide-content">
+                    <p>Pour calculer tes objectifs et économies, dis-nous où tu en es :</p>
+                </div>
+                <div class="setup-card">
+                    <div class="setup-input-group">
+                        <label class="setup-label" for="initialCigs">Clopes par jour actuellement</label>
+                        <input type="number" id="initialCigs" class="setup-input" min="1" max="60" value="15" placeholder="15">
+                        <div class="quick-select">
+                            <button type="button" class="quick-select-btn" data-value="5">5</button>
+                            <button type="button" class="quick-select-btn" data-value="10">10</button>
+                            <button type="button" class="quick-select-btn active" data-value="15">15</button>
+                            <button type="button" class="quick-select-btn" data-value="20">20</button>
+                            <button type="button" class="quick-select-btn" data-value="25">25+</button>
+                        </div>
+                    </div>
+                    <div class="setup-input-group">
+                        <label class="setup-label" for="packPrice">Prix du paquet (€)</label>
+                        <input type="number" id="packPrice" class="setup-input" step="0.50" min="5" max="30" value="12" placeholder="12">
+                        <p class="setup-hint">Pour calculer tes économies</p>
+                    </div>
+                    <div class="setup-preview" id="setupPreview">
+                        <div class="setup-preview-row">
+                            <span>Objectif 1ère semaine</span>
+                            <span class="setup-preview-value" id="firstWeekGoal">15 clopes/jour</span>
+                        </div>
+                        <div class="setup-preview-row" style="margin-top: 8px;">
+                            <span>Économies potentielles/mois</span>
+                            <span class="setup-preview-value" id="monthlySavings">~36€</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Slide 4: Ranks -->
             <div class="slide">
                 <div class="slide-icon">🏆</div>
                 <h2 class="slide-title">Grimpe les rangs</h2>
@@ -293,7 +427,7 @@
                 </div>
             </div>
 
-            <!-- Slide 4: Tips -->
+            <!-- Slide 5: Tips -->
             <div class="slide">
                 <div class="slide-icon">💡</div>
                 <h2 class="slide-title">Conseils pour réussir</h2>
@@ -328,10 +462,11 @@
     </div>
 
     <div class="dots" role="tablist" aria-label="Étapes de l'onboarding">
-        <div class="dot active" role="tab" aria-selected="true" aria-label="Étape 1 sur 4"></div>
-        <div class="dot" role="tab" aria-selected="false" aria-label="Étape 2 sur 4"></div>
-        <div class="dot" role="tab" aria-selected="false" aria-label="Étape 3 sur 4"></div>
-        <div class="dot" role="tab" aria-selected="false" aria-label="Étape 4 sur 4"></div>
+        <div class="dot active" role="tab" aria-selected="true" aria-label="Étape 1 sur 5"></div>
+        <div class="dot" role="tab" aria-selected="false" aria-label="Étape 2 sur 5"></div>
+        <div class="dot" role="tab" aria-selected="false" aria-label="Étape 3 sur 5"></div>
+        <div class="dot" role="tab" aria-selected="false" aria-label="Étape 4 sur 5"></div>
+        <div class="dot" role="tab" aria-selected="false" aria-label="Étape 5 sur 5"></div>
     </div>
 
     <div class="onboarding-nav">
@@ -346,7 +481,15 @@
     const prevBtn = document.getElementById('prevBtn');
     const nextBtn = document.getElementById('nextBtn');
     let currentSlide = 0;
-    const totalSlides = 4;
+    const totalSlides = 5;
+    const setupSlideIndex = 2; // L'index de la slide de configuration
+
+    // Elements du setup
+    const initialCigsInput = document.getElementById('initialCigs');
+    const packPriceInput = document.getElementById('packPrice');
+    const firstWeekGoalEl = document.getElementById('firstWeekGoal');
+    const monthlySavingsEl = document.getElementById('monthlySavings');
+    const quickSelectBtns = document.querySelectorAll('.quick-select-btn');
 
     function updateSlide() {
         slides.style.transform = `translateX(-${currentSlide * 100}%)`;
@@ -365,12 +508,50 @@
         }
     }
 
-    nextBtn.addEventListener('click', () => {
+    function updateSetupPreview() {
+        const cigs = parseInt(initialCigsInput.value) || 15;
+        const price = parseFloat(packPriceInput.value) || 12;
+        const cigsPerPack = 20;
+
+        firstWeekGoalEl.textContent = `${cigs} clopes/jour`;
+
+        // Économies = réduction moyenne de 1 clope/semaine pendant 1 mois ≈ 4 semaines
+        // Supposons une réduction de ~15% la première semaine en moyenne
+        const dailySavingsCigs = cigs * 0.15; // 15% de réduction moyenne
+        const monthlySavings = (dailySavingsCigs * 30 * price) / cigsPerPack;
+        monthlySavingsEl.textContent = `~${Math.round(monthlySavings)}€`;
+    }
+
+    async function saveSetupSettings() {
+        const cigs = parseInt(initialCigsInput.value) || 15;
+        const price = parseFloat(packPriceInput.value) || 12;
+
+        try {
+            const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
+            await fetch('{{ path('app_settings_save') }}', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-Token': csrfToken
+                },
+                body: `initial_daily_cigs=${cigs}&pack_price=${price}&cigs_per_pack=20`
+            });
+        } catch (e) {
+            console.error('Failed to save settings:', e);
+        }
+    }
+
+    nextBtn.addEventListener('click', async () => {
         if (currentSlide < totalSlides - 1) {
+            // Si on quitte la slide de configuration, sauvegarder les paramètres
+            if (currentSlide === setupSlideIndex) {
+                await saveSetupSettings();
+            }
             currentSlide++;
             updateSlide();
         } else {
-            // Marquer l'onboarding comme vu
+            // Dernière slide : sauvegarder et marquer l'onboarding comme vu
             localStorage.setItem('onboardingCompleted', 'true');
             window.location.href = '{{ path('app_home') }}';
         }
@@ -382,6 +563,30 @@
             updateSlide();
         }
     });
+
+    // Quick select buttons
+    quickSelectBtns.forEach(btn => {
+        btn.addEventListener('click', () => {
+            const value = btn.dataset.value;
+            initialCigsInput.value = value === '25+' ? 25 : value;
+            quickSelectBtns.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            updateSetupPreview();
+        });
+    });
+
+    // Update preview on input change
+    initialCigsInput.addEventListener('input', () => {
+        // Update quick select active state
+        const value = parseInt(initialCigsInput.value);
+        quickSelectBtns.forEach(btn => {
+            const btnValue = btn.dataset.value === '25+' ? 25 : parseInt(btn.dataset.value);
+            btn.classList.toggle('active', value === btnValue);
+        });
+        updateSetupPreview();
+    });
+
+    packPriceInput.addEventListener('input', updateSetupPreview);
 
     // Swipe support
     let startX = 0;
@@ -413,5 +618,16 @@
             updateSlide();
         });
     });
+
+    // Load existing settings if available
+    {% if initial_daily_cigs is defined and initial_daily_cigs %}
+    initialCigsInput.value = '{{ initial_daily_cigs }}';
+    {% endif %}
+    {% if pack_price is defined and pack_price %}
+    packPriceInput.value = '{{ pack_price }}';
+    {% endif %}
+
+    // Initial preview update
+    updateSetupPreview();
 </script>
 {% endblock %}
