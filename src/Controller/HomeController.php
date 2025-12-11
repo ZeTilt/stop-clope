@@ -300,15 +300,16 @@ class HomeController extends AbstractController
         $stats = $this->cigaretteRepository->getDailyStats(30);
         $rank = $this->scoringService->getCurrentRank();
 
-        // Ne calculer les scores que depuis le premier jour
+        // Ne calculer les scores que depuis le premier jour, en excluant aujourd'hui
         $weeklyScores = [];
-        $date = new \DateTime('-6 days');
+        $date = new \DateTime('-7 days'); // Commencer 7 jours en arrière
         $firstDateNormalized = $firstDate ? (clone $firstDate)->setTime(0, 0, 0) : null;
+        $todayNormalized = (new \DateTime())->setTime(0, 0, 0);
 
         for ($i = 0; $i < 7; $i++) {
             $currentDateNormalized = (clone $date)->setTime(0, 0, 0);
-            // N'inclure que les jours à partir du premier jour
-            if ($firstDateNormalized && $currentDateNormalized >= $firstDateNormalized) {
+            // N'inclure que les jours à partir du premier jour ET avant aujourd'hui
+            if ($firstDateNormalized && $currentDateNormalized >= $firstDateNormalized && $currentDateNormalized < $todayNormalized) {
                 $dailyScore = $this->scoringService->calculateDailyScore($date);
                 $weeklyScores[$date->format('Y-m-d')] = $dailyScore;
             }

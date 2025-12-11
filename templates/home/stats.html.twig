@@ -131,7 +131,7 @@
                     {% endif %}
                 {% endfor %}
 
-                {% for i in 6..0 %}
+                {% for i in 7..1 %}
                     {% set check_date = ("now")|date_modify("-" ~ i ~ " days")|date("Y-m-d") %}
                     {% if check_date >= first_date|date("Y-m-d") %}
                         {% set count = monthly_stats[check_date]|default(0) %}
