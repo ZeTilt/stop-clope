@@ -309,6 +309,7 @@ class HomeController extends AbstractController
 
         $dailyScore = $this->scoringService->calculateDailyScore($today);
         $todayCount = $this->cigaretteRepository->countByDate($today);
+        $streak = $this->scoringService->getStreak();
 
         return new JsonResponse([
             'success' => true,
@@ -317,6 +318,7 @@ class HomeController extends AbstractController
             'is_retroactive' => $cigarette->isRetroactive(),
             'today_count' => $todayCount,
             'daily_score' => $dailyScore['total_score'],
+            'streak' => $streak,
         ]);
     }
 

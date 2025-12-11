@@ -169,6 +169,87 @@
         <h1>Statistiques</h1>
     </header>
 
+    <!-- Tendances et projection -->
+    {% if weekly_comparison and savings.daily_avg > 0 %}
+    <div class="card">
+        <h3 style="margin-bottom: 15px;">📈 Tendances</h3>
+        {% set trend = weekly_comparison.diff_avg %}
+        {% set trend_icon = trend < 0 ? '↘️' : (trend > 0 ? '↗️' : '➡️') %}
+        {% set trend_color = trend < 0 ? 'var(--success)' : (trend > 0 ? 'var(--error)' : 'var(--text-secondary)') %}
+
+        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
+            <span style="font-size: 2rem;">{{ trend_icon }}</span>
+            <div>
+                <div style="font-size: 1.3rem; font-weight: 700; color: {{ trend_color }};">
+                    {{ trend >= 0 ? '+' : '' }}{{ trend }} clope{{ trend|abs != 1 ? 's' : '' }}/jour
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                    vs semaine dernière
+                </div>
+            </div>
+        </div>
+
+        {# Projection vers objectif zéro si tendance négative #}
+        {% if trend < 0 and savings.daily_avg > 0 %}
+            {% set days_to_zero = (savings.daily_avg / (trend|abs))|round %}
+            {% if days_to_zero > 0 and days_to_zero < 365 %}
+            <div style="padding: 15px; background: linear-gradient(135deg, var(--success), #00ff88); border-radius: 8px; color: #000;">
+                <div style="font-weight: 600; margin-bottom: 5px;">🎯 Projection</div>
+                <div style="font-size: 0.9rem;">
+                    À ce rythme, tu atteindrais <strong>zéro clope</strong> dans environ <strong>{{ days_to_zero }} jours</strong> !
+                </div>
+            </div>
+            {% endif %}
+        {% elseif trend > 0 %}
+            <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--warning);">
+                <div style="font-weight: 600; margin-bottom: 5px;">💡 Conseil</div>
+                <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                    Ta consommation augmente légèrement. Essaie d'espacer un peu plus tes clopes cette semaine.
+                </div>
+            </div>
+        {% else %}
+            <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
+                <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                    Ta consommation est stable. Fixe-toi un petit objectif pour cette semaine !
+                </div>
+            </div>
+        {% endif %}
+
+        {# Meilleur et pire jour #}
+        {% if weekday_stats|length > 0 %}
+            {% set best_day = null %}
+            {% set worst_day = null %}
+            {% set best_count = 999 %}
+            {% set worst_count = 0 %}
+            {% for day, count in weekday_stats %}
+                {% if count < best_count and count > 0 %}
+                    {% set best_day = day %}
+                    {% set best_count = count %}
+                {% endif %}
+                {% if count > worst_count %}
+                    {% set worst_day = day %}
+                    {% set worst_count = count %}
+                {% endif %}
+            {% endfor %}
+
+            {% if best_day and worst_day and best_day != worst_day %}
+            <div style="display: flex; gap: 10px; margin-top: 15px;">
+                <div style="flex: 1; padding: 12px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+                    <div style="font-size: 1.5rem;">🏆</div>
+                    <div style="font-size: 0.85rem; font-weight: 600;">Meilleur jour</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">{{ best_day }} ({{ best_count }} clopes)</div>
+                </div>
+                <div style="flex: 1; padding: 12px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+                    <div style="font-size: 1.5rem;">⚠️</div>
+                    <div style="font-size: 0.85rem; font-weight: 600;">Jour difficile</div>
+                    <div style="font-size: 0.8rem; color: var(--text-secondary);">{{ worst_day }} ({{ worst_count }} clopes)</div>
+                </div>
+            </div>
+            {% endif %}
+        {% endif %}
+    </div>
+    {% endif %}
+
     <!-- Économies -->
     {% if savings.total > 0 %}
     <div class="card score-display savings-card">

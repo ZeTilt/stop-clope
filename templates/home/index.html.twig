@@ -406,13 +406,20 @@
         })
         .then(function(data) {
             if (data.success) {
-                // Feedback visuel enrichi avec points
+                // Feedback visuel enrichi avec points et streak
                 var points = data.daily_score;
                 var isPositive = points >= 0;
                 var icon = isPositive ? '✅' : '⚠️';
                 var type = isPositive ? 'success' : 'warning';
+                var streak = data.streak;
 
-                showToast('Clope enregistrée à ' + data.smoked_at, {
+                // Message avec info streak si actif
+                var message = 'Clope enregistrée à ' + data.smoked_at;
+                if (streak && streak.current > 0 && streak.today_positive) {
+                    message += ' • 🔥 ' + streak.current + 'j';
+                }
+
+                showToast(message, {
                     type: type,
                     points: points,
                     icon: icon
@@ -430,6 +437,9 @@
 
                 // Mettre à jour le score affiché
                 updateScoreDisplay(points);
+
+                // Mettre à jour le streak affiché si présent
+                updateStreakDisplay(streak);
             }
         })
         .catch(function(err) {
@@ -459,6 +469,28 @@
                 scoreEl.className = 'score-value' + (newScore < 0 ? ' negative' : '');
                 scoreEl.style.transform = 'scale(1)';
             }, 100);
+        }
+    }
+
+    // Mettre à jour l'affichage du streak
+    function updateStreakDisplay(streak) {
+        if (!streak) return;
+
+        // Chercher le conteneur du streak
+        var streakContainer = document.querySelector('.score-display > div[style*="justify-content: center"]');
+        if (!streakContainer) return;
+
+        var streakValueEl = streakContainer.querySelector('div:first-child div:first-child');
+        if (streakValueEl && streak.current > 0) {
+            // Animation
+            streakValueEl.style.transform = 'scale(1.2)';
+            streakValueEl.style.transition = 'transform 0.3s ease';
+
+            setTimeout(function() {
+                streakValueEl.textContent = '🔥 ' + streak.current;
+                streakValueEl.style.color = streak.today_positive ? 'var(--success)' : 'var(--warning)';
+                streakValueEl.style.transform = 'scale(1)';
+            }, 150);
         }
     }
 
