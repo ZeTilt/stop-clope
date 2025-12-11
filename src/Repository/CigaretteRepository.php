@@ -68,21 +68,27 @@ class CigaretteRepository extends ServiceEntityRepository
         return $result ? $result['smokedAt'] : null;
     }
 
-    public function getDailyStats(int $days = 30): array
+    public function getDailyStats(int $days = 30, bool $excludeToday = true): array
     {
         $startDate = new \DateTime("-{$days} days");
         $startDate->setTime(0, 0, 0);
+
+        // Exclure aujourd'hui pour ne pas fausser les stats (journée incomplète)
+        $endDate = $excludeToday ? (new \DateTime('yesterday'))->setTime(23, 59, 59) : new \DateTime();
 
         $conn = $this->getEntityManager()->getConnection();
         $sql = '
             SELECT DATE(smoked_at) as date, COUNT(id) as count
             FROM cigarette
-            WHERE smoked_at >= :start
+            WHERE smoked_at >= :start AND smoked_at <= :end
             GROUP BY DATE(smoked_at)
             ORDER BY date ASC
         ';
 
-        $results = $conn->executeQuery($sql, ['start' => $startDate->format('Y-m-d H:i:s')])->fetchAllAssociative();
+        $results = $conn->executeQuery($sql, [
+            'start' => $startDate->format('Y-m-d H:i:s'),
+            'end' => $endDate->format('Y-m-d H:i:s'),
+        ])->fetchAllAssociative();
 
         $stats = [];
         foreach ($results as $row) {
@@ -92,20 +98,24 @@ class CigaretteRepository extends ServiceEntityRepository
         return $stats;
     }
 
-    public function getWeekdayStats(): array
+    public function getWeekdayStats(bool $excludeToday = true): array
     {
         $conn = $this->getEntityManager()->getConnection();
 
+        // Exclure aujourd'hui pour ne pas fausser les stats
+        $endCondition = $excludeToday ? 'AND DATE(smoked_at) < CURDATE()' : '';
+
         // Compter les clopes par jour de la semaine ET le nombre de jours distincts
-        $sql = '
+        $sql = "
             SELECT
                 DAYOFWEEK(smoked_at) as day_num,
                 COUNT(id) as count,
                 COUNT(DISTINCT DATE(smoked_at)) as day_count
             FROM cigarette
+            WHERE 1=1 {$endCondition}
             GROUP BY DAYOFWEEK(smoked_at)
             ORDER BY day_num
-        ';
+        ";
 
         $results = $conn->executeQuery($sql)->fetchAllAssociative();
 
@@ -121,20 +131,25 @@ class CigaretteRepository extends ServiceEntityRepository
         return $stats;
     }
 
-    public function getHourlyStats(): array
+    public function getHourlyStats(bool $excludeToday = true): array
     {
         $conn = $this->getEntityManager()->getConnection();
 
-        // Nombre total de jours avec des données
-        $totalDays = $conn->executeQuery('SELECT COUNT(DISTINCT DATE(smoked_at)) FROM cigarette')->fetchOne();
+        // Exclure aujourd'hui pour ne pas fausser les stats
+        $endCondition = $excludeToday ? 'WHERE DATE(smoked_at) < CURDATE()' : '';
+
+        // Nombre total de jours avec des données (hors aujourd'hui)
+        $totalDays = $conn->executeQuery("SELECT COUNT(DISTINCT DATE(smoked_at)) FROM cigarette {$endCondition}")->fetchOne();
         $totalDays = max(1, (int) $totalDays);
 
-        $sql = '
+        $whereClause = $excludeToday ? 'WHERE DATE(smoked_at) < CURDATE()' : '';
+        $sql = "
             SELECT HOUR(smoked_at) as hour, COUNT(id) as count
             FROM cigarette
+            {$whereClause}
             GROUP BY HOUR(smoked_at)
             ORDER BY hour
-        ';
+        ";
 
         $results = $conn->executeQuery($sql)->fetchAllAssociative();
 
@@ -155,16 +170,20 @@ class CigaretteRepository extends ServiceEntityRepository
             ->getSingleScalarResult();
     }
 
-    public function getMinDailyCount(): ?int
+    public function getMinDailyCount(bool $excludeToday = true): ?int
     {
         $conn = $this->getEntityManager()->getConnection();
-        $sql = '
+
+        // Exclure aujourd'hui pour ne pas fausser le record (journée incomplète)
+        $havingClause = $excludeToday ? 'HAVING DATE(smoked_at) < CURDATE()' : '';
+        $sql = "
             SELECT COUNT(id) as count
             FROM cigarette
             GROUP BY DATE(smoked_at)
+            {$havingClause}
             ORDER BY count ASC
             LIMIT 1
-        ';
+        ";
 
         $result = $conn->executeQuery($sql)->fetchOne();
         return $result !== false ? (int) $result : null;
@@ -174,11 +193,14 @@ class CigaretteRepository extends ServiceEntityRepository
      * Calcule l'intervalle moyen entre clopes pour chaque jour
      * @return array ['2024-12-01' => 45, '2024-12-02' => 52, ...] (en minutes)
      */
-    public function getDailyAverageInterval(int $days = 7): array
+    public function getDailyAverageInterval(int $days = 7, bool $excludeToday = true): array
     {
         $intervals = [];
 
-        for ($i = $days - 1; $i >= 0; $i--) {
+        // Commencer à partir d'hier si on exclut aujourd'hui
+        $startOffset = $excludeToday ? 1 : 0;
+
+        for ($i = $days - 1 + $startOffset; $i >= $startOffset; $i--) {
             $date = new \DateTime("-{$i} days");
             $cigs = $this->findByDate($date);
 
@@ -203,20 +225,25 @@ class CigaretteRepository extends ServiceEntityRepository
      * Stats pour comparaison semaine glissante (optimized - single query)
      * @return array ['current' => [...], 'previous' => [...]]
      */
-    public function getWeeklyComparison(): array
+    public function getWeeklyComparison(bool $excludeToday = true): array
     {
         $conn = $this->getEntityManager()->getConnection();
 
+        // Exclure aujourd'hui pour ne pas fausser les stats
+        $endCondition = $excludeToday ? 'AND DATE(smoked_at) < CURDATE()' : '';
+
         // Single query for both weeks
-        $sql = '
+        $sql = "
             SELECT DATE(smoked_at) as date, COUNT(id) as count
             FROM cigarette
-            WHERE smoked_at >= :start
+            WHERE smoked_at >= :start {$endCondition}
             GROUP BY DATE(smoked_at)
             ORDER BY date ASC
-        ';
+        ";
 
-        $startDate = new \DateTime('-13 days');
+        // Décaler d'un jour si on exclut aujourd'hui
+        $offset = $excludeToday ? 1 : 0;
+        $startDate = new \DateTime('-' . (13 + $offset) . ' days');
         $startDate->setTime(0, 0, 0);
 
         $results = $conn->executeQuery($sql, ['start' => $startDate->format('Y-m-d H:i:s')])->fetchAllAssociative();
@@ -230,14 +257,14 @@ class CigaretteRepository extends ServiceEntityRepository
         $currentWeek = [];
         $previousWeek = [];
 
-        // Semaine actuelle (7 derniers jours)
-        for ($i = 6; $i >= 0; $i--) {
+        // Semaine actuelle (7 derniers jours complets, hors aujourd'hui si excludeToday)
+        for ($i = 6 + $offset; $i >= $offset; $i--) {
             $date = (new \DateTime("-{$i} days"))->format('Y-m-d');
             $currentWeek[$date] = $countsByDate[$date] ?? 0;
         }
 
-        // Semaine précédente (jours 7 à 13)
-        for ($i = 13; $i >= 7; $i--) {
+        // Semaine précédente (jours 7 à 13 avant la semaine actuelle)
+        for ($i = 13 + $offset; $i >= 7 + $offset; $i--) {
             $date = (new \DateTime("-{$i} days"))->format('Y-m-d');
             $previousWeek[$date] = $countsByDate[$date] ?? 0;
         }

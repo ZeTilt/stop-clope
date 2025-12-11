@@ -280,14 +280,24 @@
             var minutesToNext, nextPoints, nextLabel;
 
             if (currentPoints < 1) {
-                // En négatif ou nul : afficher le temps pour passer en positif (+1 pt)
+                // En négatif ou nul : afficher L'HEURE cible pour passer en positif (+1 pt)
                 // +1 pt quand diff >= 0.5 * avgInterval / 20 = avgInterval / 40
                 var diffForPositive = avgInterval / 40;
                 minutesToNext = Math.ceil(diffForPositive - diff);
                 nextPoints = 1;
-                nextLabel = 'Zone positive dans';
+
+                // Calculer l'heure cible
+                var targetTime = new Date();
+                targetTime.setMinutes(targetTime.getMinutes() + minutesToNext);
+                var targetHour = targetTime.getHours().toString().padStart(2, '0');
+                var targetMin = targetTime.getMinutes().toString().padStart(2, '0');
+
+                nextMsg.innerHTML = 'Zone positive à <strong>' + targetHour + ':' + targetMin + '</strong> → +' + nextPoints + ' pt';
+                countdown.textContent = targetHour + ':' + targetMin;
+                countdown.style.color = 'var(--warning)';
+                nextInfo.style.display = 'block';
             } else {
-                // Déjà en positif : afficher le prochain palier
+                // Déjà en positif : afficher le temps avant prochain palier
                 var nextPointDiff = (currentPoints + 0.5) * avgInterval / 20;
                 minutesToNext = Math.ceil(nextPointDiff - diff);
                 if (minutesToNext <= 0) {
@@ -295,21 +305,22 @@
                 }
                 nextPoints = currentPoints + 1;
                 nextLabel = 'Prochain palier dans';
-            }
 
-            if (minutesToNext > 0 && minutesToNext < 180) { // Max 3h affichées
-                nextMsg.innerHTML = nextLabel + ' <strong>' + minutesToNext + ' min</strong> → +' + nextPoints + ' pts';
+                if (minutesToNext > 0 && minutesToNext < 180) { // Max 3h affichées
+                    nextMsg.innerHTML = nextLabel + ' <strong>' + minutesToNext + ' min</strong> → +' + nextPoints + ' pts';
 
-                if (minutesToNext >= 60) {
-                    var h = Math.floor(minutesToNext / 60);
-                    var m = minutesToNext % 60;
-                    countdown.textContent = h + 'h' + m.toString().padStart(2, '0');
+                    if (minutesToNext >= 60) {
+                        var h = Math.floor(minutesToNext / 60);
+                        var m = minutesToNext % 60;
+                        countdown.textContent = h + 'h' + m.toString().padStart(2, '0');
+                    } else {
+                        countdown.textContent = minutesToNext + ' min';
+                    }
+                    countdown.style.color = 'var(--success)';
+                    nextInfo.style.display = 'block';
                 } else {
-                    countdown.textContent = minutesToNext + ' min';
+                    nextInfo.style.display = 'none';
                 }
-                nextInfo.style.display = 'block';
-            } else {
-                nextInfo.style.display = 'none';
             }
         }
 
