@@ -9,6 +9,28 @@
     </header>
 
     <div class="card">
+        <h3 style="margin-bottom: 20px;">🎯 Objectif quotidien</h3>
+
+        <div class="input-group">
+            <label for="dailyGoal">Nombre de clopes max par jour</label>
+            <input type="number" id="dailyGoal" min="0" max="50" value="{{ daily_goal ?? suggested_goal ?? '' }}" placeholder="{{ suggested_goal ? 'Suggestion : ' ~ suggested_goal : 'Non défini' }}">
+            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 5px;">
+                {% if daily_goal %}
+                    Ton objectif actuel : {{ daily_goal }} clopes/jour
+                {% elseif suggested_goal %}
+                    💡 Suggestion basée sur ta moyenne : {{ suggested_goal }} clopes/jour
+                {% else %}
+                    Définis un objectif pour suivre ta progression
+                {% endif %}
+            </p>
+        </div>
+
+        <div id="goalProgress" style="display: none; padding: 15px; background: var(--bg-secondary); border-radius: 8px; margin-top: 15px;">
+            <!-- Sera rempli dynamiquement -->
+        </div>
+    </div>
+
+    <div class="card">
         <h3 style="margin-bottom: 20px;">Calcul des économies</h3>
 
         <div class="input-group">
@@ -76,6 +98,7 @@
         const packPrice = document.getElementById('packPrice').value;
         const cigsPerPack = document.getElementById('cigsPerPack').value;
         const initialDailyCigs = document.getElementById('initialDailyCigs').value;
+        const dailyGoal = document.getElementById('dailyGoal').value;
 
         fetch('{{ path('app_settings_save') }}', {
             method: 'POST',
@@ -83,19 +106,19 @@
                 'Content-Type': 'application/x-www-form-urlencoded',
                 'X-CSRF-Token': csrfToken
             },
-            body: `pack_price=${packPrice}&cigs_per_pack=${cigsPerPack}&initial_daily_cigs=${initialDailyCigs}`
+            body: `pack_price=${packPrice}&cigs_per_pack=${cigsPerPack}&initial_daily_cigs=${initialDailyCigs}&daily_goal=${dailyGoal}`
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                showToast('Paramètres enregistrés');
+                showToast('Paramètres enregistrés', { type: 'success', icon: '✅' });
                 setTimeout(() => window.location.href = '{{ path('app_stats') }}', 1000);
             } else {
-                showToast(data.error || 'Erreur lors de l\'enregistrement');
+                showToast(data.error || 'Erreur lors de l\'enregistrement', { type: 'error' });
             }
         })
         .catch(err => {
-            showToast('Erreur réseau');
+            showToast('Erreur réseau', { type: 'error' });
         });
     }
 

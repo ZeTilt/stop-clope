@@ -58,6 +58,23 @@ class HomeController extends AbstractController
         // Message d'encouragement contextuel
         $encouragement = $this->getEncouragementMessage($todayCigs, $yesterdayCigs, $dailyScore);
 
+        // Objectif quotidien
+        $dailyGoal = $this->settingsRepository->get('daily_goal');
+        $goalProgress = null;
+        if ($dailyGoal !== null) {
+            $todayCount = count($todayCigs);
+            $goalInt = (int) $dailyGoal;
+            $remaining = $goalInt - $todayCount;
+            $goalProgress = [
+                'goal' => $goalInt,
+                'current' => $todayCount,
+                'remaining' => max(0, $remaining),
+                'exceeded' => $remaining < 0,
+                'exceeded_by' => $remaining < 0 ? abs($remaining) : 0,
+                'progress_percent' => $goalInt > 0 ? min(100, round(($todayCount / $goalInt) * 100)) : 100,
+            ];
+        }
+
         return $this->render('home/index.html.twig', [
             'today_cigarettes' => $todayCigs,
             'yesterday_count' => count($yesterdayCigs),
@@ -69,6 +86,7 @@ class HomeController extends AbstractController
             'encouragement' => $encouragement,
             'streak' => $streak,
             'show_wakeup_modal' => $todayWakeUp === null,
+            'goal_progress' => $goalProgress,
         ]);
     }
 
@@ -515,10 +533,25 @@ class HomeController extends AbstractController
     #[Route('/settings', name: 'app_settings')]
     public function settings(): Response
     {
+        // Calculer l'objectif suggéré si pas encore défini
+        $currentGoal = $this->settingsRepository->get('daily_goal');
+        $suggestedGoal = null;
+
+        if (!$currentGoal) {
+            // Suggérer un objectif basé sur la moyenne des 7 derniers jours - 2
+            $stats = $this->cigaretteRepository->getDailyStats(7);
+            if (!empty($stats)) {
+                $avg = array_sum($stats) / count($stats);
+                $suggestedGoal = max(1, (int) round($avg) - 2);
+            }
+        }
+
         return $this->render('home/settings.html.twig', [
             'pack_price' => $this->settingsRepository->get('pack_price', '12.00'),
             'cigs_per_pack' => $this->settingsRepository->get('cigs_per_pack', '20'),
             'initial_daily_cigs' => $this->settingsRepository->get('initial_daily_cigs', '20'),
+            'daily_goal' => $currentGoal,
+            'suggested_goal' => $suggestedGoal,
         ]);
     }
 
@@ -556,6 +589,15 @@ class HomeController extends AbstractController
                 return new JsonResponse(['success' => false, 'error' => 'Invalid initial daily cigarettes'], 400);
             }
             $this->settingsRepository->set('initial_daily_cigs', (string) (int) $initialDailyCigs);
+        }
+
+        // Validate daily_goal (positive integer, can be 0 for "no goal")
+        $dailyGoal = $request->request->get('daily_goal');
+        if ($dailyGoal !== null && $dailyGoal !== '') {
+            if (!is_numeric($dailyGoal) || (int) $dailyGoal < 0 || (int) $dailyGoal > 100) {
+                return new JsonResponse(['success' => false, 'error' => 'Invalid daily goal'], 400);
+            }
+            $this->settingsRepository->set('daily_goal', (string) (int) $dailyGoal);
         }
 
         return new JsonResponse(['success' => true]);
