@@ -106,6 +106,21 @@
     </div>
 
     <div class="card">
+        <h3 style="margin-bottom: 15px;">Exporter mes données</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">
+            Télécharge toutes tes données pour les sauvegarder ou les partager avec un professionnel de santé.
+        </p>
+        <div style="display: flex; gap: 10px;">
+            <a href="{{ path('app_export_csv') }}" class="secondary-button" style="flex: 1; text-align: center; text-decoration: none;">
+                📊 Export CSV
+            </a>
+            <a href="{{ path('app_export_json') }}" class="secondary-button" style="flex: 1; text-align: center; text-decoration: none;">
+                📁 Export JSON
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
         <h3 style="margin-bottom: 15px;">Aide</h3>
         <a href="{{ path('app_onboarding') }}" class="secondary-button" style="display: block; text-align: center; text-decoration: none;">
             Comment ça marche ?
