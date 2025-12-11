@@ -175,12 +175,12 @@ class CigaretteRepository extends ServiceEntityRepository
         $conn = $this->getEntityManager()->getConnection();
 
         // Exclure aujourd'hui pour ne pas fausser le record (journée incomplète)
-        $havingClause = $excludeToday ? 'HAVING DATE(smoked_at) < CURDATE()' : '';
+        $whereClause = $excludeToday ? 'WHERE DATE(smoked_at) < CURDATE()' : '';
         $sql = "
             SELECT COUNT(id) as count
             FROM cigarette
+            {$whereClause}
             GROUP BY DATE(smoked_at)
-            {$havingClause}
             ORDER BY count ASC
             LIMIT 1
         ";
