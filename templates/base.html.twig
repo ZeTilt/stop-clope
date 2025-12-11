@@ -57,6 +57,13 @@
                 max-width: 500px;
                 margin: 0 auto;
                 padding: 20px;
+                overflow-x: hidden;
+            }
+
+            /* Prevent horizontal scroll on mobile */
+            html, body {
+                overflow-x: hidden;
+                width: 100%;
             }
 
             .header {
@@ -75,6 +82,43 @@
                 padding: 20px;
                 margin-bottom: 16px;
                 box-shadow: var(--shadow-sm);
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            /* Cards with links should have touch feedback */
+            .card-link {
+                display: block;
+                text-decoration: none;
+                color: inherit;
+                transition: transform 0.15s;
+            }
+
+            .card-link:active {
+                transform: scale(0.98);
+            }
+
+            /* Responsive adjustments for small screens */
+            @media (max-width: 380px) {
+                .container {
+                    padding: 12px;
+                }
+
+                .card {
+                    padding: 15px;
+                }
+
+                .big-button {
+                    padding: 20px;
+                    font-size: 1.1rem;
+                }
+
+                .stats-grid {
+                    gap: 8px;
+                }
+
+                .stat-item {
+                    padding: 12px;
+                }
             }
 
             .score-display {
@@ -142,6 +186,19 @@
                 transform: scale(0.98);
             }
 
+            /* Enhanced touch feedback */
+            .big-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 12px rgba(0, 0, 0, 0.2);
+            }
+
+            @media (hover: none) {
+                .big-button:hover {
+                    transform: none;
+                    box-shadow: var(--shadow-md);
+                }
+            }
+
             .big-button:disabled {
                 opacity: 0.6;
                 cursor: not-allowed;
@@ -157,6 +214,13 @@
                 border-radius: 12px;
                 cursor: pointer;
                 margin-bottom: 12px;
+                transition: transform 0.15s, background 0.15s;
+                -webkit-tap-highlight-color: transparent;
+            }
+
+            .secondary-button:active {
+                transform: scale(0.97);
+                background: var(--bg-primary);
             }
 
             .stats-grid {
