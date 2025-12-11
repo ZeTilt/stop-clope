@@ -9,6 +9,7 @@ use App\Repository\CigaretteRepository;
 use App\Repository\SettingsRepository;
 use App\Repository\WakeUpRepository;
 use App\Service\BadgeService;
+use App\Service\GoalService;
 use App\Service\MessageService;
 use App\Service\ScoringService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -31,6 +32,7 @@ class HomeController extends AbstractController
         private ScoringService $scoringService,
         private BadgeService $badgeService,
         private MessageService $messageService,
+        private GoalService $goalService,
         private CsrfTokenManagerInterface $csrfTokenManager
     ) {}
 
@@ -62,22 +64,8 @@ class HomeController extends AbstractController
         // Message d'encouragement contextuel
         $encouragement = $this->messageService->getEncouragementMessage($todayCigs, $yesterdayCigs, $dailyScore);
 
-        // Objectif quotidien
-        $dailyGoal = $this->settingsRepository->get('daily_goal');
-        $goalProgress = null;
-        if ($dailyGoal !== null) {
-            $todayCount = count($todayCigs);
-            $goalInt = (int) $dailyGoal;
-            $remaining = $goalInt - $todayCount;
-            $goalProgress = [
-                'goal' => $goalInt,
-                'current' => $todayCount,
-                'remaining' => max(0, $remaining),
-                'exceeded' => $remaining < 0,
-                'exceeded_by' => $remaining < 0 ? abs($remaining) : 0,
-                'progress_percent' => $goalInt > 0 ? min(100, round(($todayCount / $goalInt) * 100)) : 100,
-            ];
-        }
+        // Objectif quotidien (personnalisé ou palier automatique)
+        $goalProgress = $this->goalService->getDailyProgress();
 
         return $this->render('home/index.html.twig', [
             'today_cigarettes' => $todayCigs,
@@ -389,18 +377,9 @@ class HomeController extends AbstractController
     #[Route('/settings', name: 'app_settings')]
     public function settings(): Response
     {
-        // Calculer l'objectif suggéré si pas encore défini
-        $currentGoal = $this->settingsRepository->get('daily_goal');
-        $suggestedGoal = null;
-
-        if (!$currentGoal) {
-            // Suggérer un objectif basé sur la moyenne des 7 derniers jours - 2
-            $stats = $this->cigaretteRepository->getDailyStats(7);
-            if (!empty($stats)) {
-                $avg = array_sum($stats) / count($stats);
-                $suggestedGoal = max(1, (int) round($avg) - 2);
-            }
-        }
+        $currentGoal = $this->goalService->getCurrentGoal();
+        $suggestedGoal = $this->goalService->getSuggestedGoal();
+        $goalInfo = $this->goalService->getProgressInfo();
 
         return $this->render('home/settings.html.twig', [
             'pack_price' => $this->settingsRepository->get('pack_price', '12.00'),
@@ -408,6 +387,7 @@ class HomeController extends AbstractController
             'initial_daily_cigs' => $this->settingsRepository->get('initial_daily_cigs', '20'),
             'daily_goal' => $currentGoal,
             'suggested_goal' => $suggestedGoal,
+            'goal_info' => $goalInfo,
         ]);
     }
 
