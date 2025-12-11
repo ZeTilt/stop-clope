@@ -281,13 +281,21 @@ class CigaretteRepository extends ServiceEntityRepository
 
     /**
      * Stats pour comparaison semaine glissante (optimized - single query)
-     * @return array ['current' => [...], 'previous' => [...]]
+     * Prend en compte la date de première cigarette pour ne pas fausser les moyennes
+     * @return array|null ['current' => [...], 'previous' => [...]] ou null si pas assez de données
      */
-    public function getWeeklyComparison(bool $excludeToday = true): array
+    public function getWeeklyComparison(bool $excludeToday = true): ?array
     {
         $conn = $this->getEntityManager()->getConnection();
 
         $userId = $this->getUserId();
+
+        // Récupérer la date de première cigarette
+        $firstDate = $this->getFirstCigaretteDate();
+        if (!$firstDate) {
+            return null;
+        }
+        $firstDateStr = $firstDate->format('Y-m-d');
 
         // Exclure aujourd'hui pour ne pas fausser les stats
         $endCondition = $excludeToday ? 'AND DATE(smoked_at) < CURDATE()' : '';
@@ -322,34 +330,53 @@ class CigaretteRepository extends ServiceEntityRepository
 
         $currentWeek = [];
         $previousWeek = [];
+        $currentDaysWithData = 0;
+        $previousDaysWithData = 0;
 
         // Semaine actuelle (7 derniers jours complets, hors aujourd'hui si excludeToday)
+        // Ne compte que les jours >= date de première cigarette
         for ($i = 6 + $offset; $i >= $offset; $i--) {
             $date = (new \DateTime("-{$i} days"))->format('Y-m-d');
-            $currentWeek[$date] = $countsByDate[$date] ?? 0;
+            if ($date >= $firstDateStr) {
+                $currentWeek[$date] = $countsByDate[$date] ?? 0;
+                $currentDaysWithData++;
+            }
         }
 
         // Semaine précédente (jours 7 à 13 avant la semaine actuelle)
+        // Ne compte que les jours >= date de première cigarette
         for ($i = 13 + $offset; $i >= 7 + $offset; $i--) {
             $date = (new \DateTime("-{$i} days"))->format('Y-m-d');
-            $previousWeek[$date] = $countsByDate[$date] ?? 0;
+            if ($date >= $firstDateStr) {
+                $previousWeek[$date] = $countsByDate[$date] ?? 0;
+                $previousDaysWithData++;
+            }
+        }
+
+        // Si pas assez de données pour comparer (moins de 3 jours dans une des semaines)
+        if ($currentDaysWithData < 3 || $previousDaysWithData < 1) {
+            return null;
         }
 
         $currentTotal = array_sum($currentWeek);
         $previousTotal = array_sum($previousWeek);
-        $currentAvg = count($currentWeek) > 0 ? round($currentTotal / count($currentWeek), 1) : 0;
-        $previousAvg = count($previousWeek) > 0 ? round($previousTotal / count($previousWeek), 1) : 0;
+
+        // Calculer les moyennes en fonction du nombre RÉEL de jours avec données
+        $currentAvg = $currentDaysWithData > 0 ? round($currentTotal / $currentDaysWithData, 1) : 0;
+        $previousAvg = $previousDaysWithData > 0 ? round($previousTotal / $previousDaysWithData, 1) : 0;
 
         return [
             'current' => [
                 'days' => $currentWeek,
                 'total' => $currentTotal,
                 'avg' => $currentAvg,
+                'days_count' => $currentDaysWithData,
             ],
             'previous' => [
                 'days' => $previousWeek,
                 'total' => $previousTotal,
                 'avg' => $previousAvg,
+                'days_count' => $previousDaysWithData,
             ],
             'diff_total' => $currentTotal - $previousTotal,
             'diff_avg' => round($currentAvg - $previousAvg, 1),

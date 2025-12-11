@@ -170,7 +170,18 @@
     </header>
 
     <!-- Tendances et projection -->
-    {% if weekly_comparison and savings.daily_avg > 0 %}
+    {% if weekly_comparison is null and first_date %}
+    <div class="card">
+        <h3 style="margin-bottom: 15px;">📈 Tendances</h3>
+        <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+            <div style="font-size: 2rem; margin-bottom: 10px;">📊</div>
+            <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                Continue encore quelques jours pour voir tes tendances !
+                <br>Les comparaisons seront disponibles après 2 semaines d'utilisation.
+            </div>
+        </div>
+    </div>
+    {% elseif weekly_comparison and savings.daily_avg > 0 %}
     <div class="card">
         <h3 style="margin-bottom: 15px;">📈 Tendances</h3>
         {% set trend = weekly_comparison.diff_avg %}
@@ -185,6 +196,9 @@
                 </div>
                 <div style="font-size: 0.85rem; color: var(--text-secondary);">
                     vs semaine dernière
+                    {% if weekly_comparison.previous.days_count is defined and weekly_comparison.previous.days_count < 7 %}
+                        ({{ weekly_comparison.previous.days_count }}j de données)
+                    {% endif %}
                 </div>
             </div>
         </div>
