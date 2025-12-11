@@ -13,6 +13,7 @@ use App\Service\GoalService;
 use App\Service\MessageService;
 use App\Service\ScoringService;
 use App\Service\StatsService;
+use App\Service\StreakService;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
 use Symfony\Component\HttpFoundation\JsonResponse;
@@ -35,6 +36,7 @@ class HomeController extends AbstractController
         private MessageService $messageService,
         private GoalService $goalService,
         private StatsService $statsService,
+        private StreakService $streakService,
         private CsrfTokenManagerInterface $csrfTokenManager
     ) {}
 
@@ -72,6 +74,9 @@ class HomeController extends AbstractController
         // Vérifier si un nouveau palier est atteint (pour célébration)
         $tierAchievement = $this->goalService->checkTierAchievement();
 
+        // Prochain milestone de streak
+        $nextMilestone = $this->streakService->getNextMilestone($streak['current']);
+
         return $this->render('home/index.html.twig', [
             'today_cigarettes' => $todayCigs,
             'yesterday_count' => count($yesterdayCigs),
@@ -82,6 +87,7 @@ class HomeController extends AbstractController
             'next_cig_target' => $nextCigTarget,
             'encouragement' => $encouragement,
             'streak' => $streak,
+            'next_milestone' => $nextMilestone,
             'show_wakeup_modal' => $todayWakeUp === null,
             'goal_progress' => $goalProgress,
             'tier_achievement' => $tierAchievement,
@@ -173,6 +179,9 @@ class HomeController extends AbstractController
             }
         }
 
+        // Prochain milestone de streak
+        $nextMilestone = $this->streakService->getNextMilestone($streak['current']);
+
         return new JsonResponse([
             'success' => true,
             'cigarette_id' => $cigarette->getId(),
@@ -181,6 +190,7 @@ class HomeController extends AbstractController
             'today_count' => $todayCount,
             'daily_score' => $dailyScore['total_score'],
             'streak' => $streak,
+            'next_milestone' => $nextMilestone,
             'new_badges' => $newBadgesInfo,
         ]);
     }

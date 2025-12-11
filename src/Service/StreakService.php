@@ -12,6 +12,21 @@ use App\Repository\WakeUpRepository;
  */
 class StreakService
 {
+    /**
+     * Milestones de streak à célébrer
+     */
+    private const MILESTONES = [
+        3 => ['emoji' => '🌟', 'message' => '3 jours de suite !'],
+        7 => ['emoji' => '🔥', 'message' => 'Une semaine complète !'],
+        14 => ['emoji' => '💪', 'message' => '2 semaines de suite !'],
+        21 => ['emoji' => '🏅', 'message' => '3 semaines !'],
+        30 => ['emoji' => '🏆', 'message' => 'Un mois entier !'],
+        60 => ['emoji' => '⭐', 'message' => '2 mois de streak !'],
+        90 => ['emoji' => '👑', 'message' => '3 mois légendaires !'],
+        180 => ['emoji' => '🎖️', 'message' => '6 mois incroyables !'],
+        365 => ['emoji' => '🏅', 'message' => 'Une année complète !'],
+    ];
+
     public function __construct(
         private CigaretteRepository $cigaretteRepository,
         private WakeUpRepository $wakeUpRepository,
@@ -89,6 +104,60 @@ class StreakService
             'best' => $bestStreak,
             'today_positive' => $todayPositive,
         ];
+    }
+
+    /**
+     * Vérifie si un milestone de streak vient d'être atteint
+     * @return array|null Infos sur le milestone ou null si aucun
+     */
+    public function checkMilestone(int $currentStreak, int $previousStreak): ?array
+    {
+        foreach (self::MILESTONES as $days => $info) {
+            // Le milestone est atteint si on vient de passer ce nombre de jours
+            if ($currentStreak >= $days && $previousStreak < $days) {
+                return [
+                    'days' => $days,
+                    'emoji' => $info['emoji'],
+                    'message' => $info['message'],
+                ];
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Retourne le prochain milestone à atteindre
+     */
+    public function getNextMilestone(int $currentStreak): ?array
+    {
+        foreach (self::MILESTONES as $days => $info) {
+            if ($days > $currentStreak) {
+                return [
+                    'days' => $days,
+                    'days_remaining' => $days - $currentStreak,
+                    'emoji' => $info['emoji'],
+                    'message' => $info['message'],
+                ];
+            }
+        }
+        return null; // Tous les milestones atteints !
+    }
+
+    /**
+     * Retourne tous les milestones avec leur statut
+     */
+    public function getAllMilestones(int $currentStreak): array
+    {
+        $result = [];
+        foreach (self::MILESTONES as $days => $info) {
+            $result[] = [
+                'days' => $days,
+                'emoji' => $info['emoji'],
+                'message' => $info['message'],
+                'achieved' => $currentStreak >= $days,
+            ];
+        }
+        return $result;
     }
 
     /**
