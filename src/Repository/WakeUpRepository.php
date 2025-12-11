@@ -36,4 +36,29 @@ class WakeUpRepository extends ServiceEntityRepository
     {
         return $this->findByDate(new \DateTime('-1 day'));
     }
+
+    /**
+     * Find wake-ups for a date range (single query for batch operations)
+     * @return array<string, WakeUp> Indexed by date string (Y-m-d)
+     */
+    public function findByDateRange(\DateTimeInterface $startDate, \DateTimeInterface $endDate): array
+    {
+        $start = (clone $startDate)->setTime(0, 0, 0);
+        $end = (clone $endDate)->setTime(0, 0, 0);
+
+        $wakeUps = $this->createQueryBuilder('w')
+            ->where('w.date >= :start')
+            ->andWhere('w.date <= :end')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getQuery()
+            ->getResult();
+
+        $indexed = [];
+        foreach ($wakeUps as $wakeUp) {
+            $indexed[$wakeUp->getDate()->format('Y-m-d')] = $wakeUp;
+        }
+
+        return $indexed;
+    }
 }

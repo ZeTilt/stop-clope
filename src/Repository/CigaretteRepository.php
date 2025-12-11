@@ -43,7 +43,17 @@ class CigaretteRepository extends ServiceEntityRepository
 
     public function countByDate(\DateTimeInterface $date): int
     {
-        return count($this->findByDate($date));
+        $start = (clone $date)->setTime(0, 0, 0);
+        $end = (clone $date)->setTime(23, 59, 59);
+
+        return (int) $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->where('c.smokedAt >= :start')
+            ->andWhere('c.smokedAt <= :end')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->getQuery()
+            ->getSingleScalarResult();
     }
 
     public function getFirstCigaretteDate(): ?\DateTimeInterface
@@ -190,24 +200,46 @@ class CigaretteRepository extends ServiceEntityRepository
     }
 
     /**
-     * Stats pour comparaison semaine glissante
+     * Stats pour comparaison semaine glissante (optimized - single query)
      * @return array ['current' => [...], 'previous' => [...]]
      */
     public function getWeeklyComparison(): array
     {
+        $conn = $this->getEntityManager()->getConnection();
+
+        // Single query for both weeks
+        $sql = '
+            SELECT DATE(smoked_at) as date, COUNT(id) as count
+            FROM cigarette
+            WHERE smoked_at >= :start
+            GROUP BY DATE(smoked_at)
+            ORDER BY date ASC
+        ';
+
+        $startDate = new \DateTime('-13 days');
+        $startDate->setTime(0, 0, 0);
+
+        $results = $conn->executeQuery($sql, ['start' => $startDate->format('Y-m-d H:i:s')])->fetchAllAssociative();
+
+        // Build lookup map
+        $countsByDate = [];
+        foreach ($results as $row) {
+            $countsByDate[$row['date']] = (int) $row['count'];
+        }
+
         $currentWeek = [];
         $previousWeek = [];
 
         // Semaine actuelle (7 derniers jours)
         for ($i = 6; $i >= 0; $i--) {
-            $date = new \DateTime("-{$i} days");
-            $currentWeek[$date->format('Y-m-d')] = $this->countByDate($date);
+            $date = (new \DateTime("-{$i} days"))->format('Y-m-d');
+            $currentWeek[$date] = $countsByDate[$date] ?? 0;
         }
 
         // Semaine précédente (jours 7 à 13)
         for ($i = 13; $i >= 7; $i--) {
-            $date = new \DateTime("-{$i} days");
-            $previousWeek[$date->format('Y-m-d')] = $this->countByDate($date);
+            $date = (new \DateTime("-{$i} days"))->format('Y-m-d');
+            $previousWeek[$date] = $countsByDate[$date] ?? 0;
         }
 
         $currentTotal = array_sum($currentWeek);
@@ -229,5 +261,36 @@ class CigaretteRepository extends ServiceEntityRepository
             'diff_total' => $currentTotal - $previousTotal,
             'diff_avg' => round($currentAvg - $previousAvg, 1),
         ];
+    }
+
+    /**
+     * Find cigarettes for a date range (single query for batch operations)
+     * @return array<string, array<Cigarette>>
+     */
+    public function findByDateRange(\DateTimeInterface $startDate, \DateTimeInterface $endDate): array
+    {
+        $start = (clone $startDate)->setTime(0, 0, 0);
+        $end = (clone $endDate)->setTime(23, 59, 59);
+
+        $cigarettes = $this->createQueryBuilder('c')
+            ->where('c.smokedAt >= :start')
+            ->andWhere('c.smokedAt <= :end')
+            ->setParameter('start', $start)
+            ->setParameter('end', $end)
+            ->orderBy('c.smokedAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        // Group by date
+        $grouped = [];
+        foreach ($cigarettes as $cig) {
+            $date = $cig->getSmokedAt()->format('Y-m-d');
+            if (!isset($grouped[$date])) {
+                $grouped[$date] = [];
+            }
+            $grouped[$date][] = $cig;
+        }
+
+        return $grouped;
     }
 }

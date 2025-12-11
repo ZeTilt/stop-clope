@@ -25,4 +25,8 @@
 
 ###> project ###
 /docs/
+.env.dev
+.env.test
+.env.local
+.claude/
 ###< project ###

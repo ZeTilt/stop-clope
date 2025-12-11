@@ -61,6 +61,9 @@
 </div>
 
 <script>
+    // Get CSRF token for secure requests
+    const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
     // ===== Paramètres serveur =====
     function saveSettings() {
         const packPrice = document.getElementById('packPrice').value;
@@ -71,6 +74,7 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-Token': csrfToken
             },
             body: `pack_price=${packPrice}&cigs_per_pack=${cigsPerPack}&initial_daily_cigs=${initialDailyCigs}`
         })
@@ -79,7 +83,12 @@
             if (data.success) {
                 showToast('Paramètres enregistrés');
                 setTimeout(() => window.location.href = '{{ path('app_stats') }}', 1000);
+            } else {
+                showToast(data.error || 'Erreur lors de l\'enregistrement');
             }
+        })
+        .catch(err => {
+            showToast('Erreur réseau');
         });
     }
 

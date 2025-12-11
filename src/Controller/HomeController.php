@@ -14,6 +14,8 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Symfony\Component\Security\Csrf\CsrfToken;
+use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 
 class HomeController extends AbstractController
 {
@@ -22,8 +24,18 @@ class HomeController extends AbstractController
         private CigaretteRepository $cigaretteRepository,
         private WakeUpRepository $wakeUpRepository,
         private SettingsRepository $settingsRepository,
-        private ScoringService $scoringService
+        private ScoringService $scoringService,
+        private CsrfTokenManagerInterface $csrfTokenManager
     ) {}
+
+    private function validateCsrfToken(Request $request): bool
+    {
+        $token = $request->headers->get('X-CSRF-Token');
+        if (!$token) {
+            return false;
+        }
+        return $this->csrfTokenManager->isTokenValid(new CsrfToken('ajax', $token));
+    }
 
     #[Route('/', name: 'app_home')]
     public function index(): Response
@@ -125,6 +137,11 @@ class HomeController extends AbstractController
     #[Route('/log', name: 'app_log_cigarette', methods: ['POST'])]
     public function logCigarette(Request $request): JsonResponse
     {
+        // Validate CSRF token
+        if (!$this->validateCsrfToken($request)) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid CSRF token'], 403);
+        }
+
         $cigarette = new Cigarette();
 
         // Le client envoie l'heure locale + son décalage timezone
@@ -132,19 +149,45 @@ class HomeController extends AbstractController
         $tzOffset = $request->request->getInt('tz_offset', 0); // En minutes, positif pour Est
         $isRetroactive = $request->request->getBoolean('is_retroactive', false);
 
-        if ($localTime) {
-            // Créer le timezone à partir de l'offset
-            $tzString = sprintf('%+03d:%02d', intdiv($tzOffset, 60), abs($tzOffset) % 60);
-            $tz = new \DateTimeZone($tzString);
-            $smokedAt = \DateTime::createFromFormat('Y-m-d H:i', $localTime, $tz);
-            if ($smokedAt) {
-                $cigarette->setSmokedAt($smokedAt);
-                $cigarette->setIsRetroactive($isRetroactive);
-            }
+        // Validate local_time format
+        if (!$localTime || !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $localTime)) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid time format'], 400);
         }
 
-        $this->entityManager->persist($cigarette);
-        $this->entityManager->flush();
+        // Validate timezone offset (reasonable range: -720 to +840 minutes)
+        if ($tzOffset < -720 || $tzOffset > 840) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid timezone offset'], 400);
+        }
+
+        // Créer le timezone à partir de l'offset
+        $tzString = sprintf('%+03d:%02d', intdiv($tzOffset, 60), abs($tzOffset) % 60);
+        try {
+            $tz = new \DateTimeZone($tzString);
+        } catch (\Exception $e) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid timezone'], 400);
+        }
+
+        $smokedAt = \DateTime::createFromFormat('Y-m-d H:i', $localTime, $tz);
+        if (!$smokedAt) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid datetime'], 400);
+        }
+
+        // Prevent future dates (with 5 min tolerance)
+        $now = new \DateTime();
+        $now->modify('+5 minutes');
+        if ($smokedAt > $now) {
+            return new JsonResponse(['success' => false, 'error' => 'Cannot log future cigarettes'], 400);
+        }
+
+        $cigarette->setSmokedAt($smokedAt);
+        $cigarette->setIsRetroactive($isRetroactive);
+
+        try {
+            $this->entityManager->persist($cigarette);
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
+        }
 
         $today = new \DateTime();
         $dailyScore = $this->scoringService->calculateDailyScore($today);
@@ -163,13 +206,32 @@ class HomeController extends AbstractController
     #[Route('/wakeup', name: 'app_log_wakeup', methods: ['POST'])]
     public function logWakeUp(Request $request): JsonResponse
     {
+        // Validate CSRF token
+        if (!$this->validateCsrfToken($request)) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid CSRF token'], 403);
+        }
+
         // Le client envoie l'heure locale + son décalage timezone
         $wakeTimeStr = $request->request->get('wake_time');
         $tzOffset = $request->request->getInt('tz_offset', 0);
 
+        // Validate wake_time format
+        if ($wakeTimeStr && !preg_match('/^\d{2}:\d{2}$/', $wakeTimeStr)) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid time format'], 400);
+        }
+
+        // Validate timezone offset
+        if ($tzOffset < -720 || $tzOffset > 840) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid timezone offset'], 400);
+        }
+
         // Créer le timezone à partir de l'offset
         $tzString = sprintf('%+03d:%02d', intdiv($tzOffset, 60), abs($tzOffset) % 60);
-        $tz = new \DateTimeZone($tzString);
+        try {
+            $tz = new \DateTimeZone($tzString);
+        } catch (\Exception $e) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid timezone'], 400);
+        }
 
         $today = new \DateTime('now', $tz);
         $today->setTime(0, 0, 0);
@@ -185,14 +247,21 @@ class HomeController extends AbstractController
         if ($wakeTimeStr) {
             // Créer un DateTime avec l'heure dans le bon timezone
             $wakeTime = \DateTime::createFromFormat('H:i', $wakeTimeStr, $tz);
+            if (!$wakeTime) {
+                return new JsonResponse(['success' => false, 'error' => 'Invalid time'], 400);
+            }
         } else {
             $wakeTime = new \DateTime('now', $tz);
         }
 
         $wakeUp->setWakeTime($wakeTime);
 
-        $this->entityManager->persist($wakeUp);
-        $this->entityManager->flush();
+        try {
+            $this->entityManager->persist($wakeUp);
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
+        }
 
         return new JsonResponse([
             'success' => true,
@@ -201,10 +270,19 @@ class HomeController extends AbstractController
     }
 
     #[Route('/delete/{id}', name: 'app_delete_cigarette', methods: ['POST'])]
-    public function deleteCigarette(Cigarette $cigarette): JsonResponse
+    public function deleteCigarette(Cigarette $cigarette, Request $request): JsonResponse
     {
-        $this->entityManager->remove($cigarette);
-        $this->entityManager->flush();
+        // Validate CSRF token
+        if (!$this->validateCsrfToken($request)) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid CSRF token'], 403);
+        }
+
+        try {
+            $this->entityManager->remove($cigarette);
+            $this->entityManager->flush();
+        } catch (\Exception $e) {
+            return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
+        }
 
         $today = new \DateTime();
         $todayCount = $this->cigaretteRepository->countByDate($today);
@@ -269,6 +347,11 @@ class HomeController extends AbstractController
         $cigsPerPack = (int) $this->settingsRepository->get('cigs_per_pack', '20');
         $initialDailyCigs = (int) $this->settingsRepository->get('initial_daily_cigs', '20');
 
+        // Prevent division by zero
+        if ($cigsPerPack <= 0) {
+            $cigsPerPack = 20;
+        }
+
         $pricePerCig = $packPrice / $cigsPerPack;
 
         // Calculer depuis le premier jour
@@ -309,18 +392,37 @@ class HomeController extends AbstractController
     #[Route('/settings/save', name: 'app_settings_save', methods: ['POST'])]
     public function saveSettings(Request $request): JsonResponse
     {
+        // Validate CSRF token
+        if (!$this->validateCsrfToken($request)) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid CSRF token'], 403);
+        }
+
         $packPrice = $request->request->get('pack_price');
         $cigsPerPack = $request->request->get('cigs_per_pack');
         $initialDailyCigs = $request->request->get('initial_daily_cigs');
 
-        if ($packPrice) {
-            $this->settingsRepository->set('pack_price', $packPrice);
+        // Validate pack_price (positive number)
+        if ($packPrice !== null && $packPrice !== '') {
+            if (!is_numeric($packPrice) || (float) $packPrice <= 0 || (float) $packPrice > 100) {
+                return new JsonResponse(['success' => false, 'error' => 'Invalid pack price'], 400);
+            }
+            $this->settingsRepository->set('pack_price', (string) round((float) $packPrice, 2));
         }
-        if ($cigsPerPack) {
-            $this->settingsRepository->set('cigs_per_pack', $cigsPerPack);
+
+        // Validate cigs_per_pack (positive integer)
+        if ($cigsPerPack !== null && $cigsPerPack !== '') {
+            if (!is_numeric($cigsPerPack) || (int) $cigsPerPack <= 0 || (int) $cigsPerPack > 100) {
+                return new JsonResponse(['success' => false, 'error' => 'Invalid cigarettes per pack'], 400);
+            }
+            $this->settingsRepository->set('cigs_per_pack', (string) (int) $cigsPerPack);
         }
-        if ($initialDailyCigs) {
-            $this->settingsRepository->set('initial_daily_cigs', $initialDailyCigs);
+
+        // Validate initial_daily_cigs (positive integer)
+        if ($initialDailyCigs !== null && $initialDailyCigs !== '') {
+            if (!is_numeric($initialDailyCigs) || (int) $initialDailyCigs <= 0 || (int) $initialDailyCigs > 100) {
+                return new JsonResponse(['success' => false, 'error' => 'Invalid initial daily cigarettes'], 400);
+            }
+            $this->settingsRepository->set('initial_daily_cigs', (string) (int) $initialDailyCigs);
         }
 
         return new JsonResponse(['success' => true]);

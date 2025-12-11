@@ -165,7 +165,7 @@
                                 <span class="cig-badge">ajoutée après</span>
                             {% endif %}
                         </div>
-                        <button class="delete-btn" onclick="deleteCigarette({{ cig.id }})">✕</button>
+                        <button class="delete-btn" onclick="deleteCigarette({{ cig.id }})" aria-label="Supprimer la cigarette de {{ cig.smokedAt|date('H:i') }}"><span aria-hidden="true">✕</span></button>
                     </li>
                 {% endfor %}
             </ul>
@@ -179,12 +179,13 @@
 </div>
 
 <!-- Modal ajout rétroactif -->
-<div class="modal" id="retroModal">
+<div class="modal" id="retroModal" role="dialog" aria-modal="true" aria-labelledby="retroModalTitle">
     <div class="modal-content">
-        <h3 class="modal-title">Ajouter une clope passée</h3>
+        <h3 class="modal-title" id="retroModalTitle">Ajouter une clope passée</h3>
         <div class="input-group">
             <label for="customTime">Date et heure</label>
-            <input type="datetime-local" id="customTime">
+            <input type="datetime-local" id="customTime" aria-describedby="customTimeHelp">
+            <small id="customTimeHelp" style="color: var(--text-secondary); font-size: 0.75rem;">Sélectionne la date et l'heure de la cigarette</small>
         </div>
         <div class="modal-buttons">
             <button class="btn-cancel" onclick="closeModal()">Annuler</button>
@@ -194,7 +195,7 @@
 </div>
 
 <!-- Modal réveil -->
-<div class="modal" id="wakeUpModal">
+<div class="modal" id="wakeUpModal" role="dialog" aria-modal="true" aria-labelledby="wakeUpModalTitle">
     <div class="modal-content">
         <h3 class="modal-title" id="wakeUpModalTitle">Heure de réveil</h3>
         <p id="wakeUpModalSubtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px; display: none;">
@@ -202,7 +203,7 @@
         </p>
         <div class="input-group">
             <label for="wakeTime">Heure</label>
-            <input type="time" id="wakeTime">
+            <input type="time" id="wakeTime" aria-required="true">
         </div>
         <div class="modal-buttons">
             <button class="btn-cancel" id="wakeUpCancelBtn" onclick="closeWakeUpModal()">Annuler</button>
@@ -213,6 +214,9 @@
 
 <script>
 (function() {
+    // Get CSRF token for secure requests
+    var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+
     // Set default datetime to now
     document.getElementById('customTime').value = new Date().toISOString().slice(0, 16);
     document.getElementById('wakeTime').value = new Date().toTimeString().slice(0, 5);
@@ -316,7 +320,7 @@
     window.logCigarette = function() {
         var btn = document.getElementById('logBtn');
         btn.disabled = true;
-        btn.textContent = '⏳ Enregistrement...';
+        btn.innerHTML = '<span class="spinner"></span> Enregistrement...';
 
         // Envoyer l'heure locale + offset timezone
         var now = new Date();
@@ -331,6 +335,7 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-Token': csrfToken
             },
             body: 'local_time=' + encodeURIComponent(localTime) + '&tz_offset=' + tzOffset
         })
@@ -342,7 +347,8 @@
             if (data.success) {
                 showToast('Clope enregistrée à ' + data.smoked_at);
                 document.getElementById('todayCount').textContent = data.today_count;
-                setTimeout(function() { location.reload(); }, 1000);
+                // Ajouter la clope à la liste sans reload
+                addCigaretteToList(data.cigarette_id, data.smoked_at, data.is_retroactive);
             }
         })
         .catch(function(err) {
@@ -355,9 +361,29 @@
         })
         .finally(function() {
             btn.disabled = false;
-            btn.textContent = '🚬 J\'ai fumé une clope';
+            btn.innerHTML = '🚬 J\'ai fumé une clope';
         });
     };
+
+    // Ajouter une cigarette à la liste sans reload
+    function addCigaretteToList(id, time, isRetroactive) {
+        var list = document.getElementById('cigList');
+        var emptyState = document.querySelector('.empty-state');
+
+        // Supprimer l'état vide s'il existe
+        if (emptyState) {
+            emptyState.parentElement.innerHTML = '<ul class="cig-list" id="cigList"></ul>';
+            list = document.getElementById('cigList');
+        }
+
+        var li = document.createElement('li');
+        li.className = 'cig-item';
+        li.setAttribute('data-id', id);
+        li.innerHTML = '<div><span class="cig-time">' + time + '</span>' +
+            (isRetroactive ? '<span class="cig-badge">ajoutée après</span>' : '') +
+            '</div><button class="delete-btn" onclick="deleteCigarette(' + id + ')" aria-label="Supprimer la cigarette de ' + time + '"><span aria-hidden="true">✕</span></button>';
+        list.appendChild(li);
+    }
 
     window.openModal = function() {
         document.getElementById('retroModal').classList.add('active');
@@ -378,6 +404,7 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-Token': csrfToken
             },
             body: 'local_time=' + encodeURIComponent(localTime) + '&tz_offset=' + tzOffset + '&is_retroactive=1'
         })
@@ -389,7 +416,10 @@
             if (data.success) {
                 showToast('Clope ajoutée à ' + data.smoked_at);
                 closeModal();
-                setTimeout(function() { location.reload(); }, 1000);
+                // Ajouter à la liste sans reload
+                addCigaretteToList(data.cigarette_id, data.smoked_at, true);
+                var countEl = document.getElementById('todayCount');
+                countEl.textContent = data.today_count;
             }
         })
         .catch(function(err) {
@@ -403,7 +433,10 @@
         if (!confirm('Supprimer cette clope ?')) return;
 
         fetch('/delete/' + id, {
-            method: 'POST'
+            method: 'POST',
+            headers: {
+                'X-CSRF-Token': csrfToken
+            }
         })
         .then(function(response) {
             if (!response.ok) throw new Error('Network error');
@@ -414,7 +447,11 @@
                 showToast('Clope supprimée');
                 document.querySelector('[data-id="' + id + '"]').remove();
                 document.getElementById('todayCount').textContent = data.today_count;
-                setTimeout(function() { location.reload(); }, 1000);
+                // Vérifier si la liste est vide et afficher l'état vide
+                var list = document.getElementById('cigList');
+                if (list && list.children.length === 0) {
+                    list.parentElement.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎉</div><p>Aucune clope aujourd\'hui !</p></div>';
+                }
             }
         })
         .catch(function(err) {
@@ -442,6 +479,7 @@
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-Token': csrfToken
             },
             body: 'wake_time=' + encodeURIComponent(wakeTime) + '&tz_offset=' + tzOffset
         })
@@ -454,7 +492,12 @@
                 showToast('Réveil enregistré à ' + data.wake_time);
                 document.getElementById('wakeupDisplay').textContent = data.wake_time;
                 closeWakeUpModal();
-                setTimeout(function() { location.reload(); }, 1000);
+                // Mettre à jour le bouton sans reload
+                var wakeBtn = document.querySelector('.card button.secondary-button');
+                if (wakeBtn) {
+                    wakeBtn.textContent = 'Modifier';
+                    wakeBtn.style.background = '';
+                }
             }
         })
         .catch(function(err) {

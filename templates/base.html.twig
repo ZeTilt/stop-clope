@@ -2,7 +2,8 @@
 <html lang="fr">
     <head>
         <meta charset="UTF-8">
-        <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0">
+        <meta name="csrf-token" content="{{ csrf_token('ajax') }}">
         <meta name="theme-color" content="#1a1a2e">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -367,6 +368,87 @@
                 margin-bottom: 15px;
             }
 
+            /* Focus indicators for accessibility (WCAG 2.4.7) */
+            *:focus-visible {
+                outline: 3px solid var(--success);
+                outline-offset: 2px;
+            }
+
+            button:focus-visible,
+            input:focus-visible,
+            a:focus-visible,
+            select:focus-visible {
+                outline: 3px solid var(--success);
+                outline-offset: 2px;
+            }
+
+            /* Skip link for accessibility (WCAG 2.4.1) */
+            .skip-link {
+                position: absolute;
+                top: -40px;
+                left: 0;
+                background: var(--accent);
+                color: white;
+                padding: 8px 16px;
+                z-index: 100;
+                text-decoration: none;
+                border-radius: 0 0 8px 0;
+            }
+
+            .skip-link:focus {
+                top: 0;
+            }
+
+            /* Improved delete button size for touch (44x44px minimum) */
+            .delete-btn {
+                background: transparent;
+                border: none;
+                color: var(--accent);
+                font-size: 1.2rem;
+                cursor: pointer;
+                padding: 12px 16px;
+                min-width: 44px;
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+
+            .delete-btn:hover {
+                background: rgba(233, 69, 96, 0.1);
+                border-radius: 8px;
+            }
+
+            /* Secondary button hover state */
+            .secondary-button:hover {
+                background: var(--bg-card);
+                border-color: var(--accent);
+            }
+
+            /* Improved text contrast (WCAG 1.4.3) */
+            .score-label,
+            .stat-label,
+            .nav-item {
+                color: #b0b0b0; /* 4.5:1 contrast ratio */
+            }
+
+            /* Loading spinner */
+            .spinner {
+                display: inline-block;
+                width: 20px;
+                height: 20px;
+                border: 3px solid rgba(255,255,255,0.3);
+                border-radius: 50%;
+                border-top-color: white;
+                animation: spin 1s linear infinite;
+                margin-right: 8px;
+                vertical-align: middle;
+            }
+
+            @keyframes spin {
+                to { transform: rotate(360deg); }
+            }
+
         </style>
         {% endblock %}
 
@@ -375,24 +457,28 @@
         {% endblock %}
     </head>
     <body>
-        {% block body %}{% endblock %}
+        <a href="#main-content" class="skip-link">Aller au contenu principal</a>
 
-        <nav class="nav-bottom">
-            <a href="{{ path('app_home') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_home' ? 'active' : '' }}">
-                <span class="nav-icon">🏠</span>
+        <main id="main-content" role="main">
+            {% block body %}{% endblock %}
+        </main>
+
+        <nav class="nav-bottom" role="navigation" aria-label="Navigation principale">
+            <a href="{{ path('app_home') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_home' ? 'active' : '' }}" {% if app.request.attributes.get('_route') == 'app_home' %}aria-current="page"{% endif %}>
+                <span class="nav-icon" aria-hidden="true">🏠</span>
                 <span>Accueil</span>
             </a>
-            <a href="{{ path('app_stats') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_stats' ? 'active' : '' }}">
-                <span class="nav-icon">📊</span>
+            <a href="{{ path('app_stats') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_stats' ? 'active' : '' }}" {% if app.request.attributes.get('_route') == 'app_stats' %}aria-current="page"{% endif %}>
+                <span class="nav-icon" aria-hidden="true">📊</span>
                 <span>Stats</span>
             </a>
-            <a href="{{ path('app_history') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_history' ? 'active' : '' }}">
-                <span class="nav-icon">📅</span>
+            <a href="{{ path('app_history') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_history' ? 'active' : '' }}" {% if app.request.attributes.get('_route') == 'app_history' %}aria-current="page"{% endif %}>
+                <span class="nav-icon" aria-hidden="true">📅</span>
                 <span>Historique</span>
             </a>
         </nav>
 
-        <div id="toast" class="toast"></div>
+        <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
         <script>
             // Register Service Worker
@@ -463,8 +549,7 @@
                 }
 
                 clearOfflineQueue();
-                showToast('Données synchronisées');
-                setTimeout(() => location.reload(), 1000);
+                showToast('Données synchronisées - Rafraîchir pour voir les mises à jour');
             }
 
             // Check online status
