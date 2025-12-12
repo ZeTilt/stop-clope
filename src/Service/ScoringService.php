@@ -321,22 +321,20 @@ class ScoringService
     }
 
     /**
-     * Calcule le palier automatique basé sur la consommation initiale
-     * -1 clope/semaine depuis le début
+     * Récupère le palier automatique actuel depuis les settings
+     * Le calcul est fait par GoalService::getTierInfo()
      */
     private function calculateAutoTier(\DateTimeInterface $date): int
     {
-        $initialDailyCigs = (int) $this->settingsRepository->get('initial_daily_cigs', '20');
-        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
+        // Le palier est calculé et stocké par GoalService
+        $currentTier = $this->settingsRepository->get('current_auto_tier');
 
-        if (!$firstDate) {
-            return $initialDailyCigs;
+        if ($currentTier !== null) {
+            return (int) $currentTier;
         }
 
-        $daysSinceStart = max(0, $date->diff($firstDate)->days);
-        $weeksActive = (int) floor($daysSinceStart / 7);
-
-        return max(0, $initialDailyCigs - $weeksActive);
+        // Fallback sur la valeur initiale si pas encore calculé
+        return (int) $this->settingsRepository->get('initial_daily_cigs', '20');
     }
 
     /**

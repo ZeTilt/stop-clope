@@ -98,6 +98,48 @@ class CigaretteRepository extends ServiceEntityRepository
         return $result ? $result['smokedAt'] : null;
     }
 
+    /**
+     * Calcule la moyenne quotidienne sur les X derniers jours complets
+     * Exclut aujourd'hui (journée incomplète)
+     * @return float|null Moyenne ou null si pas assez de données
+     */
+    public function getAverageDailyCount(int $days = 14): ?float
+    {
+        $conn = $this->getEntityManager()->getConnection();
+
+        $userId = $this->getUserId();
+        $userCondition = $userId ? 'AND user_id = :user_id' : '';
+
+        // Compter les clopes par jour sur les X derniers jours (hors aujourd'hui)
+        $sql = "
+            SELECT DATE(smoked_at) as date, COUNT(id) as count
+            FROM cigarette
+            WHERE DATE(smoked_at) >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
+              AND DATE(smoked_at) < CURDATE()
+              {$userCondition}
+            GROUP BY DATE(smoked_at)
+        ";
+
+        $params = ['days' => $days];
+        if ($userId) {
+            $params['user_id'] = $userId;
+        }
+
+        $results = $conn->executeQuery($sql, $params)->fetchAllAssociative();
+
+        if (empty($results)) {
+            return null;
+        }
+
+        $total = 0;
+        foreach ($results as $row) {
+            $total += (int) $row['count'];
+        }
+
+        // Moyenne = total / nombre de jours avec données
+        return $total / count($results);
+    }
+
     public function getDailyStats(int $days = 30, bool $excludeToday = true): array
     {
         $startDate = new \DateTime("-{$days} days");

@@ -37,75 +37,88 @@ class GoalService
     }
 
     /**
-     * Calcule le palier actuel et le prochain palier
-     * Basé sur la consommation initiale et la progression par semaine
+     * Calcule le palier actuel dynamique
+     * = floor(moyenne 14 derniers jours) - 1
      *
-     * @return array{current_tier: int, next_tier: int|null, weeks_active: int, initial: int, reduction_per_week: int}
+     * Règles :
+     * - Basé sur la moyenne des 14 derniers jours complets
+     * - -1 pour pousser à la progression
+     * - Ne peut JAMAIS monter (plafond = palier précédent stocké)
+     * - Minimum = 0
+     *
+     * @return array{current_tier: int, next_tier: int|null, initial: int, avg_14d: float|null}
      */
     public function getTierInfo(): array
     {
         $initialDailyCigs = (int) $this->settingsRepository->get('initial_daily_cigs', '20');
-        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
 
-        if (!$firstDate) {
+        // Récupérer la moyenne des 14 derniers jours
+        $avgDaily = $this->cigaretteRepository->getAverageDailyCount(14);
+
+        if ($avgDaily === null) {
+            // Pas assez de données, utiliser la valeur initiale
             return [
                 'current_tier' => $initialDailyCigs,
                 'next_tier' => max(0, $initialDailyCigs - 1),
-                'weeks_active' => 0,
                 'initial' => $initialDailyCigs,
-                'reduction_per_week' => 1,
+                'avg_14d' => null,
             ];
         }
 
-        $daysSinceStart = max(1, (new \DateTime())->diff($firstDate)->days);
-        $weeksActive = (int) floor($daysSinceStart / 7);
+        // Palier dynamique = floor(moyenne) - 1 (toujours pousser vers le bas)
+        $dynamicTier = max(0, (int) floor($avgDaily) - 1);
 
-        // Réduction de 1 clope par semaine
-        $reductionPerWeek = 1;
-        $currentTier = max(0, $initialDailyCigs - ($weeksActive * $reductionPerWeek));
+        // Récupérer le palier précédent (plafond - ne peut pas monter)
+        $previousTier = $this->settingsRepository->get('current_auto_tier');
+
+        if ($previousTier === null) {
+            // Premier calcul : initialiser avec le palier dynamique ou initial
+            $currentTier = min($initialDailyCigs, $dynamicTier);
+        } else {
+            // Le palier ne peut que descendre ou rester stable
+            $currentTier = min((int) $previousTier, $dynamicTier);
+        }
+
+        // Sauvegarder le nouveau palier si différent
+        if ($previousTier === null || (int) $previousTier !== $currentTier) {
+            $this->settingsRepository->set('current_auto_tier', (string) $currentTier);
+        }
+
         $nextTier = $currentTier > 0 ? $currentTier - 1 : null;
 
         return [
             'current_tier' => $currentTier,
             'next_tier' => $nextTier,
-            'weeks_active' => $weeksActive,
             'initial' => $initialDailyCigs,
-            'reduction_per_week' => $reductionPerWeek,
-            'days_until_next_tier' => 7 - ($daysSinceStart % 7),
+            'avg_14d' => round($avgDaily, 1),
         ];
     }
 
     /**
-     * Vérifie si l'utilisateur a atteint un nouveau palier aujourd'hui
+     * Vérifie si l'utilisateur a atteint un nouveau palier
+     * Le palier est dynamique et descend automatiquement quand la moyenne baisse
      * @return array{achieved: bool, new_tier: int|null, message: string|null}
      */
     public function checkTierAchievement(): array
     {
+        $previousTier = $this->settingsRepository->get('previous_displayed_tier');
         $tierInfo = $this->getTierInfo();
-        $currentGoal = $this->getCurrentGoal();
+        $currentTier = $tierInfo['current_tier'];
 
-        // Si l'utilisateur n'a pas de goal personnalisé, utiliser le palier automatique
-        $targetTier = $currentGoal ?? $tierInfo['current_tier'];
-
-        // Vérifier la moyenne des 7 derniers jours
-        $stats = $this->cigaretteRepository->getDailyStats(7);
-        if (empty($stats)) {
+        // Si pas de palier précédent affiché, initialiser
+        if ($previousTier === null) {
+            $this->settingsRepository->set('previous_displayed_tier', (string) $currentTier);
             return ['achieved' => false, 'new_tier' => null, 'message' => null];
         }
 
-        $weeklyAvg = array_sum($stats) / count($stats);
-
-        // Si la moyenne est en dessous du palier actuel
-        if ($weeklyAvg <= $targetTier) {
-            // Vérifier si on peut passer au palier suivant
-            $nextTier = $targetTier - 1;
-            if ($nextTier >= 0 && $weeklyAvg <= $nextTier) {
-                return [
-                    'achieved' => true,
-                    'new_tier' => $nextTier,
-                    'message' => $this->getTierAchievementMessage($nextTier),
-                ];
-            }
+        // Si le palier a baissé, c'est une achievement !
+        if ($currentTier < (int) $previousTier) {
+            $this->settingsRepository->set('previous_displayed_tier', (string) $currentTier);
+            return [
+                'achieved' => true,
+                'new_tier' => $currentTier,
+                'message' => $this->getTierAchievementMessage($currentTier),
+            ];
         }
 
         return ['achieved' => false, 'new_tier' => null, 'message' => null];
