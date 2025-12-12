@@ -263,28 +263,36 @@
             <span style="font-size: 2rem;">{{ trend_icon }}</span>
             <div>
                 <div style="font-size: 1.3rem; font-weight: 700; color: {{ trend_color }};">
-                    {{ trend >= 0 ? '+' : '' }}{{ trend }} clope{{ trend|abs != 1 ? 's' : '' }}/jour
+                    {{ trend >= 0 ? '+' : '' }}{{ trend }} clope{{ trend|abs != 1 ? 's' : '' }}/jour en moyenne
                 </div>
                 <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                    vs semaine dernière
+                    Moyenne cette semaine ({{ weekly_comparison.current.avg }}) vs semaine précédente ({{ weekly_comparison.previous.avg }})
                     {% if weekly_comparison.previous.days_count is defined and weekly_comparison.previous.days_count < 7 %}
-                        ({{ weekly_comparison.previous.days_count }}j de données)
+                        <br><span style="color: var(--warning);">⚠️ Seulement {{ weekly_comparison.previous.days_count }}j de données en semaine précédente</span>
                     {% endif %}
                 </div>
             </div>
         </div>
 
-        {# Projection vers objectif zéro si tendance négative #}
-        {% if trend < 0 and savings.daily_avg > 0 %}
-            {% set days_to_zero = (savings.daily_avg / (trend|abs))|round %}
-            {% if days_to_zero > 0 and days_to_zero < 365 %}
+        {# Projection vers objectif zéro si tendance négative et données fiables #}
+        {% if trend < 0 and savings.daily_avg > 0 and weekly_comparison.previous.days_count >= 5 %}
+            {# Projection en semaines : si on perd X clopes/semaine, combien de semaines pour atteindre 0 #}
+            {% set weeks_to_zero = (weekly_comparison.current.avg / (trend|abs))|round %}
+            {% if weeks_to_zero > 0 and weeks_to_zero < 52 %}
             <div style="padding: 15px; background: linear-gradient(135deg, var(--success), #00ff88); border-radius: 8px; color: #000;">
-                <div style="font-weight: 600; margin-bottom: 5px;">🎯 Projection</div>
+                <div style="font-weight: 600; margin-bottom: 5px;">🎯 Projection (si tendance maintenue)</div>
                 <div style="font-size: 0.9rem;">
-                    À ce rythme, tu atteindrais <strong>zéro clope</strong> dans environ <strong>{{ days_to_zero }} jours</strong> !
+                    À ce rythme de réduction, tu pourrais atteindre <strong>zéro clope</strong> dans environ <strong>{{ weeks_to_zero }} semaine{{ weeks_to_zero > 1 ? 's' : '' }}</strong>.
                 </div>
             </div>
             {% endif %}
+        {% elseif trend < 0 and weekly_comparison.previous.days_count < 5 %}
+            <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--success);">
+                <div style="font-weight: 600; margin-bottom: 5px; color: var(--success);">👍 Bonne tendance !</div>
+                <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                    Continue encore quelques jours pour voir une projection fiable.
+                </div>
+            </div>
         {% elseif trend > 0 %}
             <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--warning);">
                 <div style="font-weight: 600; margin-bottom: 5px;">💡 Conseil</div>
