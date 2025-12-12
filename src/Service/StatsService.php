@@ -19,6 +19,7 @@ class StatsService
 
     /**
      * Calcule les économies réalisées depuis le début
+     * Exclut aujourd'hui car la journée n'est pas terminée
      */
     public function calculateSavings(): array
     {
@@ -46,21 +47,41 @@ class StatsService
             ];
         }
 
-        $totalCigs = $this->cigaretteRepository->getTotalCount();
-        $daysSinceStart = max(1, (new \DateTime())->diff($firstDate)->days + 1);
+        // Exclure aujourd'hui : compter uniquement les jours complets (jusqu'à hier)
+        $yesterday = (new \DateTime())->modify('-1 day')->setTime(23, 59, 59);
+        $firstDateNormalized = (clone $firstDate)->setTime(0, 0, 0);
+
+        // Si on a commencé aujourd'hui, pas encore d'économies calculables
+        if ($firstDateNormalized->format('Y-m-d') === (new \DateTime())->format('Y-m-d')) {
+            return [
+                'total' => 0,
+                'daily_avg' => 0,
+                'cigs_avoided' => 0,
+                'days' => 0,
+                'initial_daily' => $initialDailyCigs,
+                'price_per_cig' => round($pricePerCig, 2),
+                'message' => 'Les économies seront calculées à partir de demain',
+            ];
+        }
+
+        // Compter les clopes jusqu'à hier (exclure aujourd'hui)
+        $totalCigs = $this->cigaretteRepository->getTotalCountUntil($yesterday);
+
+        // Nombre de jours complets (du premier jour jusqu'à hier inclus)
+        $daysCompleted = max(1, $yesterday->diff($firstDateNormalized)->days + 1);
 
         // Clopes qu'on aurait fumées sans changement
-        $expectedCigs = $initialDailyCigs * $daysSinceStart;
+        $expectedCigs = $initialDailyCigs * $daysCompleted;
         $cigsAvoided = max(0, $expectedCigs - $totalCigs);
 
         $totalSaved = $cigsAvoided * $pricePerCig;
-        $dailyAvg = $totalCigs / $daysSinceStart;
+        $dailyAvg = $totalCigs / $daysCompleted;
 
         return [
             'total' => round($totalSaved, 2),
             'cigs_avoided' => $cigsAvoided,
             'daily_avg' => round($dailyAvg, 1),
-            'days' => $daysSinceStart,
+            'days' => $daysCompleted,
             'initial_daily' => $initialDailyCigs,
             'price_per_cig' => round($pricePerCig, 2),
             'expected_cigs' => $expectedCigs,

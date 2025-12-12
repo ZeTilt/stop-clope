@@ -223,6 +223,24 @@ class CigaretteRepository extends ServiceEntityRepository
         return (int) $qb->getQuery()->getSingleScalarResult();
     }
 
+    /**
+     * Compte les cigarettes jusqu'à une date donnée (incluse)
+     */
+    public function getTotalCountUntil(\DateTimeInterface $endDate): int
+    {
+        $qb = $this->createQueryBuilder('c')
+            ->select('COUNT(c.id)')
+            ->where('c.smokedAt <= :end')
+            ->setParameter('end', $endDate);
+
+        $user = $this->getCurrentUser();
+        if ($user) {
+            $qb->andWhere('c.user = :user')->setParameter('user', $user);
+        }
+
+        return (int) $qb->getQuery()->getSingleScalarResult();
+    }
+
     public function getMinDailyCount(bool $excludeToday = true): ?int
     {
         $conn = $this->getEntityManager()->getConnection();
