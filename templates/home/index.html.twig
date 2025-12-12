@@ -215,11 +215,34 @@
                 </div>
                 {% endfor %}
 
-                {# Bonus de réduction #}
+                {# Séparateur avant les bonus #}
+                {% if daily_score.reduction_bonus > 0 or daily_score.regularity_bonus > 0 or daily_score.goal_bonus != 0 or daily_score.weekly_reduction_bonus > 0 %}
+                <div style="border-top: 1px dashed var(--bg-secondary); margin-top: 8px; padding-top: 8px;"></div>
+                {% endif %}
+
+                {# Bonus de réduction vs hier #}
                 {% if daily_score.reduction_bonus is defined and daily_score.reduction_bonus > 0 %}
-                <div class="breakdown-item" style="border-top: 1px dashed var(--bg-secondary); margin-top: 8px; padding-top: 8px;">
-                    <span>📉 Bonus réduction ({{ daily_score.yesterday_count - daily_score.cigarette_count }} clope(s) de moins)</span>
+                <div class="breakdown-item">
+                    <span>📉 Réduction vs hier (-{{ daily_score.yesterday_count - daily_score.cigarette_count }})</span>
                     <span class="breakdown-score positive">+{{ daily_score.reduction_bonus }}</span>
+                </div>
+                {% endif %}
+
+                {# Bonus/Malus vs objectif quotidien #}
+                {% if daily_score.goal_bonus is defined and daily_score.goal_bonus != 0 %}
+                <div class="breakdown-item">
+                    <span>🎯 {{ daily_score.goal_bonus > 0 ? 'Sous objectif' : 'Objectif dépassé' }}</span>
+                    <span class="breakdown-score {{ daily_score.goal_bonus > 0 ? 'positive' : 'negative' }}">
+                        {{ daily_score.goal_bonus > 0 ? '+' : '' }}{{ daily_score.goal_bonus }}
+                    </span>
+                </div>
+                {% endif %}
+
+                {# Bonus réduction semaine/semaine #}
+                {% if daily_score.weekly_reduction_bonus is defined and daily_score.weekly_reduction_bonus > 0 %}
+                <div class="breakdown-item">
+                    <span>📊 Tendance hebdo positive</span>
+                    <span class="breakdown-score positive">+{{ daily_score.weekly_reduction_bonus }}</span>
                 </div>
                 {% endif %}
 
