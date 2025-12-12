@@ -537,19 +537,11 @@
 
                 // Animation du bouton
                 btn.classList.add('feedback-' + type);
+
+                // Recharger la page après un court délai pour afficher toutes les infos à jour
                 setTimeout(function() {
-                    btn.classList.remove('feedback-success', 'feedback-warning');
-                }, 600);
-
-                document.getElementById('todayCount').textContent = data.today_count;
-                // Ajouter la clope à la liste sans reload
-                addCigaretteToList(data.cigarette_id, data.smoked_at, data.is_retroactive);
-
-                // Mettre à jour le score affiché
-                updateScoreDisplay(points);
-
-                // Mettre à jour le streak affiché si présent
-                updateStreakDisplay(streak);
+                    window.location.reload();
+                }, 800);
             }
         })
         .catch(function(err) {
@@ -565,22 +557,6 @@
             btn.innerHTML = '🚬 J\'ai fumé une clope';
         });
     };
-
-    // Mettre à jour l'affichage du score
-    function updateScoreDisplay(newScore) {
-        var scoreEl = document.querySelector('.score-value');
-        if (scoreEl) {
-            // Animation du changement
-            scoreEl.style.transform = 'scale(1.1)';
-            scoreEl.style.transition = 'transform 0.2s ease';
-
-            setTimeout(function() {
-                scoreEl.textContent = (newScore > 0 ? '+' : '') + newScore;
-                scoreEl.className = 'score-value' + (newScore < 0 ? ' negative' : '');
-                scoreEl.style.transform = 'scale(1)';
-            }, 100);
-        }
-    }
 
     // Afficher une notification de nouveau badge
     function showBadgeNotification(badge) {
@@ -610,48 +586,6 @@
                 }, 300);
             }
         }, 5000);
-    }
-
-    // Mettre à jour l'affichage du streak
-    function updateStreakDisplay(streak) {
-        if (!streak) return;
-
-        // Chercher le conteneur du streak
-        var streakContainer = document.querySelector('.score-display > div[style*="justify-content: center"]');
-        if (!streakContainer) return;
-
-        var streakValueEl = streakContainer.querySelector('div:first-child div:first-child');
-        if (streakValueEl && streak.current > 0) {
-            // Animation
-            streakValueEl.style.transform = 'scale(1.2)';
-            streakValueEl.style.transition = 'transform 0.3s ease';
-
-            setTimeout(function() {
-                streakValueEl.textContent = '🔥 ' + streak.current;
-                streakValueEl.style.color = streak.today_positive ? 'var(--success)' : 'var(--warning)';
-                streakValueEl.style.transform = 'scale(1)';
-            }, 150);
-        }
-    }
-
-    // Ajouter une cigarette à la liste sans reload
-    function addCigaretteToList(id, time, isRetroactive) {
-        var list = document.getElementById('cigList');
-        var emptyState = document.querySelector('.empty-state');
-
-        // Supprimer l'état vide s'il existe
-        if (emptyState) {
-            emptyState.parentElement.innerHTML = '<ul class="cig-list" id="cigList"></ul>';
-            list = document.getElementById('cigList');
-        }
-
-        var li = document.createElement('li');
-        li.className = 'cig-item';
-        li.setAttribute('data-id', id);
-        li.innerHTML = '<div><span class="cig-time">' + time + '</span>' +
-            (isRetroactive ? '<span class="cig-badge">ajoutée après</span>' : '') +
-            '</div><button class="delete-btn" onclick="deleteCigarette(' + id + ')" aria-label="Supprimer la cigarette de ' + time + '"><span aria-hidden="true">✕</span></button>';
-        list.appendChild(li);
     }
 
     window.openModal = function() {
@@ -691,11 +625,10 @@
                     icon: '⏰'
                 });
                 closeModal();
-                // Ajouter à la liste sans reload
-                addCigaretteToList(data.cigarette_id, data.smoked_at, true);
-                var countEl = document.getElementById('todayCount');
-                countEl.textContent = data.today_count;
-                updateScoreDisplay(points);
+                // Recharger la page pour afficher toutes les infos à jour
+                setTimeout(function() {
+                    window.location.reload();
+                }, 800);
             }
         })
         .catch(function(err) {
@@ -740,13 +673,10 @@
         .then(function(data) {
             if (data.success) {
                 showToast('Clope supprimée', { type: 'success', icon: '🗑️' });
-                document.querySelector('[data-id="' + id + '"]').remove();
-                document.getElementById('todayCount').textContent = data.today_count;
-                // Vérifier si la liste est vide et afficher l'état vide
-                var list = document.getElementById('cigList');
-                if (list && list.children.length === 0) {
-                    list.parentElement.innerHTML = '<div class="empty-state"><div class="empty-state-icon">🎉</div><p>Aucune clope aujourd\'hui !</p></div>';
-                }
+                // Recharger la page pour afficher toutes les infos à jour
+                setTimeout(function() {
+                    window.location.reload();
+                }, 800);
             }
         })
         .catch(function(err) {
