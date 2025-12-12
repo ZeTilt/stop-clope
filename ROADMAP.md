@@ -474,3 +474,5 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 ---
 
 > **Roadmap complétée !** Prochaines pistes : CI/CD, tests E2E, monitoring (Sentry), ou nouvelles features.
+>
+> **Pour toute évolution majeure** : relancer un audit multi-agents (code-reviewer, security-auditor, ux-reviewer, performance-expert, a11y-auditor) pour identifier les régressions et opportunités d'amélioration.
