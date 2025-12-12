@@ -114,15 +114,14 @@
         <h3 style="margin-bottom: 20px;">🎨 Apparence</h3>
 
         <div class="input-group">
-            <label style="display: flex; align-items: center; justify-content: space-between; cursor: pointer;">
+            <div style="display: flex; align-items: center; justify-content: space-between;">
                 <span>Mode clair</span>
                 <div class="theme-toggle" id="themeToggle">
-                    <input type="checkbox" id="themeSwitch" style="display: none;">
                     <div class="toggle-track">
                         <div class="toggle-thumb"></div>
                     </div>
                 </div>
-            </label>
+            </div>
             <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 5px;">
                 Par défaut : suit les préférences système
             </p>
@@ -421,35 +420,35 @@
 
     // ===== Gestion du thème =====
     const themeToggle = document.getElementById('themeToggle');
-    const themeSwitch = document.getElementById('themeSwitch');
 
     function loadThemeSettings() {
         const savedTheme = localStorage.getItem('theme');
-        const isLight = savedTheme === 'light' ||
-            (!savedTheme && window.matchMedia('(prefers-color-scheme: light)').matches);
+        const currentTheme = document.documentElement.getAttribute('data-theme');
+        const isLight = savedTheme === 'light' || currentTheme === 'light' ||
+            (!savedTheme && !currentTheme && window.matchMedia('(prefers-color-scheme: light)').matches);
 
         if (isLight) {
             themeToggle.classList.add('active');
-            themeSwitch.checked = true;
         } else {
             themeToggle.classList.remove('active');
-            themeSwitch.checked = false;
         }
     }
 
     function toggleTheme() {
-        const isLight = themeToggle.classList.toggle('active');
-        themeSwitch.checked = isLight;
+        const isCurrentlyLight = themeToggle.classList.contains('active');
+        const newIsLight = !isCurrentlyLight;
 
-        if (isLight) {
+        if (newIsLight) {
+            themeToggle.classList.add('active');
             document.documentElement.setAttribute('data-theme', 'light');
             localStorage.setItem('theme', 'light');
+            showToast('Mode clair activé', { icon: '☀️' });
         } else {
+            themeToggle.classList.remove('active');
             document.documentElement.setAttribute('data-theme', 'dark');
             localStorage.setItem('theme', 'dark');
+            showToast('Mode sombre activé', { icon: '🌙' });
         }
-
-        showToast(isLight ? 'Mode clair activé' : 'Mode sombre activé', { icon: isLight ? '☀️' : '🌙' });
     }
 
     themeToggle.addEventListener('click', toggleTheme);
@@ -457,7 +456,6 @@
     // Écouter les changements de préférence système
     window.matchMedia('(prefers-color-scheme: light)').addEventListener('change', (e) => {
         if (!localStorage.getItem('theme')) {
-            // Pas de préférence explicite, suivre le système
             if (e.matches) {
                 themeToggle.classList.add('active');
             } else {
