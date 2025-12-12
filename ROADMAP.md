@@ -364,28 +364,35 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 
 ---
 
-## Sprint 6 : Timeline OMS (Révision)
+## Sprint 6 : Timeline Réduction ✅
 
-**Objectif** : Décider du sort de la timeline OMS
+**Objectif** : Remplacer la timeline OMS (arrêt total) par une timeline basée sur la RÉDUCTION
 
-### Options identifiées
+### Décision : Option B - Adapter
 
-**Option A : Supprimer**
-- La timeline suggère des effets santé non atteignables sans arrêt total
-- Peut être démotivante si l'utilisateur ne compte pas arrêter
-- Focus sur la réduction plutôt que l'arrêt
+**Implémenté** : Nouvelle timeline basée sur le % de réduction, pas le temps depuis l'arrêt.
 
-**Option B : Adapter**
-- Timeline basée sur la RÉDUCTION (pas l'arrêt)
-- Bénéfices de passer de 20 à 10 clopes/jour
-- Sources médicales sur réduction des risques
+### Changements effectués
 
-**Option C : Optionnelle**
-- Masquée par défaut
-- Activable pour ceux qui visent l'arrêt total
-- Avec disclaimer sur les données
+**Avant** (timeline OMS classique) :
+- Basée sur le temps depuis l'arrêt total
+- Bénéfices irréalistes pour quelqu'un qui réduit sans arrêter
+- Sources : OMS (données pour arrêt complet uniquement)
 
-**Décision requise** : À valider avec l'utilisateur
+**Après** (timeline réduction) :
+- Milestones basés sur le % de réduction : 10%, 25%, 50%, 75%, 90%, 100%
+- Bénéfices réels et prouvés par la science :
+  - 25% réduction = -20% risque cancer poumon (NCI 2024)
+  - 50% réduction = baisse notable du risque pulmonaire
+- Encart "Ce que dit la science" avec nuances honnêtes :
+  - Cancer poumon : risque proportionnel à la réduction
+  - Cardio : pas de seuil "sûr", arrêt total recommandé
+- Sources citées : NCI 2024, Global Heart Journal 2024
+
+### Sources scientifiques utilisées
+- [NCI 2024](https://dceg.cancer.gov/news-events/news/2024/reducing-smoking-lung-cancer) : -20% risque cancer en passant de 20 à 15 clopes/jour
+- [Global Heart Journal 2024](https://pmc.ncbi.nlm.nih.gov/articles/PMC11843939/) : effets cardiovasculaires
+- Méta-analyses sur harm reduction
 
 ---
 
@@ -440,8 +447,8 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 - [x] Sprint 2 : Nouveau modèle scoring approuvé ✅ (implémenté + bonus potentiels)
 - [x] Sprint 3 : Features gamification validées ✅ (palier dynamique remplace objectif fixe)
 - [x] Sprint 4 : Niveau A11y cible confirmé (AA) ✅ (complété)
-- [x] Sprint 5 : Architecture cible validée ✅ (96 tests ajoutés)
-- [ ] Sprint 6 : Décision timeline OMS prise
+- [x] Sprint 5 : Architecture cible validée ✅ (188 tests ajoutés)
+- [x] Sprint 6 : Timeline OMS → Timeline Réduction ✅
 - [x] Métriques de succès approuvées
 - [x] Ordre des sprints confirmé
 
