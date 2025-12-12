@@ -811,6 +811,10 @@
                 <span class="nav-icon" aria-hidden="true">📅</span>
                 <span>Historique</span>
             </a>
+            <a href="{{ path('app_settings') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_settings' ? 'active' : '' }}" {% if app.request.attributes.get('_route') == 'app_settings' %}aria-current="page"{% endif %}>
+                <span class="nav-icon" aria-hidden="true">⚙️</span>
+                <span>Réglages</span>
+            </a>
         </nav>
 
         <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
