@@ -288,13 +288,10 @@ class ScoringService
             }
         }
 
-        // Bonus/Malus vs objectif quotidien (palier ou personnalisé)
-        $goalBonus = $this->calculateGoalBonus(count($todayCigs), $date);
-
         // Bonus réduction semaine/semaine
         $weeklyReductionBonus = $this->calculateWeeklyReductionBonus($date);
 
-        $totalScore += $reductionBonus + $regularityBonus + $goalBonus + $weeklyReductionBonus;
+        $totalScore += $reductionBonus + $regularityBonus + $weeklyReductionBonus;
 
         return [
             'date' => $date->format('Y-m-d'),
@@ -303,45 +300,11 @@ class ScoringService
             'yesterday_count' => $yesterdayCount,
             'reduction_bonus' => $reductionBonus,
             'regularity_bonus' => $regularityBonus,
-            'goal_bonus' => $goalBonus,
             'weekly_reduction_bonus' => $weeklyReductionBonus,
             'details' => [
                 'comparisons' => $comparisons,
             ],
         ];
-    }
-
-    /**
-     * Calcule le bonus/malus basé sur l'objectif quotidien
-     * - En dessous de l'objectif : +10 pts par clope sous l'objectif
-     * - Au-dessus : -5 pts par clope au-dessus (plafonné à -20)
-     */
-    private function calculateGoalBonus(int $todayCount, \DateTimeInterface $date): int
-    {
-        // Récupérer l'objectif (personnalisé ou palier automatique)
-        $customGoal = $this->settingsRepository->get('daily_goal');
-
-        if ($customGoal !== null) {
-            $goal = (int) $customGoal;
-        } else {
-            // Calculer le palier automatique
-            $goal = $this->calculateAutoTier($date);
-        }
-
-        if ($goal <= 0) {
-            // Objectif zéro : bonus si 0 clope, malus sinon
-            return $todayCount === 0 ? 20 : max(-20, -$todayCount * 5);
-        }
-
-        $diff = $goal - $todayCount;
-
-        if ($diff >= 0) {
-            // En dessous ou égal à l'objectif : bonus
-            return $diff * 10;
-        } else {
-            // Au-dessus de l'objectif : malus (plafonné à -20)
-            return max(-20, $diff * 5);
-        }
     }
 
     /**
