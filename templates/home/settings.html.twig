@@ -14,7 +14,7 @@
         {% if goal_info %}
         <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 20px;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                <span style="font-size: 0.85rem; color: var(--text-secondary);">Palier automatique (semaine {{ goal_info.tier.weeks_active + 1 }})</span>
+                <span style="font-size: 0.85rem; color: var(--text-secondary);">Palier automatique (dynamique)</span>
                 <span style="font-weight: 700; color: var(--success);">{{ goal_info.tier.current_tier }} clopes/jour</span>
             </div>
             <div class="progress-bar" style="height: 8px; margin: 0;">
@@ -24,20 +24,23 @@
             <div style="display: flex; justify-content: space-between; margin-top: 8px; font-size: 0.75rem; color: var(--text-secondary);">
                 <span>Début : {{ goal_info.tier.initial }}/jour</span>
                 {% if goal_info.tier.next_tier is not null %}
-                <span>Prochain palier dans {{ goal_info.tier.days_until_next_tier }}j → {{ goal_info.tier.next_tier }}/jour</span>
+                <span>Prochain : {{ goal_info.tier.next_tier }}/jour</span>
                 {% else %}
                 <span>🏆 Objectif zéro atteint !</span>
                 {% endif %}
             </div>
-            {% if goal_info.current_avg %}
+            {% if goal_info.tier.avg_14d %}
             <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bg-primary);">
-                <span style="font-size: 0.85rem;">Ta moyenne actuelle : </span>
-                <span style="font-weight: 600; color: {{ goal_info.current_avg <= goal_info.tier.current_tier ? 'var(--success)' : 'var(--warning)' }};">
-                    {{ goal_info.current_avg }} clopes/jour
+                <span style="font-size: 0.85rem;">Moyenne 14 jours : </span>
+                <span style="font-weight: 600; color: {{ goal_info.tier.avg_14d <= goal_info.tier.current_tier ? 'var(--success)' : 'var(--warning)' }};">
+                    {{ goal_info.tier.avg_14d }} clopes/jour
                 </span>
-                {% if goal_info.current_avg <= goal_info.tier.current_tier %}
+                {% if goal_info.tier.avg_14d <= goal_info.tier.current_tier %}
                     <span style="color: var(--success);">✓ En dessous du palier</span>
                 {% endif %}
+            </div>
+            <div style="margin-top: 8px; font-size: 0.75rem; color: var(--text-secondary);">
+                💡 Palier = floor(moyenne) - 1, ne peut jamais monter
             </div>
             {% endif %}
         </div>
@@ -52,7 +55,7 @@
                 {% elseif suggested_goal %}
                     💡 Suggestion basée sur ta moyenne : {{ suggested_goal }} clopes/jour
                 {% else %}
-                    Laisse vide pour utiliser le palier automatique (-1/semaine)
+                    Laisse vide pour utiliser le palier automatique dynamique
                 {% endif %}
             </p>
         </div>
