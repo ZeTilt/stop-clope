@@ -215,32 +215,40 @@
                 </div>
                 {% endfor %}
 
-                {# Séparateur avant les bonus #}
-                {% if daily_score.reduction_bonus > 0 or daily_score.regularity_bonus > 0 or daily_score.weekly_reduction_bonus > 0 %}
-                <div style="border-top: 1px dashed var(--bg-secondary); margin-top: 8px; padding-top: 8px;"></div>
+                {# Séparateur avant les bonus potentiels #}
+                {% set has_potential_bonus = (daily_score.potential_reduction_bonus is defined and daily_score.potential_reduction_bonus > 0)
+                    or (daily_score.potential_regularity_bonus is defined and daily_score.potential_regularity_bonus > 0)
+                    or (daily_score.potential_weekly_bonus is defined and daily_score.potential_weekly_bonus > 0) %}
+
+                {% if has_potential_bonus %}
+                <div style="border-top: 1px dashed var(--bg-secondary); margin-top: 8px; padding-top: 8px;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 6px; font-style: italic;">
+                        ⏳ Bonus potentiels (acquis en fin de journée)
+                    </div>
+                </div>
                 {% endif %}
 
-                {# Bonus de réduction vs hier #}
-                {% if daily_score.reduction_bonus is defined and daily_score.reduction_bonus > 0 %}
-                <div class="breakdown-item">
+                {# Bonus de réduction vs hier (potentiel) #}
+                {% if daily_score.potential_reduction_bonus is defined and daily_score.potential_reduction_bonus > 0 %}
+                <div class="breakdown-item" style="opacity: 0.7;">
                     <span>📉 Réduction vs hier (-{{ daily_score.yesterday_count - daily_score.cigarette_count }})</span>
-                    <span class="breakdown-score positive">+{{ daily_score.reduction_bonus }}</span>
+                    <span class="breakdown-score" style="color: var(--text-secondary);">+{{ daily_score.potential_reduction_bonus }}</span>
                 </div>
                 {% endif %}
 
-                {# Bonus réduction semaine/semaine #}
-                {% if daily_score.weekly_reduction_bonus is defined and daily_score.weekly_reduction_bonus > 0 %}
-                <div class="breakdown-item">
+                {# Bonus tendance hebdo (potentiel) #}
+                {% if daily_score.potential_weekly_bonus is defined and daily_score.potential_weekly_bonus > 0 %}
+                <div class="breakdown-item" style="opacity: 0.7;">
                     <span>📊 Tendance hebdo positive</span>
-                    <span class="breakdown-score positive">+{{ daily_score.weekly_reduction_bonus }}</span>
+                    <span class="breakdown-score" style="color: var(--text-secondary);">+{{ daily_score.potential_weekly_bonus }}</span>
                 </div>
                 {% endif %}
 
-                {# Bonus de régularité #}
-                {% if daily_score.regularity_bonus is defined and daily_score.regularity_bonus > 0 %}
-                <div class="breakdown-item">
+                {# Bonus de régularité (potentiel) #}
+                {% if daily_score.potential_regularity_bonus is defined and daily_score.potential_regularity_bonus > 0 %}
+                <div class="breakdown-item" style="opacity: 0.7;">
                     <span>⭐ Bonus régularité</span>
-                    <span class="breakdown-score positive">+{{ daily_score.regularity_bonus }}</span>
+                    <span class="breakdown-score" style="color: var(--text-secondary);">+{{ daily_score.potential_regularity_bonus }}</span>
                 </div>
                 {% endif %}
             {% elseif daily_score.details.message is defined %}

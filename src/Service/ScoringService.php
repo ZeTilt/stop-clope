@@ -140,10 +140,16 @@ class ScoringService
         // Calculer le streak
         $streakData = $this->getStreak();
 
+        // Score final = total_score + tous les bonus potentiels (maintenant réalisés)
+        $finalScore = $dailyScoreData['total_score']
+            + ($dailyScoreData['potential_reduction_bonus'] ?? 0)
+            + ($dailyScoreData['potential_regularity_bonus'] ?? 0)
+            + ($dailyScoreData['potential_weekly_bonus'] ?? 0);
+
         $dailyScore = new DailyScore();
         $dailyScore->setUser($user);
         $dailyScore->setDate($dateOnly);
-        $dailyScore->setScore($dailyScoreData['total_score']);
+        $dailyScore->setScore($finalScore);
         $dailyScore->setCigaretteCount(count($cigs));
         $dailyScore->setStreak($streakData['current']);
         $dailyScore->setAverageInterval($avgInterval);
@@ -267,14 +273,19 @@ class ScoringService
             ];
         }
 
-        // Bonus de réduction : si moins de clopes qu'hier
-        $reductionBonus = 0;
+        // === BONUS POTENTIELS ===
+        // Ces bonus ne sont PAS inclus dans le score temps réel
+        // Ils seront ajoutés a posteriori lors de la persistance (fin de journée)
+        // car la journée n'est pas terminée et l'utilisateur peut encore fumer
+
+        // Bonus de réduction vs hier (potentiel)
+        $potentialReductionBonus = 0;
         if ($yesterdayCount > 0 && count($todayCigs) < $yesterdayCount) {
-            $reductionBonus = ($yesterdayCount - count($todayCigs)) * 5; // 5 pts par clope en moins
+            $potentialReductionBonus = ($yesterdayCount - count($todayCigs)) * 5; // 5 pts par clope en moins
         }
 
-        // Bonus de régularité : si tous les intervalles sont positifs (aucun malus)
-        $regularityBonus = 0;
+        // Bonus de régularité (potentiel) : si tous les intervalles sont positifs
+        $potentialRegularityBonus = 0;
         if (count($todayCigs) >= 3) {
             $allPositive = true;
             foreach ($comparisons as $comp) {
@@ -284,23 +295,25 @@ class ScoringService
                 }
             }
             if ($allPositive) {
-                $regularityBonus = 10; // Bonus de régularité
+                $potentialRegularityBonus = 10;
             }
         }
 
-        // Bonus réduction semaine/semaine
-        $weeklyReductionBonus = $this->calculateWeeklyReductionBonus($date);
+        // Bonus tendance hebdo (potentiel)
+        $potentialWeeklyBonus = $this->calculateWeeklyReductionBonus($date);
 
-        $totalScore += $reductionBonus + $regularityBonus + $weeklyReductionBonus;
+        // total_score = uniquement les points des cigarettes (pas les bonus)
+        // Les bonus seront ajoutés lors de la persistance en fin de journée
 
         return [
             'date' => $date->format('Y-m-d'),
             'total_score' => $totalScore,
             'cigarette_count' => count($todayCigs),
             'yesterday_count' => $yesterdayCount,
-            'reduction_bonus' => $reductionBonus,
-            'regularity_bonus' => $regularityBonus,
-            'weekly_reduction_bonus' => $weeklyReductionBonus,
+            // Bonus potentiels (non inclus dans total_score, affichés séparément)
+            'potential_reduction_bonus' => $potentialReductionBonus,
+            'potential_regularity_bonus' => $potentialRegularityBonus,
+            'potential_weekly_bonus' => $potentialWeeklyBonus,
             'details' => [
                 'comparisons' => $comparisons,
             ],
