@@ -326,16 +326,12 @@ class HomeController extends AbstractController
     #[Route('/settings', name: 'app_settings')]
     public function settings(): Response
     {
-        $currentGoal = $this->goalService->getCurrentGoal();
-        $suggestedGoal = $this->goalService->getSuggestedGoal();
         $goalInfo = $this->goalService->getProgressInfo();
 
         return $this->render('home/settings.html.twig', [
             'pack_price' => $this->settingsRepository->get('pack_price', '12.00'),
             'cigs_per_pack' => $this->settingsRepository->get('cigs_per_pack', '20'),
             'initial_daily_cigs' => $this->settingsRepository->get('initial_daily_cigs', '20'),
-            'daily_goal' => $currentGoal,
-            'suggested_goal' => $suggestedGoal,
             'goal_info' => $goalInfo,
         ]);
     }
@@ -374,15 +370,6 @@ class HomeController extends AbstractController
                 return new JsonResponse(['success' => false, 'error' => 'Invalid initial daily cigarettes'], 400);
             }
             $this->settingsRepository->set('initial_daily_cigs', (string) (int) $initialDailyCigs);
-        }
-
-        // Validate daily_goal (positive integer, can be 0 for "no goal")
-        $dailyGoal = $request->request->get('daily_goal');
-        if ($dailyGoal !== null && $dailyGoal !== '') {
-            if (!is_numeric($dailyGoal) || (int) $dailyGoal < 0 || (int) $dailyGoal > 100) {
-                return new JsonResponse(['success' => false, 'error' => 'Invalid daily goal'], 400);
-            }
-            $this->settingsRepository->set('daily_goal', (string) (int) $dailyGoal);
         }
 
         return new JsonResponse(['success' => true]);

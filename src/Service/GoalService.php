@@ -13,30 +13,6 @@ class GoalService
     ) {}
 
     /**
-     * Calcule l'objectif suggéré basé sur la consommation actuelle
-     * Prend la moyenne des 7 derniers jours - 2
-     */
-    public function getSuggestedGoal(): ?int
-    {
-        $stats = $this->cigaretteRepository->getDailyStats(7);
-        if (empty($stats)) {
-            return null;
-        }
-
-        $avg = array_sum($stats) / count($stats);
-        return max(1, (int) round($avg) - 2);
-    }
-
-    /**
-     * Récupère l'objectif actuel de l'utilisateur
-     */
-    public function getCurrentGoal(): ?int
-    {
-        $goal = $this->settingsRepository->get('daily_goal');
-        return $goal !== null ? (int) $goal : null;
-    }
-
-    /**
      * Calcule le palier actuel dynamique
      * = floor(moyenne 14 derniers jours) - 1
      *
@@ -145,17 +121,13 @@ class GoalService
     }
 
     /**
-     * Calcule la progression vers l'objectif du jour
-     * @return array{goal: int, current: int, remaining: int, exceeded: bool, exceeded_by: int, progress_percent: int}|null
+     * Calcule la progression vers l'objectif du jour (palier automatique)
+     * @return array{goal: int, current: int, remaining: int, exceeded: bool, exceeded_by: int, progress_percent: int}
      */
-    public function getDailyProgress(): ?array
+    public function getDailyProgress(): array
     {
-        $goal = $this->getCurrentGoal();
-        if ($goal === null) {
-            // Utiliser le palier automatique si pas d'objectif personnalisé
-            $tierInfo = $this->getTierInfo();
-            $goal = $tierInfo['current_tier'];
-        }
+        $tierInfo = $this->getTierInfo();
+        $goal = $tierInfo['current_tier'];
 
         $todayCount = $this->cigaretteRepository->countByDate(new \DateTime());
         $remaining = $goal - $todayCount;
@@ -177,18 +149,10 @@ class GoalService
     {
         $tierInfo = $this->getTierInfo();
         $dailyProgress = $this->getDailyProgress();
-        $currentGoal = $this->getCurrentGoal();
-
-        // Calcul de la moyenne actuelle
-        $stats = $this->cigaretteRepository->getDailyStats(7);
-        $currentAvg = !empty($stats) ? round(array_sum($stats) / count($stats), 1) : null;
 
         return [
             'tier' => $tierInfo,
             'daily' => $dailyProgress,
-            'custom_goal' => $currentGoal,
-            'using_auto_tier' => $currentGoal === null,
-            'current_avg' => $currentAvg,
         ];
     }
 }

@@ -91,7 +91,6 @@ class ExportController extends AbstractController
                 'pack_price' => $this->settingsRepository->get('pack_price'),
                 'cigs_per_pack' => $this->settingsRepository->get('cigs_per_pack'),
                 'initial_daily_cigs' => $this->settingsRepository->get('initial_daily_cigs'),
-                'daily_goal' => $this->settingsRepository->get('daily_goal'),
             ],
             'days' => [],
         ];
