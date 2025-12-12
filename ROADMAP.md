@@ -473,4 +473,4 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 
 ---
 
-> **Prochaine étape** : Décision timeline OMS (Sprint 6) ou CI/CD + tests E2E
+> **Roadmap complétée !** Prochaines pistes : CI/CD, tests E2E, monitoring (Sentry), ou nouvelles features.
