@@ -2,16 +2,35 @@
 
 namespace App\Tests\Service;
 
+use App\Repository\CigaretteRepository;
+use App\Repository\WakeUpRepository;
 use App\Service\IntervalCalculator;
 use PHPUnit\Framework\Attributes\DataProvider;
 use PHPUnit\Framework\TestCase;
+use Symfony\Contracts\Cache\CacheInterface;
 
 class IntervalCalculatorTest extends TestCase
 {
+    private IntervalCalculator $intervalCalculator;
+
+    protected function setUp(): void
+    {
+        // Create mocks for dependencies
+        $cigaretteRepository = $this->createMock(CigaretteRepository::class);
+        $wakeUpRepository = $this->createMock(WakeUpRepository::class);
+        $scoringCache = $this->createMock(CacheInterface::class);
+
+        $this->intervalCalculator = new IntervalCalculator(
+            $cigaretteRepository,
+            $wakeUpRepository,
+            $scoringCache
+        );
+    }
+
     #[DataProvider('pointsForDiffProvider')]
     public function testGetPointsForDiff(float $diff, float $interval, int $expectedPoints): void
     {
-        $points = IntervalCalculator::getPointsForDiff($diff, $interval);
+        $points = $this->intervalCalculator->getPointsForDiff($diff, $interval);
         $this->assertEquals($expectedPoints, $points);
     }
 
@@ -49,30 +68,30 @@ class IntervalCalculatorTest extends TestCase
     public function testGetPointsForDiffWithZeroInterval(): void
     {
         // Should use default interval of 60
-        $points = IntervalCalculator::getPointsForDiff(60, 0);
+        $points = $this->intervalCalculator->getPointsForDiff(60, 0);
         $this->assertEquals(20, $points);
     }
 
     public function testGetPointsForDiffWithNegativeInterval(): void
     {
         // Should use default interval of 60
-        $points = IntervalCalculator::getPointsForDiff(60, -30);
+        $points = $this->intervalCalculator->getPointsForDiff(60, -30);
         $this->assertEquals(20, $points);
     }
 
     public function testTimeToMinutes(): void
     {
         $time1 = new \DateTime('2024-12-09 08:30:00');
-        $this->assertEquals(510, IntervalCalculator::timeToMinutes($time1)); // 8*60 + 30
+        $this->assertEquals(510, $this->intervalCalculator->timeToMinutes($time1)); // 8*60 + 30
 
         $time2 = new \DateTime('2024-12-09 00:00:00');
-        $this->assertEquals(0, IntervalCalculator::timeToMinutes($time2));
+        $this->assertEquals(0, $this->intervalCalculator->timeToMinutes($time2));
 
         $time3 = new \DateTime('2024-12-09 23:59:00');
-        $this->assertEquals(1439, IntervalCalculator::timeToMinutes($time3)); // 23*60 + 59
+        $this->assertEquals(1439, $this->intervalCalculator->timeToMinutes($time3)); // 23*60 + 59
 
         $time4 = new \DateTime('2024-12-09 12:00:00');
-        $this->assertEquals(720, IntervalCalculator::timeToMinutes($time4)); // noon
+        $this->assertEquals(720, $this->intervalCalculator->timeToMinutes($time4)); // noon
     }
 
     public function testMinutesSinceWakeUp(): void
@@ -80,7 +99,7 @@ class IntervalCalculatorTest extends TestCase
         $wakeTime = new \DateTime('2024-12-09 07:00:00');
         $cigTime = new \DateTime('2024-12-09 08:30:00');
 
-        $minutes = IntervalCalculator::minutesSinceWakeUp($cigTime, $wakeTime);
+        $minutes = $this->intervalCalculator->minutesSinceWakeUp($cigTime, $wakeTime);
         $this->assertEquals(90, $minutes); // 1h30 = 90 min
     }
 
@@ -89,7 +108,7 @@ class IntervalCalculatorTest extends TestCase
         $wakeTime = new \DateTime('2024-12-09 09:00:00');
         $cigTime = new \DateTime('2024-12-09 08:30:00');
 
-        $minutes = IntervalCalculator::minutesSinceWakeUp($cigTime, $wakeTime);
+        $minutes = $this->intervalCalculator->minutesSinceWakeUp($cigTime, $wakeTime);
         $this->assertEquals(-30, $minutes); // 30 min before wake up
     }
 
@@ -98,7 +117,7 @@ class IntervalCalculatorTest extends TestCase
         $wakeTime = new \DateTime('2024-12-09 07:00:00');
         $cigTime = new \DateTime('2024-12-09 07:00:00');
 
-        $minutes = IntervalCalculator::minutesSinceWakeUp($cigTime, $wakeTime);
+        $minutes = $this->intervalCalculator->minutesSinceWakeUp($cigTime, $wakeTime);
         $this->assertEquals(0, $minutes);
     }
 
@@ -107,7 +126,7 @@ class IntervalCalculatorTest extends TestCase
         $wakeTime = new \DateTime('2024-12-09 07:00:00');
         $cigTime = new \DateTime('2024-12-09 22:00:00');
 
-        $minutes = IntervalCalculator::minutesSinceWakeUp($cigTime, $wakeTime);
+        $minutes = $this->intervalCalculator->minutesSinceWakeUp($cigTime, $wakeTime);
         $this->assertEquals(900, $minutes); // 15 hours = 900 min
     }
 }

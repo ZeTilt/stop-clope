@@ -26,7 +26,7 @@ class IntervalCalculator
     /**
      * Convertit une heure (HH:MM) en minutes depuis minuit
      */
-    public static function timeToMinutes(\DateTimeInterface $time): int
+    public function timeToMinutes(\DateTimeInterface $time): int
     {
         return (int) $time->format('H') * 60 + (int) $time->format('i');
     }
@@ -34,9 +34,9 @@ class IntervalCalculator
     /**
      * Calcule les minutes depuis le réveil pour une heure donnée
      */
-    public static function minutesSinceWakeUp(\DateTimeInterface $time, \DateTimeInterface $wakeTime): int
+    public function minutesSinceWakeUp(\DateTimeInterface $time, \DateTimeInterface $wakeTime): int
     {
-        return self::timeToMinutes($time) - self::timeToMinutes($wakeTime);
+        return $this->timeToMinutes($time) - $this->timeToMinutes($wakeTime);
     }
 
     /**
@@ -101,8 +101,8 @@ class IntervalCalculator
         $firstCig = $cigs[0];
         $lastCig = $cigs[count($cigs) - 1];
 
-        $firstMinutes = self::timeToMinutes($firstCig->getSmokedAt());
-        $lastMinutes = self::timeToMinutes($lastCig->getSmokedAt());
+        $firstMinutes = $this->timeToMinutes($firstCig->getSmokedAt());
+        $lastMinutes = $this->timeToMinutes($lastCig->getSmokedAt());
 
         return ($lastMinutes - $firstMinutes) / (count($cigs) - 1);
     }
@@ -148,7 +148,7 @@ class IntervalCalculator
             $wakeUp = $historical['wakeups'][$dateStr] ?? null;
 
             if (!empty($cigs) && $wakeUp) {
-                $times[] = self::minutesSinceWakeUp($cigs[0]->getSmokedAt(), $wakeUp->getWakeTime());
+                $times[] = $this->minutesSinceWakeUp($cigs[0]->getSmokedAt(), $wakeUp->getWakeTime());
             }
         }
 
@@ -177,7 +177,7 @@ class IntervalCalculator
         // Clopes suivantes : dernière clope d'aujourd'hui + intervalle lissé
         $avgInterval = $this->getSmoothedAverageInterval($today);
         $todayPrevCig = $todayCigs[$index - 1];
-        $todayPrevMinutes = self::minutesSinceWakeUp($todayPrevCig->getSmokedAt(), $todayWakeUp->getWakeTime());
+        $todayPrevMinutes = $this->minutesSinceWakeUp($todayPrevCig->getSmokedAt(), $todayWakeUp->getWakeTime());
 
         return $todayPrevMinutes + $avgInterval;
     }
@@ -190,7 +190,7 @@ class IntervalCalculator
      * - diff = 2*intervalle → 40 pts, etc. (linéaire, sans plafond)
      * - diff négatif → malus proportionnel, plafonné à -20
      */
-    public static function getPointsForDiff(float $diff, float $interval): int
+    public function getPointsForDiff(float $diff, float $interval): int
     {
         if ($interval <= 0) {
             $interval = ScoringConstants::DEFAULT_INTERVAL_MINUTES;
@@ -260,7 +260,7 @@ class IntervalCalculator
             $prevWakeUp = $allWakeups[$prevDateStr] ?? null;
 
             if (!empty($prevCigs) && $prevWakeUp) {
-                $times[] = self::minutesSinceWakeUp($prevCigs[0]->getSmokedAt(), $prevWakeUp->getWakeTime());
+                $times[] = $this->minutesSinceWakeUp($prevCigs[0]->getSmokedAt(), $prevWakeUp->getWakeTime());
             }
         }
 
@@ -321,27 +321,27 @@ class IntervalCalculator
             } else {
                 $prevCig = $todayCigs[$index - 1];
                 if ($todayWakeUp) {
-                    $prevMinutes = self::minutesSinceWakeUp(
+                    $prevMinutes = $this->minutesSinceWakeUp(
                         $prevCig->getSmokedAt(),
                         $todayWakeUp->getWakeTime()
                     );
                 } else {
-                    $prevMinutes = self::timeToMinutes($prevCig->getSmokedAt());
+                    $prevMinutes = $this->timeToMinutes($prevCig->getSmokedAt());
                 }
                 $targetMinutes = $prevMinutes + $avgInterval;
             }
 
             if ($todayWakeUp) {
-                $actualMinutes = self::minutesSinceWakeUp(
+                $actualMinutes = $this->minutesSinceWakeUp(
                     $todayCig->getSmokedAt(),
                     $todayWakeUp->getWakeTime()
                 );
             } else {
-                $actualMinutes = self::timeToMinutes($todayCig->getSmokedAt());
+                $actualMinutes = $this->timeToMinutes($todayCig->getSmokedAt());
             }
 
             $diff = $actualMinutes - $targetMinutes;
-            $points = self::getPointsForDiff($diff, $avgInterval);
+            $points = $this->getPointsForDiff($diff, $avgInterval);
             $totalScore += $points;
         }
 

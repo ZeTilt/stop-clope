@@ -5,6 +5,55 @@
 {% block stylesheets %}
 {{ parent() }}
 <style>
+    /* Tabs */
+    .stats-tabs {
+        display: flex;
+        background: var(--bg-secondary);
+        border-radius: var(--radius-lg);
+        padding: 4px;
+        margin-bottom: 20px;
+        gap: 4px;
+    }
+
+    .stats-tab {
+        flex: 1;
+        padding: 12px 8px;
+        background: transparent;
+        border: none;
+        border-radius: var(--radius-md);
+        color: var(--text-secondary);
+        font-size: 0.85rem;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        text-align: center;
+    }
+
+    .stats-tab:hover {
+        color: var(--text-primary);
+    }
+
+    .stats-tab.active {
+        background: var(--bg-card);
+        color: var(--accent);
+        box-shadow: var(--shadow-sm);
+    }
+
+    .stats-tab-icon {
+        display: block;
+        font-size: 1.2rem;
+        margin-bottom: 4px;
+    }
+
+    .tab-content {
+        display: none;
+    }
+
+    .tab-content.active {
+        display: block;
+    }
+
+    /* Health timeline */
     .health-timeline {
         position: relative;
         padding-left: 20px;
@@ -81,6 +130,8 @@
     .health-icon {
         margin-right: 8px;
     }
+
+    /* Charts */
     .chart-container {
         position: relative;
         height: 200px;
@@ -148,6 +199,7 @@
         color: var(--text-secondary);
     }
 
+    /* Savings card */
     .savings-card {
         background: linear-gradient(135deg, var(--success), #00ff88);
         color: #000;
@@ -161,6 +213,7 @@
         color: rgba(0,0,0,0.7);
     }
 
+    /* Badges */
     .badges-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -231,6 +284,18 @@
         background: var(--bg-secondary);
         border-radius: 8px;
     }
+
+    /* Accessibility: hidden table for screen readers */
+    .sr-only-table {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        border: 0;
+    }
 </style>
 {% endblock %}
 
@@ -240,93 +305,453 @@
         <h1>Statistiques</h1>
     </header>
 
-    <!-- Tendances et projection -->
-    {% if weekly_comparison is null and first_date %}
-    <div class="card">
-        <h3 style="margin-bottom: 15px;"><span aria-hidden="true">📈</span> Tendances</h3>
-        <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
-            <div style="font-size: 2rem; margin-bottom: 10px;" aria-hidden="true">📊</div>
-            <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                Continue encore quelques jours pour voir tes tendances !
-                <br>Les comparaisons seront disponibles après 4 jours d'utilisation.
+    <!-- Tabs navigation -->
+    <div class="stats-tabs" role="tablist" aria-label="Sections statistiques">
+        <button class="stats-tab active" role="tab" aria-selected="true" aria-controls="tab-overview" id="btn-overview" onclick="switchTab('overview')">
+            <span class="stats-tab-icon" aria-hidden="true">📊</span>
+            Vue d'ensemble
+        </button>
+        <button class="stats-tab" role="tab" aria-selected="false" aria-controls="tab-graphs" id="btn-graphs" onclick="switchTab('graphs')">
+            <span class="stats-tab-icon" aria-hidden="true">📈</span>
+            Graphiques
+        </button>
+        <button class="stats-tab" role="tab" aria-selected="false" aria-controls="tab-health" id="btn-health" onclick="switchTab('health')">
+            <span class="stats-tab-icon" aria-hidden="true">❤️</span>
+            Santé
+        </button>
+    </div>
+
+    <!-- TAB 1: Vue d'ensemble -->
+    <div id="tab-overview" class="tab-content active" role="tabpanel" aria-labelledby="btn-overview">
+
+        <!-- Tendances et projection -->
+        {% if weekly_comparison is null and first_date %}
+        <div class="card">
+            <h3 style="margin-bottom: 15px;"><span aria-hidden="true">📈</span> Tendances</h3>
+            <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+                <div style="font-size: 2rem; margin-bottom: 10px;" aria-hidden="true">📊</div>
+                <div style="font-size: 0.9rem; color: var(--text-secondary);">
+                    Continue encore quelques jours pour voir tes tendances !
+                    <br>Les comparaisons seront disponibles après 4 jours d'utilisation.
+                </div>
             </div>
         </div>
-    </div>
-    {% elseif weekly_comparison and savings.daily_avg > 0 %}
-    <div class="card">
-        <h3 style="margin-bottom: 15px;"><span aria-hidden="true">📈</span> Tendances</h3>
+        {% elseif weekly_comparison and savings.daily_avg > 0 %}
+        <div class="card">
+            <h3 style="margin-bottom: 15px;"><span aria-hidden="true">📈</span> Tendances</h3>
 
-        {# Disclaimer si données précoces #}
-        {% if weekly_comparison.is_early is defined and weekly_comparison.is_early %}
-        <div style="padding: 10px; background: var(--warning); color: #000; border-radius: 8px; margin-bottom: 15px; font-size: 0.8rem;">
-            <span aria-hidden="true">⚠️</span> <strong>Tendance préliminaire</strong> — Basée sur {{ weekly_comparison.period_days * 2 }} jours de données seulement.
-            Elle sera plus fiable après 2 semaines d'utilisation.
+            {% if weekly_comparison.is_early is defined and weekly_comparison.is_early %}
+            <div style="padding: 10px; background: var(--warning); color: #000; border-radius: 8px; margin-bottom: 15px; font-size: 0.8rem;">
+                <span aria-hidden="true">⚠️</span> <strong>Tendance préliminaire</strong> — Basée sur {{ weekly_comparison.period_days * 2 }} jours de données seulement.
+            </div>
+            {% endif %}
+
+            {% set trend = weekly_comparison.diff_avg %}
+            {% set trend_abs = trend|abs %}
+            {% set trend_icon = trend < 0 ? '↘️' : (trend > 0 ? '↗️' : '➡️') %}
+            {% set trend_color = trend < 0 ? 'var(--success)' : (trend > 0 ? 'var(--error)' : 'var(--text-secondary)') %}
+
+            <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
+                <span style="font-size: 2rem;" aria-hidden="true">{{ trend_icon }}</span>
+                <div>
+                    <div style="font-size: 1.1rem; font-weight: 600; color: {{ trend_color }};">
+                        {% if trend < 0 %}
+                            <strong>{{ trend_abs }}</strong> clope{{ trend_abs != 1 ? 's' : '' }} de moins par jour
+                        {% elseif trend > 0 %}
+                            <strong>{{ trend_abs }}</strong> clope{{ trend_abs != 1 ? 's' : '' }} de plus par jour
+                        {% else %}
+                            Consommation stable
+                        {% endif %}
+                    </div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                        ({{ weekly_comparison.current.avg }}/j vs {{ weekly_comparison.previous.avg }}/j)
+                    </div>
+                </div>
+            </div>
+
+            {% if trend < 0 and savings.daily_avg > 0 and weekly_comparison.previous.days_count >= 5 %}
+                {% set weeks_to_zero = (weekly_comparison.current.avg / trend_abs)|round %}
+                {% if weeks_to_zero > 0 and weeks_to_zero < 52 %}
+                {% set target_date = "now"|date_modify("+" ~ weeks_to_zero ~ " weeks") %}
+                <div style="padding: 15px; background: linear-gradient(135deg, var(--success), #00ff88); border-radius: 8px; color: #000;">
+                    <div style="font-weight: 600; margin-bottom: 5px;"><span aria-hidden="true">🎯</span> Projection</div>
+                    <div style="font-size: 0.9rem;">
+                        À ce rythme : <strong>zéro clope</strong> vers le <strong>{{ target_date|date('d/m/Y') }}</strong>
+                    </div>
+                </div>
+                {% endif %}
+            {% endif %}
         </div>
         {% endif %}
 
-        {% set trend = weekly_comparison.diff_avg %}
-        {% set trend_abs = trend|abs %}
-        {% set trend_icon = trend < 0 ? '↘️' : (trend > 0 ? '↗️' : '➡️') %}
-        {% set trend_color = trend < 0 ? 'var(--success)' : (trend > 0 ? 'var(--error)' : 'var(--text-secondary)') %}
-        {% set is_early = weekly_comparison.is_early is defined and weekly_comparison.is_early %}
-        {% set period_ref = is_early ? 'la période précédente' : 'la semaine dernière' %}
+        <!-- Économies -->
+        {% if savings.total > 0 %}
+        <div class="card score-display savings-card">
+            <div class="score-value" style="font-size: 2.5rem;">{{ savings.total }}€</div>
+            <div class="score-label">Économisés</div>
+            <div style="margin-top: 15px; font-size: 0.9rem;">
+                <div>{{ savings.cigs_avoided }} clopes évitées en {{ savings.days }} jours</div>
+                <div style="margin-top: 5px;">Moyenne : {{ savings.daily_avg }} clopes/jour (vs {{ savings.initial_daily }} avant)</div>
+            </div>
+        </div>
+        {% endif %}
 
-        <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
-            <span style="font-size: 2rem;" aria-hidden="true">{{ trend_icon }}</span>
-            <div>
-                <div style="font-size: 1.1rem; font-weight: 600; color: {{ trend_color }};">
-                    {% if trend < 0 %}
-                        Tu fumes <strong>{{ trend_abs }}</strong> clope{{ trend_abs != 1 ? 's' : '' }} de moins par jour
-                    {% elseif trend > 0 %}
-                        Tu fumes <strong>{{ trend_abs }}</strong> clope{{ trend_abs != 1 ? 's' : '' }} de plus par jour
-                    {% else %}
-                        Ta consommation est stable
+        <!-- Rang actuel -->
+        <div class="card score-display">
+            <div class="rank-badge" style="font-size: 1.2rem; padding: 12px 24px;">{{ rank.rank }}</div>
+            <div class="score-value" style="font-size: 3rem; margin-top: 15px;">{{ rank.total_score }}</div>
+            <div class="score-label">Points totaux</div>
+            <div class="progress-bar">
+                <div class="progress-fill" style="width: {{ rank.progress }}%"></div>
+            </div>
+            <div class="score-label" style="margin-top: 8px;">
+                Prochain rang à {{ rank.next_rank_threshold }} pts
+            </div>
+        </div>
+
+        <!-- Badges -->
+        {% if badges is defined and badges|length > 0 %}
+        <div class="card">
+            <h3 style="margin-bottom: 15px;">Badges</h3>
+
+            {% set unlocked_count = 0 %}
+            {% for code, badge in badges %}
+                {% if badge.unlocked %}
+                    {% set unlocked_count = unlocked_count + 1 %}
+                {% endif %}
+            {% endfor %}
+
+            <div class="badges-summary">
+                <span style="font-size: 1.5rem;" aria-hidden="true">🏅</span>
+                <span style="font-weight: 600;">{{ unlocked_count }} / {{ badges|length }} badges</span>
+            </div>
+
+            <div class="badges-grid">
+                {% for code, badge in badges %}
+                <div class="badge-item {{ badge.unlocked ? 'unlocked' : 'locked' }}" title="{{ badge.description }}">
+                    <div class="badge-icon" aria-hidden="true">{{ badge.icon }}</div>
+                    <div class="badge-name">{{ badge.name }}</div>
+                    <div class="badge-desc">{{ badge.description }}</div>
+                    {% if badge.unlocked and badge.unlocked_at %}
+                    <div class="badge-date">{{ badge.unlocked_at|date('d/m/Y') }}</div>
                     {% endif %}
                 </div>
-                <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                    {% if trend != 0 %}par rapport à {{ period_ref }}{% endif %}
-                    ({{ weekly_comparison.current.avg }}/j vs {{ weekly_comparison.previous.avg }}/j)
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Comparaison semaine -->
+        {% if weekly_comparison %}
+        <div class="card">
+            <h3 style="margin-bottom: 15px;">Cette semaine vs précédente</h3>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">{{ weekly_comparison.current.total }}</div>
+                    <div class="stat-label">Cette semaine</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ weekly_comparison.previous.total }}</div>
+                    <div class="stat-label">Semaine précédente</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" style="color: {{ weekly_comparison.diff_total < 0 ? 'var(--success)' : (weekly_comparison.diff_total > 0 ? 'var(--accent)' : 'inherit') }};">
+                        {{ weekly_comparison.diff_total >= 0 ? '+' : '' }}{{ weekly_comparison.diff_total }}
+                    </div>
+                    <div class="stat-label">Différence</div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- TAB 2: Graphiques -->
+    <div id="tab-graphs" class="tab-content" role="tabpanel" aria-labelledby="btn-graphs">
+
+        <!-- Graphique clopes/jour -->
+        {% if first_date %}
+        <div class="card">
+            <h3>Clopes par jour (7 jours)</h3>
+            <div class="chart-container">
+                <div class="bar-chart" role="img" aria-label="Graphique du nombre de cigarettes par jour">
+                    {% set max_count = 1 %}
+                    {% for date, count in monthly_stats|slice(-7) %}
+                        {% if count > max_count %}
+                            {% set max_count = count %}
+                        {% endif %}
+                    {% endfor %}
+
+                    {% for i in 7..1 %}
+                        {% set check_date = ("now")|date_modify("-" ~ i ~ " days")|date("Y-m-d") %}
+                        {% if check_date >= first_date|date("Y-m-d") %}
+                            {% set count = monthly_stats[check_date]|default(0) %}
+                            {% set height = max_count > 0 ? (count / max_count * 120) : 0 %}
+                            <div class="bar-wrapper">
+                                <span class="bar-value">{{ count }}</span>
+                                <div class="bar" style="height: {{ height }}px;"></div>
+                                <span class="bar-label">{{ check_date|date("D")|slice(0, 3) }}</span>
+                            </div>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+            <!-- Tableau accessible caché -->
+            <table class="sr-only-table">
+                <caption>Nombre de cigarettes par jour sur les 7 derniers jours</caption>
+                <thead><tr><th>Jour</th><th>Cigarettes</th></tr></thead>
+                <tbody>
+                {% for i in 7..1 %}
+                    {% set check_date = ("now")|date_modify("-" ~ i ~ " days")|date("Y-m-d") %}
+                    {% if check_date >= first_date|date("Y-m-d") %}
+                    <tr><td>{{ check_date|date("D d/m") }}</td><td>{{ monthly_stats[check_date]|default(0) }}</td></tr>
+                    {% endif %}
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Graphique scores/jour -->
+        {% if weekly_scores|length > 0 %}
+        <div class="card">
+            <h3>Score par jour (7 jours)</h3>
+            <div class="chart-container score-chart">
+                <div class="bar-chart" role="img" aria-label="Graphique des scores par jour">
+                    {% set max_score = 1 %}
+                    {% set min_score = 0 %}
+                    {% for date, score_data in weekly_scores %}
+                        {% if score_data.total_score > max_score %}{% set max_score = score_data.total_score %}{% endif %}
+                        {% if score_data.total_score < min_score %}{% set min_score = score_data.total_score %}{% endif %}
+                    {% endfor %}
+                    {% set range = max_score - min_score %}
+                    {% if range == 0 %}{% set range = 1 %}{% endif %}
+
+                    {% for date, score_data in weekly_scores %}
+                        {% set height = ((score_data.total_score - min_score) / range * 120)|round %}
+                        <div class="bar-wrapper">
+                            <span class="bar-value">{{ score_data.total_score > 0 ? '+' : '' }}{{ score_data.total_score }}</span>
+                            <div class="bar {{ score_data.total_score < 0 ? 'negative' : '' }}" style="height: {{ height > 4 ? height : 4 }}px;"></div>
+                            <span class="bar-label">{{ date|date("D")|slice(0, 3) }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <!-- Tableau accessible caché -->
+            <table class="sr-only-table">
+                <caption>Score par jour sur les 7 derniers jours</caption>
+                <thead><tr><th>Jour</th><th>Score</th></tr></thead>
+                <tbody>
+                {% for date, score_data in weekly_scores %}
+                <tr><td>{{ date|date("D d/m") }}</td><td>{{ score_data.total_score }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Semaine type -->
+        {% if weekday_stats|length > 0 %}
+        <div class="card">
+            <h3>Semaine type</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Moyenne par jour de la semaine</p>
+            <div class="chart-container">
+                <div class="bar-chart" role="img" aria-label="Graphique de la moyenne par jour de semaine">
+                    {% set max_weekday = 1 %}
+                    {% for day, count in weekday_stats %}
+                        {% if count > max_weekday %}{% set max_weekday = count %}{% endif %}
+                    {% endfor %}
+
+                    {% set days_order = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] %}
+                    {% for day in days_order %}
+                        {% set count = weekday_stats[day]|default(0) %}
+                        {% set height = max_weekday > 0 ? (count / max_weekday * 120) : 0 %}
+                        <div class="bar-wrapper">
+                            <span class="bar-value">{{ count }}</span>
+                            <div class="bar" style="height: {{ height }}px;"></div>
+                            <span class="bar-label">{{ day }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+            <!-- Tableau accessible caché -->
+            <table class="sr-only-table">
+                <caption>Moyenne de cigarettes par jour de la semaine</caption>
+                <thead><tr><th>Jour</th><th>Moyenne</th></tr></thead>
+                <tbody>
+                {% for day in ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] %}
+                <tr><td>{{ day }}</td><td>{{ weekday_stats[day]|default(0) }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Heatmap des heures -->
+        {% if hourly_stats|length > 0 %}
+        <div class="card">
+            <h3>Heures de consommation</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Moyenne par heure</p>
+            <div class="heatmap" role="img" aria-label="Carte thermique des heures de consommation">
+                {% set max_hour = 0 %}
+                {% for hour, count in hourly_stats %}
+                    {% if count > max_hour %}{% set max_hour = count %}{% endif %}
+                {% endfor %}
+
+                {% for hour in 0..23 %}
+                    {% set count = hourly_stats[hour]|default(0) %}
+                    {% set intensity = (max_hour > 0) ? (count / max_hour) : 0 %}
+                    {% set level = (intensity * 9)|round %}
+                    {% if level == 0 %}{% set bg = '#00c853' %}
+                    {% elseif level == 1 %}{% set bg = '#4caf50' %}
+                    {% elseif level == 2 %}{% set bg = '#8bc34a' %}
+                    {% elseif level == 3 %}{% set bg = '#cddc39' %}
+                    {% elseif level == 4 %}{% set bg = '#ffeb3b' %}
+                    {% elseif level == 5 %}{% set bg = '#ffc107' %}
+                    {% elseif level == 6 %}{% set bg = '#ff9800' %}
+                    {% elseif level == 7 %}{% set bg = '#ff5722' %}
+                    {% elseif level == 8 %}{% set bg = '#f44336' %}
+                    {% else %}{% set bg = '#d32f2f' %}{% endif %}
+                    <div class="heatmap-cell" style="background: {{ bg }}; color: #000;" title="{{ count|round(1) }} clopes/jour à {{ hour }}h">
+                        {{ hour }}h
+                    </div>
+                {% endfor %}
+            </div>
+            <!-- Tableau accessible caché -->
+            <table class="sr-only-table">
+                <caption>Moyenne de cigarettes par heure de la journée</caption>
+                <thead><tr><th>Heure</th><th>Moyenne</th></tr></thead>
+                <tbody>
+                {% for hour in 0..23 %}
+                <tr><td>{{ hour }}h</td><td>{{ hourly_stats[hour]|default(0)|round(1) }}</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        <!-- Intervalle moyen -->
+        {% if daily_intervals|length > 0 %}
+        <div class="card">
+            <h3>Intervalle moyen entre clopes</h3>
+            <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">En minutes</p>
+            <div class="chart-container">
+                <div class="bar-chart" role="img" aria-label="Graphique de l'intervalle moyen entre cigarettes">
+                    {% set max_interval = 1 %}
+                    {% for date, interval in daily_intervals %}
+                        {% if interval > max_interval %}{% set max_interval = interval %}{% endif %}
+                    {% endfor %}
+
+                    {% for date, interval in daily_intervals %}
+                        {% set height = max_interval > 0 ? (interval / max_interval * 120) : 0 %}
+                        <div class="bar-wrapper">
+                            <span class="bar-value">{{ interval }}m</span>
+                            <div class="bar" style="height: {{ height }}px; background: linear-gradient(180deg, #00d9a5, #00ff88);"></div>
+                            <span class="bar-label">{{ date|date("D")|slice(0, 3) }}</span>
+                        </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Résumé mensuel -->
+        <div class="card">
+            <h3 style="margin-bottom: 15px;">30 derniers jours</h3>
+            {% set total_cigs = 0 %}
+            {% set days_with_data = 0 %}
+            {% for date, count in monthly_stats %}
+                {% set total_cigs = total_cigs + count %}
+                {% if count > 0 %}{% set days_with_data = days_with_data + 1 %}{% endif %}
+            {% endfor %}
+
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-value">{{ total_cigs }}</div>
+                    <div class="stat-label">Total clopes</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value">{{ days_with_data > 0 ? (total_cigs / days_with_data)|round(1) : 0 }}</div>
+                    <div class="stat-label">Moyenne/jour</div>
                 </div>
             </div>
         </div>
 
-        {# Projection vers objectif zéro si tendance négative et données fiables #}
-        {% if trend < 0 and savings.daily_avg > 0 and weekly_comparison.previous.days_count >= 5 %}
-            {# Projection en semaines : si on perd X clopes/semaine, combien de semaines pour atteindre 0 #}
-            {% set weeks_to_zero = (weekly_comparison.current.avg / trend_abs)|round %}
-            {% if weeks_to_zero > 0 and weeks_to_zero < 52 %}
-            {% set target_date = "now"|date_modify("+" ~ weeks_to_zero ~ " weeks") %}
-            <div style="padding: 15px; background: linear-gradient(135deg, var(--success), #00ff88); border-radius: 8px; color: #000;">
-                <div style="font-weight: 600; margin-bottom: 5px;"><span aria-hidden="true">🎯</span> Projection (si tendance maintenue)</div>
-                <div style="font-size: 0.9rem;">
-                    À ce rythme, tu pourrais atteindre <strong>zéro clope</strong> vers le <strong>{{ target_date|date('d/m/Y') }}</strong>
-                    <span style="opacity: 0.7;">(~{{ weeks_to_zero }} semaine{{ weeks_to_zero > 1 ? 's' : '' }})</span>
+    </div>
+
+    <!-- TAB 3: Santé -->
+    <div id="tab-health" class="tab-content" role="tabpanel" aria-labelledby="btn-health">
+
+        <!-- Timeline Bénéfices de la Réduction -->
+        {% if first_date %}
+        {% set days_since_start = date().diff(first_date).days %}
+        {% set reduction_percent = savings.daily_avg > 0 and savings.initial_daily > 0 ? ((1 - savings.daily_avg / savings.initial_daily) * 100)|round : 0 %}
+        {% set cigs_reduced = savings.initial_daily - savings.daily_avg %}
+        <div class="card">
+            <h3 style="margin-bottom: 5px;">Bénéfices de ta réduction</h3>
+            <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 15px;">
+                {{ reduction_percent }}% de réduction ({{ savings.daily_avg|round(1) }} vs {{ savings.initial_daily }} clopes/jour)
+            </p>
+
+            {% if reduction_percent >= 25 %}
+            <div style="padding: 15px; background: linear-gradient(135deg, rgba(0, 217, 165, 0.15), rgba(0, 255, 136, 0.1)); border-radius: 12px; border-left: 4px solid var(--success); margin-bottom: 20px;">
+                <div style="font-size: 1.1rem; font-weight: 600; color: var(--success); margin-bottom: 8px;">
+                    <span aria-hidden="true">📉</span> -{{ ((reduction_percent / 25) * 10)|round }}% risque cancer du poumon
+                </div>
+                <div style="font-size: 0.85rem; color: var(--text-secondary);">
+                    Étude NCI 2024 : réduire de 25% diminue le risque d'environ 20%.
                 </div>
             </div>
             {% endif %}
-        {% elseif trend < 0 and weekly_comparison.previous.days_count < 5 %}
-            <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--success);">
-                <div style="font-weight: 600; margin-bottom: 5px; color: var(--success);"><span aria-hidden="true">👍</span> Bonne tendance !</div>
-                <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                    Continue encore quelques jours pour voir une projection fiable.
-                </div>
-            </div>
-        {% elseif trend > 0 %}
-            <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--warning);">
-                <div style="font-weight: 600; margin-bottom: 5px;"><span aria-hidden="true">💡</span> Conseil</div>
-                <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                    Ta consommation augmente légèrement. Essaie d'espacer un peu plus tes clopes cette semaine.
-                </div>
-            </div>
-        {% else %}
-            <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
-                <div style="font-size: 0.9rem; color: var(--text-secondary);">
-                    Ta consommation est stable. Fixe-toi un petit objectif pour cette semaine !
-                </div>
-            </div>
-        {% endif %}
 
-        {# Meilleur et pire jour #}
+            <div class="health-timeline">
+                {% set milestones = [
+                    {reduction: 10, icon: '🌱', benefit: 'Premiers pas : moins d\'exposition quotidienne', detail: 'Chaque clope évitée = moins de toxines'},
+                    {reduction: 25, icon: '📉', benefit: 'Risque de cancer du poumon commence à baisser', detail: 'Étude NCI : -20% de risque en réduisant de 25%'},
+                    {reduction: 50, icon: '🫁', benefit: 'Réduction significative du risque pulmonaire', detail: 'Baisse notable du risque de cancer'},
+                    {reduction: 75, icon: '💪', benefit: 'Amélioration de la capacité respiratoire', detail: 'Moins de mucus, meilleur souffle'},
+                    {reduction: 90, icon: '🌟', benefit: 'Risques proches d\'un non-fumeur léger', detail: 'Continue vers l\'arrêt total'},
+                    {reduction: 100, icon: '🏆', benefit: 'Arrêt total : bénéfices maximaux', detail: 'Risque cardiaque -50% après 1-2 ans'}
+                ] %}
+
+                {% set found_next = false %}
+                {% for milestone in milestones %}
+                    {% set is_achieved = reduction_percent >= milestone.reduction %}
+                    {% set is_next = not found_next and not is_achieved %}
+                    {% if is_next %}{% set found_next = true %}{% endif %}
+
+                    <div class="health-item {{ is_achieved ? 'achieved' : '' }} {{ is_next ? 'next' : '' }}">
+                        <div class="health-time">{{ milestone.reduction }}% de réduction</div>
+                        <div class="health-benefit">
+                            <span class="health-icon" aria-hidden="true">{{ milestone.icon }}</span>
+                            {{ milestone.benefit }}
+                        </div>
+                        {% if is_achieved or is_next %}
+                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; margin-left: 28px;">
+                            {{ milestone.detail }}
+                        </div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+
+            <div style="margin-top: 20px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
+                <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">
+                    <strong>Ce que dit la science :</strong>
+                </div>
+                <ul style="font-size: 0.75rem; color: var(--text-secondary); margin: 0; padding-left: 20px; line-height: 1.6;">
+                    <li>Réduire diminue le risque de cancer proportionnellement</li>
+                    <li>Pour le cœur, l'arrêt total reste la meilleure option</li>
+                    <li>Chaque clope évitée compte</li>
+                </ul>
+            </div>
+
+            <p style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 12px; font-style: italic;">
+                Sources : NCI 2024, Global Heart Journal 2024
+            </p>
+        </div>
+
+        <!-- Meilleur et pire jour -->
         {% if weekday_stats|length > 0 %}
             {% set best_day = null %}
             {% set worst_day = null %}
@@ -344,414 +769,55 @@
             {% endfor %}
 
             {% if best_day and worst_day and best_day != worst_day %}
-            <div style="display: flex; gap: 10px; margin-top: 15px;">
-                <div style="flex: 1; padding: 12px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
-                    <div style="font-size: 1.5rem;" aria-hidden="true">🏆</div>
-                    <div style="font-size: 0.85rem; font-weight: 600;">Meilleur jour</div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary);">{{ best_day }} ({{ best_count }} clopes)</div>
-                </div>
-                <div style="flex: 1; padding: 12px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
-                    <div style="font-size: 1.5rem;" aria-hidden="true">⚠️</div>
-                    <div style="font-size: 0.85rem; font-weight: 600;">Jour difficile</div>
-                    <div style="font-size: 0.8rem; color: var(--text-secondary);">{{ worst_day }} ({{ worst_count }} clopes)</div>
+            <div class="card">
+                <h3 style="margin-bottom: 15px;">Tes jours</h3>
+                <div style="display: flex; gap: 10px;">
+                    <div style="flex: 1; padding: 12px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+                        <div style="font-size: 1.5rem;" aria-hidden="true">🏆</div>
+                        <div style="font-size: 0.85rem; font-weight: 600;">Meilleur jour</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">{{ best_day }} ({{ best_count }} clopes)</div>
+                    </div>
+                    <div style="flex: 1; padding: 12px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
+                        <div style="font-size: 1.5rem;" aria-hidden="true">⚠️</div>
+                        <div style="font-size: 0.85rem; font-weight: 600;">Jour difficile</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">{{ worst_day }} ({{ worst_count }} clopes)</div>
+                    </div>
                 </div>
             </div>
             {% endif %}
         {% endif %}
-    </div>
-    {% endif %}
-
-    <!-- Économies -->
-    {% if savings.total > 0 %}
-    <div class="card score-display savings-card">
-        <div class="score-value" style="font-size: 2.5rem;">{{ savings.total }}€</div>
-        <div class="score-label">Économisés</div>
-        <div style="margin-top: 15px; font-size: 0.9rem;">
-            <div>{{ savings.cigs_avoided }} clopes évitées en {{ savings.days }} jours</div>
-            <div style="margin-top: 5px;">Moyenne : {{ savings.daily_avg }} clopes/jour (vs {{ savings.initial_daily }} avant)</div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Badges -->
-    {% if badges is defined and badges|length > 0 %}
-    <div class="card">
-        <h3 style="margin-bottom: 15px;">Badges</h3>
-
-        {% set unlocked_count = 0 %}
-        {% for code, badge in badges %}
-            {% if badge.unlocked %}
-                {% set unlocked_count = unlocked_count + 1 %}
-            {% endif %}
-        {% endfor %}
-
-        <div class="badges-summary">
-            <span style="font-size: 1.5rem;" aria-hidden="true">🏅</span>
-            <span style="font-weight: 600;">{{ unlocked_count }} / {{ badges|length }} badges débloqués</span>
-        </div>
-
-        <div class="badges-grid">
-            {% for code, badge in badges %}
-            <div class="badge-item {{ badge.unlocked ? 'unlocked' : 'locked' }}" title="{{ badge.description }}">
-                <div class="badge-icon" aria-hidden="true">{{ badge.icon }}</div>
-                <div class="badge-name">{{ badge.name }}</div>
-                <div class="badge-desc">{{ badge.description }}</div>
-                {% if badge.unlocked and badge.unlocked_at %}
-                <div class="badge-date">{{ badge.unlocked_at|date('d/m/Y') }}</div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Timeline Bénéfices de la Réduction -->
-    {% if first_date %}
-    {% set days_since_start = date().diff(first_date).days %}
-    {% set reduction_percent = savings.daily_avg > 0 and savings.initial_daily > 0 ? ((1 - savings.daily_avg / savings.initial_daily) * 100)|round : 0 %}
-    {% set cigs_reduced = savings.initial_daily - savings.daily_avg %}
-    <div class="card">
-        <h3 style="margin-bottom: 5px;">Bénéfices de ta réduction</h3>
-        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-bottom: 15px;">
-            {{ reduction_percent }}% de réduction ({{ savings.daily_avg|round(1) }} vs {{ savings.initial_daily }} clopes/jour)
-        </p>
-
-        {# Afficher le bénéfice principal si réduction significative #}
-        {% if reduction_percent >= 25 %}
-        <div style="padding: 15px; background: linear-gradient(135deg, rgba(0, 217, 165, 0.15), rgba(0, 255, 136, 0.1)); border-radius: 12px; border-left: 4px solid var(--success); margin-bottom: 20px;">
-            <div style="font-size: 1.1rem; font-weight: 600; color: var(--success); margin-bottom: 8px;">
-                {% if reduction_percent >= 50 %}
-                    <span aria-hidden="true">📉</span> -{{ ((reduction_percent / 50) * 20)|round }}% risque cancer du poumon
-                {% else %}
-                    <span aria-hidden="true">📉</span> -{{ ((reduction_percent / 25) * 10)|round }}% risque cancer du poumon
-                {% endif %}
-            </div>
-            <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                Étude NCI 2024 : réduire de 25% diminue le risque de cancer du poumon d'environ 20%.
+        {% else %}
+        <div class="card">
+            <div style="text-align: center; padding: 20px;">
+                <div style="font-size: 2rem;" aria-hidden="true">📊</div>
+                <p style="color: var(--text-secondary);">Les données de santé apparaîtront après quelques jours d'utilisation.</p>
             </div>
         </div>
         {% endif %}
 
-        <div class="health-timeline">
-            {# Milestones basés sur la RÉDUCTION (données scientifiques 2024) #}
-            {% set milestones = [
-                {
-                    reduction: 10,
-                    icon: '🌱',
-                    benefit: 'Premiers pas : moins d\'exposition quotidienne aux toxines',
-                    detail: 'Chaque clope évitée = moins de goudron et monoxyde de carbone'
-                },
-                {
-                    reduction: 25,
-                    icon: '📉',
-                    benefit: 'Risque de cancer du poumon commence à baisser',
-                    detail: 'Étude NCI : -20% de risque en passant de 20 à 15 clopes/jour'
-                },
-                {
-                    reduction: 50,
-                    icon: '🫁',
-                    benefit: 'Réduction significative du risque pulmonaire',
-                    detail: 'Diviser par 2 = baisse notable du risque de cancer'
-                },
-                {
-                    reduction: 75,
-                    icon: '💪',
-                    benefit: 'Amélioration notable de la capacité respiratoire',
-                    detail: 'Moins de mucus, meilleur souffle à l\'effort'
-                },
-                {
-                    reduction: 90,
-                    icon: '🌟',
-                    benefit: 'Risques proches d\'un non-fumeur léger',
-                    detail: 'Continue vers l\'arrêt pour maximiser les bénéfices'
-                },
-                {
-                    reduction: 100,
-                    icon: '🏆',
-                    benefit: 'Arrêt total : bénéfices maximaux',
-                    detail: 'Risque cardiaque -50% après 1-2 ans, poumons en récupération'
-                }
-            ] %}
-
-            {% set found_next = false %}
-            {% for milestone in milestones %}
-                {% set is_achieved = reduction_percent >= milestone.reduction %}
-                {% set is_next = not found_next and not is_achieved %}
-                {% if is_next %}{% set found_next = true %}{% endif %}
-
-                <div class="health-item {{ is_achieved ? 'achieved' : '' }} {{ is_next ? 'next' : '' }}">
-                    <div class="health-time">
-                        {{ milestone.reduction }}% de réduction
-                    </div>
-                    <div class="health-benefit">
-                        <span class="health-icon" aria-hidden="true">{{ milestone.icon }}</span>
-                        {{ milestone.benefit }}
-                    </div>
-                    {% if is_achieved or is_next %}
-                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; margin-left: 28px;">
-                        {{ milestone.detail }}
-                    </div>
-                    {% endif %}
-                </div>
-            {% endfor %}
-        </div>
-
-        <div style="margin-top: 20px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
-            <div style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 8px;">
-                <strong>Ce que dit la science :</strong>
-            </div>
-            <ul style="font-size: 0.75rem; color: var(--text-secondary); margin: 0; padding-left: 20px; line-height: 1.6;">
-                <li>Réduire diminue le risque de cancer du poumon proportionnellement</li>
-                <li>Pour le coeur, l'arrêt total reste la meilleure option (pas de seuil "sûr")</li>
-                <li>Chaque clope évitée compte : moins d'exposition = moins de risques</li>
-            </ul>
-        </div>
-
-        <p style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 12px; font-style: italic;">
-            Sources : NCI 2024, Global Heart Journal 2024, méta-analyses cardiovasculaires
-        </p>
-    </div>
-    {% endif %}
-
-    <!-- Rang actuel -->
-    <div class="card score-display">
-        <div class="rank-badge" style="font-size: 1.2rem; padding: 12px 24px;">{{ rank.rank }}</div>
-        <div class="score-value" style="font-size: 3rem; margin-top: 15px;">{{ rank.total_score }}</div>
-        <div class="score-label">Points totaux</div>
-        <div class="progress-bar">
-            <div class="progress-fill" style="width: {{ rank.progress }}%"></div>
-        </div>
-        <div class="score-label" style="margin-top: 8px;">
-            Prochain rang à {{ rank.next_rank_threshold }} pts
-        </div>
-    </div>
-
-    <!-- Graphique clopes/jour -->
-    {% if first_date %}
-    <div class="card">
-        <h3>Clopes par jour (7 derniers jours)</h3>
-        <div class="chart-container">
-            <div class="bar-chart">
-                {% set max_count = 1 %}
-                {% for date, count in monthly_stats|slice(-7) %}
-                    {% if count > max_count %}
-                        {% set max_count = count %}
-                    {% endif %}
-                {% endfor %}
-
-                {% for i in 7..1 %}
-                    {% set check_date = ("now")|date_modify("-" ~ i ~ " days")|date("Y-m-d") %}
-                    {% if check_date >= first_date|date("Y-m-d") %}
-                        {% set count = monthly_stats[check_date]|default(0) %}
-                        {% set height = max_count > 0 ? (count / max_count * 120) : 0 %}
-                        <div class="bar-wrapper">
-                            <span class="bar-value">{{ count }}</span>
-                            <div class="bar" style="height: {{ height }}px;"></div>
-                            <span class="bar-label">{{ check_date|date("D")|slice(0, 3) }}</span>
-                        </div>
-                    {% endif %}
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Graphique scores/jour -->
-    {% if weekly_scores|length > 0 %}
-    <div class="card">
-        <h3>Score par jour (7 derniers jours)</h3>
-        <div class="chart-container score-chart">
-            <div class="bar-chart">
-                {% set max_score = 1 %}
-                {% set min_score = 0 %}
-                {% for date, score_data in weekly_scores %}
-                    {% if score_data.total_score > max_score %}
-                        {% set max_score = score_data.total_score %}
-                    {% endif %}
-                    {% if score_data.total_score < min_score %}
-                        {% set min_score = score_data.total_score %}
-                    {% endif %}
-                {% endfor %}
-                {% set range = max_score - min_score %}
-                {% if range == 0 %}{% set range = 1 %}{% endif %}
-
-                {% for date, score_data in weekly_scores %}
-                    {% set height = ((score_data.total_score - min_score) / range * 120)|round %}
-                    <div class="bar-wrapper">
-                        <span class="bar-value">{{ score_data.total_score > 0 ? '+' : '' }}{{ score_data.total_score }}</span>
-                        <div class="bar {{ score_data.total_score < 0 ? 'negative' : '' }}" style="height: {{ height > 4 ? height : 4 }}px;"></div>
-                        <span class="bar-label">{{ date|date("D")|slice(0, 3) }}</span>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Semaine type -->
-    {% if weekday_stats|length > 0 %}
-    <div class="card">
-        <h3>Semaine type</h3>
-        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Moyenne de clopes par jour de la semaine</p>
-        <div class="chart-container">
-            <div class="bar-chart">
-                {% set max_weekday = 1 %}
-                {% for day, count in weekday_stats %}
-                    {% if count > max_weekday %}
-                        {% set max_weekday = count %}
-                    {% endif %}
-                {% endfor %}
-
-                {% set days_order = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] %}
-                {% for day in days_order %}
-                    {% set count = weekday_stats[day]|default(0) %}
-                    {% set height = max_weekday > 0 ? (count / max_weekday * 120) : 0 %}
-                    <div class="bar-wrapper">
-                        <span class="bar-value">{{ count }}</span>
-                        <div class="bar" style="height: {{ height }}px;"></div>
-                        <span class="bar-label">{{ day }}</span>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Heatmap des heures -->
-    {% if hourly_stats|length > 0 %}
-    <div class="card">
-        <h3>Heures de consommation</h3>
-        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Moyenne par heure de la journée</p>
-        <div class="heatmap">
-            {% set max_hour = 0 %}
-            {% set min_hour = 999 %}
-            {% for hour, count in hourly_stats %}
-                {% if count > max_hour %}
-                    {% set max_hour = count %}
-                {% endif %}
-                {% if count < min_hour and count > 0 %}
-                    {% set min_hour = count %}
-                {% endif %}
-            {% endfor %}
-            {% if min_hour == 999 %}{% set min_hour = 0 %}{% endif %}
-            {% set range = max_hour - min_hour %}
-
-            {% for hour in 0..23 %}
-                {% set count = hourly_stats[hour]|default(0) %}
-                {% set intensity = (max_hour > 0) ? (count / max_hour) : 0 %}
-                {# 10 nuances du vert au rouge #}
-                {% set level = (intensity * 9)|round %}
-                {% if level == 0 %}
-                    {% set bg = '#00c853' %}
-                {% elseif level == 1 %}
-                    {% set bg = '#4caf50' %}
-                {% elseif level == 2 %}
-                    {% set bg = '#8bc34a' %}
-                {% elseif level == 3 %}
-                    {% set bg = '#cddc39' %}
-                {% elseif level == 4 %}
-                    {% set bg = '#ffeb3b' %}
-                {% elseif level == 5 %}
-                    {% set bg = '#ffc107' %}
-                {% elseif level == 6 %}
-                    {% set bg = '#ff9800' %}
-                {% elseif level == 7 %}
-                    {% set bg = '#ff5722' %}
-                {% elseif level == 8 %}
-                    {% set bg = '#f44336' %}
-                {% else %}
-                    {% set bg = '#d32f2f' %}
-                {% endif %}
-                <div class="heatmap-cell" style="background: {{ bg }}; color: #000;" title="{{ count|round(1) }} clopes/jour à {{ hour }}h">
-                    {{ hour }}h
-                </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Intervalle moyen entre clopes -->
-    {% if daily_intervals|length > 0 %}
-    <div class="card">
-        <h3>Intervalle moyen entre clopes</h3>
-        <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Évolution par jour (en minutes)</p>
-        <div class="chart-container">
-            <div class="bar-chart">
-                {% set max_interval = 1 %}
-                {% for date, interval in daily_intervals %}
-                    {% if interval > max_interval %}
-                        {% set max_interval = interval %}
-                    {% endif %}
-                {% endfor %}
-
-                {% for date, interval in daily_intervals %}
-                    {% set height = max_interval > 0 ? (interval / max_interval * 120) : 0 %}
-                    <div class="bar-wrapper">
-                        <span class="bar-value">{{ interval }}m</span>
-                        <div class="bar" style="height: {{ height }}px; background: linear-gradient(180deg, #00d9a5, #00ff88);"></div>
-                        <span class="bar-label">{{ date|date("D")|slice(0, 3) }}</span>
-                    </div>
-                {% endfor %}
-            </div>
-        </div>
-    </div>
-    {% endif %}
-
-    <!-- Comparaison semaine glissante -->
-    {% if weekly_comparison %}
-    <div class="card">
-        <h3 style="margin-bottom: 15px;">Semaine vs semaine précédente</h3>
-        <div class="stats-grid">
-            <div class="stat-item">
-                <div class="stat-value">{{ weekly_comparison.current.total }}</div>
-                <div class="stat-label">Cette semaine</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ weekly_comparison.previous.total }}</div>
-                <div class="stat-label">Semaine précédente</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value" style="color: {{ weekly_comparison.diff_total < 0 ? 'var(--success)' : (weekly_comparison.diff_total > 0 ? 'var(--accent)' : 'inherit') }};">
-                    {{ weekly_comparison.diff_total >= 0 ? '+' : '' }}{{ weekly_comparison.diff_total }}
-                </div>
-                <div class="stat-label">Différence</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value" style="color: {{ weekly_comparison.diff_avg < 0 ? 'var(--success)' : (weekly_comparison.diff_avg > 0 ? 'var(--accent)' : 'inherit') }};">
-                    {{ weekly_comparison.diff_avg >= 0 ? '+' : '' }}{{ weekly_comparison.diff_avg }}
-                </div>
-                <div class="stat-label">Diff moy/jour</div>
-            </div>
-        </div>
-        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 10px; text-align: center;">
-            Moyenne : {{ weekly_comparison.current.avg }} clopes/jour (vs {{ weekly_comparison.previous.avg }} avant)
-        </p>
-    </div>
-    {% endif %}
-
-    <!-- Résumé mensuel -->
-    <div class="card">
-        <h3 style="margin-bottom: 15px;">30 derniers jours</h3>
-        {% set total_cigs = 0 %}
-        {% set days_with_data = 0 %}
-        {% for date, count in monthly_stats %}
-            {% set total_cigs = total_cigs + count %}
-            {% if count > 0 %}
-                {% set days_with_data = days_with_data + 1 %}
-            {% endif %}
-        {% endfor %}
-
-        <div class="stats-grid">
-            <div class="stat-item">
-                <div class="stat-value">{{ total_cigs }}</div>
-                <div class="stat-label">Total clopes</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ days_with_data > 0 ? (total_cigs / days_with_data)|round(1) : 0 }}</div>
-                <div class="stat-label">Moyenne/jour</div>
-            </div>
-        </div>
     </div>
 
 </div>
+
+<script>
+function switchTab(tabName) {
+    // Hide all tabs
+    document.querySelectorAll('.tab-content').forEach(tab => {
+        tab.classList.remove('active');
+    });
+
+    // Deactivate all buttons
+    document.querySelectorAll('.stats-tab').forEach(btn => {
+        btn.classList.remove('active');
+        btn.setAttribute('aria-selected', 'false');
+    });
+
+    // Show selected tab
+    document.getElementById('tab-' + tabName).classList.add('active');
+
+    // Activate selected button
+    document.getElementById('btn-' + tabName).classList.add('active');
+    document.getElementById('btn-' + tabName).setAttribute('aria-selected', 'true');
+}
+</script>
 {% endblock %}

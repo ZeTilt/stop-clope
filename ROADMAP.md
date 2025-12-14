@@ -520,12 +520,12 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 
 **Tâches critiques** :
 - [x] Supprimer duplication `calculateDailyScoreFromData()` (centralisé dans IntervalCalculator)
-- [ ] Utiliser `CigaretteService::parseTimeData()` dans HomeController (au lieu de dupliquer)
-- [ ] Centraliser calcul économies dans StatsService
+- [x] Utiliser `CigaretteService::parseTimeData()` dans HomeController (au lieu de dupliquer)
+- [x] Centraliser calcul économies dans StatsService (BadgeService délègue à StatsService)
 
 **Tâches moyennes** :
 - [x] Supprimer méthodes @deprecated de ScoringService
-- [ ] Transformer méthodes statiques IntervalCalculator en méthodes d'instance
+- [x] Transformer méthodes statiques IntervalCalculator en méthodes d'instance
 - [x] Créer constantes pour valeurs magiques (ScoringConstants.php)
 
 ### 7.4 UX (Score: 7.5/10 → 8.5/10)
@@ -538,8 +538,8 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 **Tâches moyennes** :
 - [x] Accordéon repliable pour "Détail des points"
 - [x] Boutons rapides dans modal rétroactif ("Il y a 15 min", "Il y a 30 min", "Il y a 1h")
-- [ ] Tabs dans Stats : "Vue d'ensemble" / "Graphiques" / "Santé"
-- [ ] Toast "Annuler" temporaire (3-5 sec) après logging
+- [x] Tabs dans Stats : "Vue d'ensemble" / "Graphiques" / "Santé"
+- [x] Toast "Annuler" temporaire (5 sec) après logging avec bouton d'annulation
 
 ### 7.5 Accessibilité (Score: 6.5/10 → 8/10)
 
@@ -550,7 +550,7 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 
 **Tâches moyennes** :
 - [x] Corriger contraste accent (#E8C9A0 = 4.5:1+)
-- [ ] Alternative textuelle pour graphiques (tableau caché)
+- [x] Alternative textuelle pour graphiques (tableaux cachés pour lecteurs d'écran)
 - [x] Améliorer visibilité skip link (CSS ajouté)
 
 ---

@@ -18,11 +18,19 @@ if ('serviceWorker' in navigator) {
     });
 }
 
+// Variable pour stocker le timeout actuel du toast
+let currentToastTimeout = null;
+
 function showToast(message, options = {}) {
     const toast = document.getElementById('toast');
     if (!toast) return;
 
-    const { type = 'info', points = null, icon = null } = options;
+    const { type = 'info', points = null, icon = null, action = null, actionLabel = null, duration = 3000 } = options;
+
+    // Annuler le timeout précédent si existe
+    if (currentToastTimeout) {
+        clearTimeout(currentToastTimeout);
+    }
 
     // Reset classes
     toast.className = 'toast';
@@ -41,8 +49,27 @@ function showToast(message, options = {}) {
     }
     html += '</div>';
 
+    // Bouton d'action (ex: Annuler)
+    if (action && actionLabel) {
+        html += '<button class="toast-action" type="button">' + actionLabel + '</button>';
+    }
+
     toast.innerHTML = html;
     toast.classList.add('toast-' + type, 'show');
+
+    // Attacher l'événement au bouton d'action
+    if (action && actionLabel) {
+        const actionBtn = toast.querySelector('.toast-action');
+        if (actionBtn) {
+            actionBtn.onclick = function() {
+                action();
+                toast.classList.remove('show');
+                if (currentToastTimeout) {
+                    clearTimeout(currentToastTimeout);
+                }
+            };
+        }
+    }
 
     // Haptic feedback (vibration) si supporte
     if ('vibrate' in navigator) {
@@ -53,11 +80,11 @@ function showToast(message, options = {}) {
         }
     }
 
-    setTimeout(() => {
+    currentToastTimeout = setTimeout(() => {
         toast.classList.remove('show');
         // Reset apres animation
         setTimeout(() => toast.className = 'toast', 300);
-    }, 3000);
+    }, duration);
 }
 
 // Offline data management

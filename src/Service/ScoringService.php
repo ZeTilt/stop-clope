@@ -170,7 +170,7 @@ class ScoringService
         }
 
         $nextIndex = count($todayCigs);
-        $wakeUpMinutes = IntervalCalculator::timeToMinutes($todayWakeUp->getWakeTime());
+        $wakeUpMinutes = $this->intervalCalculator->timeToMinutes($todayWakeUp->getWakeTime());
 
         // Calculer la cible et l'intervalle moyen lissé sur 7 jours
         $targetMinutes = $this->calculateTargetMinutes($nextIndex, $todayCigs, $todayWakeUp, $date);
@@ -235,16 +235,16 @@ class ScoringService
             $targetMinutes = $this->calculateTargetMinutes($index, $todayCigs, $todayWakeUp, $date);
 
             if ($todayWakeUp) {
-                $actualMinutes = IntervalCalculator::minutesSinceWakeUp(
+                $actualMinutes = $this->intervalCalculator->minutesSinceWakeUp(
                     $todayCig->getSmokedAt(),
                     $todayWakeUp->getWakeTime()
                 );
             } else {
-                $actualMinutes = IntervalCalculator::timeToMinutes($todayCig->getSmokedAt());
+                $actualMinutes = $this->intervalCalculator->timeToMinutes($todayCig->getSmokedAt());
             }
 
             $diff = $actualMinutes - $targetMinutes;
-            $points = IntervalCalculator::getPointsForDiff($diff, $avgInterval);
+            $points = $this->intervalCalculator->getPointsForDiff($diff, $avgInterval);
 
             $totalScore += $points;
             $comparisons[] = [

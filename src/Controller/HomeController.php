@@ -9,6 +9,7 @@ use App\Repository\CigaretteRepository;
 use App\Repository\SettingsRepository;
 use App\Repository\WakeUpRepository;
 use App\Service\BadgeService;
+use App\Service\CigaretteService;
 use App\Service\GoalService;
 use App\Service\IntervalCalculator;
 use App\Service\MessageService;
@@ -40,6 +41,7 @@ class HomeController extends AbstractController
         private StatsService $statsService,
         private StreakService $streakService,
         private IntervalCalculator $intervalCalculator,
+        private CigaretteService $cigaretteService,
         private CsrfTokenManagerInterface $csrfTokenManager,
         private LoggerInterface $logger
     ) {}
@@ -112,98 +114,40 @@ class HomeController extends AbstractController
             return new JsonResponse(['success' => false, 'error' => 'Invalid CSRF token'], 403);
         }
 
-        $cigarette = new Cigarette();
-
         // Le client envoie l'heure locale + son décalage timezone
         $localTime = $request->request->get('local_time');
-        $tzOffset = $request->request->getInt('tz_offset', 0); // En minutes, positif pour Est
+        $tzOffset = $request->request->getInt('tz_offset', 0);
         $isRetroactive = $request->request->getBoolean('is_retroactive', false);
 
-        // Validate local_time format
-        if (!$localTime || !preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', $localTime)) {
-            return new JsonResponse(['success' => false, 'error' => 'Invalid time format'], 400);
+        // Utiliser CigaretteService pour parser et valider les données
+        $parseResult = $this->cigaretteService->parseTimeData($localTime, $tzOffset, $isRetroactive);
+        if (!$parseResult['success']) {
+            return new JsonResponse(['success' => false, 'error' => $parseResult['error']], 400);
         }
-
-        // Validate timezone offset (reasonable range: -720 to +840 minutes)
-        if ($tzOffset < -720 || $tzOffset > 840) {
-            return new JsonResponse(['success' => false, 'error' => 'Invalid timezone offset'], 400);
-        }
-
-        // Créer le timezone à partir de l'offset
-        $tzString = sprintf('%+03d:%02d', intdiv($tzOffset, 60), abs($tzOffset) % 60);
-        try {
-            $tz = new \DateTimeZone($tzString);
-        } catch (\Exception $e) {
-            return new JsonResponse(['success' => false, 'error' => 'Invalid timezone'], 400);
-        }
-
-        $smokedAt = \DateTime::createFromFormat('Y-m-d H:i', $localTime, $tz);
-        if (!$smokedAt) {
-            return new JsonResponse(['success' => false, 'error' => 'Invalid datetime'], 400);
-        }
-
-        // Prevent future dates (with 5 min tolerance)
-        $now = new \DateTime();
-        $now->modify('+5 minutes');
-        if ($smokedAt > $now) {
-            return new JsonResponse(['success' => false, 'error' => 'Cannot log future cigarettes'], 400);
-        }
-
-        $cigarette->setSmokedAt($smokedAt);
-        $cigarette->setIsRetroactive($isRetroactive);
 
         /** @var User $user */
         $user = $this->getUser();
-        $cigarette->setUser($user);
 
-        try {
-            $this->entityManager->persist($cigarette);
-            $this->entityManager->flush();
-        } catch (\Exception $e) {
-            $this->logger->error('Failed to persist cigarette', ['exception' => $e->getMessage()]);
-            return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
+        // Utiliser CigaretteService pour enregistrer la cigarette
+        $logResult = $this->cigaretteService->logCigarette(
+            $user,
+            $parseResult['data']['smoked_at'],
+            $parseResult['data']['is_retroactive']
+        );
+
+        if (!$logResult['success']) {
+            $this->logger->error('Failed to persist cigarette', ['error' => $logResult['error']]);
+            return new JsonResponse(['success' => false, 'error' => $logResult['error']], 500);
         }
 
-        // Invalider le cache du scoring après mutation
-        $this->scoringService->invalidateCache();
+        // Récupérer les infos post-log via le service
+        $postLogInfo = $this->cigaretteService->getPostLogInfo(
+            $logResult['cigarette'],
+            $logResult['new_badges'],
+            $this->streakService
+        );
 
-        // Persister le score du jour (optimisation performance)
-        $today = new \DateTime();
-        $this->scoringService->persistDailyScore($today);
-
-        $dailyScore = $this->scoringService->calculateDailyScore($today);
-        $todayCount = $this->cigaretteRepository->countByDate($today);
-        $streak = $this->scoringService->getStreak();
-
-        // Vérifier les nouveaux badges
-        $newBadges = $this->badgeService->checkAndAwardBadges();
-        $newBadgesInfo = [];
-        foreach ($newBadges as $code) {
-            $info = $this->badgeService->getBadgeInfo($code);
-            if ($info) {
-                $newBadgesInfo[] = [
-                    'code' => $code,
-                    'name' => $info['name'],
-                    'icon' => $info['icon'],
-                    'description' => $info['description'],
-                ];
-            }
-        }
-
-        // Prochain milestone de streak
-        $nextMilestone = $this->streakService->getNextMilestone($streak['current']);
-
-        return new JsonResponse([
-            'success' => true,
-            'cigarette_id' => $cigarette->getId(),
-            'smoked_at' => $cigarette->getSmokedAt()->format('H:i'),
-            'is_retroactive' => $cigarette->isRetroactive(),
-            'today_count' => $todayCount,
-            'daily_score' => $dailyScore['total_score'],
-            'streak' => $streak,
-            'next_milestone' => $nextMilestone,
-            'new_badges' => $newBadgesInfo,
-        ]);
+        return new JsonResponse(array_merge(['success' => true], $postLogInfo));
     }
 
     #[Route('/wakeup', name: 'app_log_wakeup', methods: ['POST'])]

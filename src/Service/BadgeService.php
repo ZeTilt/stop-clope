@@ -94,6 +94,7 @@ class BadgeService
         private UserBadgeRepository $userBadgeRepository,
         private EntityManagerInterface $entityManager,
         private ScoringService $scoringService,
+        private StatsService $statsService,
         private Security $security
     ) {}
 
@@ -177,38 +178,12 @@ class BadgeService
     }
 
     /**
-     * Vérifie les économies réalisées
+     * Vérifie les économies réalisées (délègue à StatsService)
      */
     private function checkSavings(float $amount): bool
     {
-        $savings = $this->calculateSavings();
-        return $savings >= $amount;
-    }
-
-    private function calculateSavings(): float
-    {
-        $packPrice = (float) $this->settingsRepository->get('pack_price', '12.00');
-        $cigsPerPack = (int) $this->settingsRepository->get('cigs_per_pack', '20');
-        $initialDailyCigs = (int) $this->settingsRepository->get('initial_daily_cigs', '20');
-
-        if ($cigsPerPack <= 0) {
-            $cigsPerPack = 20;
-        }
-
-        $pricePerCig = $packPrice / $cigsPerPack;
-
-        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
-        if (!$firstDate) {
-            return 0;
-        }
-
-        $totalCigs = $this->cigaretteRepository->getTotalCount();
-        $daysSinceStart = max(1, (new \DateTime())->diff($firstDate)->days + 1);
-
-        $expectedCigs = $initialDailyCigs * $daysSinceStart;
-        $cigsAvoided = max(0, $expectedCigs - $totalCigs);
-
-        return $cigsAvoided * $pricePerCig;
+        $savings = $this->statsService->calculateSavings();
+        return $savings['total'] >= $amount;
     }
 
     /**

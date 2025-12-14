@@ -562,17 +562,52 @@
                 var icon = isPositive ? '✅' : '⚠️';
                 var type = isPositive ? 'success' : 'warning';
                 var streak = data.streak;
+                var cigaretteId = data.cigarette_id;
 
                 // Message avec info streak si actif
-                var message = 'Clope enregistrée à ' + data.smoked_at;
+                var message = 'Clope enregistrée';
                 if (streak && streak.current > 0 && streak.today_positive) {
                     message += ' • 🔥 ' + streak.current + 'j';
                 }
 
+                // Variable pour savoir si on doit recharger
+                var shouldReload = true;
+                var reloadTimeout = null;
+
+                // Fonction pour annuler la cigarette
+                function undoCigarette() {
+                    shouldReload = false;
+                    if (reloadTimeout) clearTimeout(reloadTimeout);
+
+                    fetch('/delete/' + cigaretteId, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-CSRF-Token': csrfToken
+                        }
+                    })
+                    .then(function(response) { return response.json(); })
+                    .then(function(result) {
+                        if (result.success) {
+                            showToast('Clope annulée', { type: 'info', icon: '↩️', duration: 2000 });
+                            setTimeout(function() { window.location.reload(); }, 500);
+                        } else {
+                            showToast('Erreur lors de l\'annulation', { type: 'error', icon: '❌' });
+                        }
+                    })
+                    .catch(function() {
+                        showToast('Erreur réseau', { type: 'error', icon: '❌' });
+                    });
+                }
+
+                // Toast avec bouton Annuler (5 secondes)
                 showToast(message, {
                     type: type,
                     points: points,
-                    icon: icon
+                    icon: icon,
+                    action: undoCigarette,
+                    actionLabel: 'Annuler',
+                    duration: 5000
                 });
 
                 // Afficher les nouveaux badges obtenus
@@ -580,17 +615,19 @@
                     data.new_badges.forEach(function(badge, index) {
                         setTimeout(function() {
                             showBadgeNotification(badge);
-                        }, 1500 + (index * 2000)); // Décalage pour afficher un par un
+                        }, 1500 + (index * 2000));
                     });
                 }
 
                 // Animation du bouton
                 btn.classList.add('feedback-' + type);
 
-                // Recharger la page après un court délai pour afficher toutes les infos à jour
-                setTimeout(function() {
-                    window.location.reload();
-                }, 800);
+                // Recharger la page après 5s si pas annulé
+                reloadTimeout = setTimeout(function() {
+                    if (shouldReload) {
+                        window.location.reload();
+                    }
+                }, 5000);
             } else if (data.error) {
                 showToast(data.error, { type: 'error', icon: '❌' });
             }
