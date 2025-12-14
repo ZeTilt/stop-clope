@@ -444,6 +444,127 @@ class CigaretteRepository extends ServiceEntityRepository
     }
 
     /**
+     * Calcule une tendance adaptative basée sur l'historique disponible
+     * - Si >= 14 jours : compare semaine actuelle vs semaine précédente (classique)
+     * - Si < 14 jours : coupe l'historique en 2 périodes égales et compare
+     *
+     * @return array|null ['current' => [...], 'previous' => [...], 'is_early' => bool, 'period_days' => int]
+     */
+    public function getTrendComparison(bool $excludeToday = true): ?array
+    {
+        $firstDate = $this->getFirstCigaretteDate();
+        if (!$firstDate) {
+            return null;
+        }
+
+        $today = new \DateTime();
+        if ($excludeToday) {
+            $today->modify('-1 day');
+        }
+        $today->setTime(23, 59, 59);
+
+        $firstDateNormalized = (clone $firstDate)->setTime(0, 0, 0);
+        $totalDays = (int) $firstDateNormalized->diff($today)->days + 1;
+
+        // Minimum 4 jours pour calculer une tendance (2 + 2)
+        if ($totalDays < 4) {
+            return null;
+        }
+
+        // Si >= 14 jours, utiliser la méthode classique semaine vs semaine
+        if ($totalDays >= 14) {
+            $result = $this->getWeeklyComparison($excludeToday);
+            if ($result) {
+                $result['is_early'] = false;
+                $result['period_days'] = 7;
+                $result['period_label'] = 'semaine';
+            }
+            return $result;
+        }
+
+        // Mode adaptatif : couper l'historique en 2 parties égales
+        $periodDays = (int) floor($totalDays / 2);
+
+        $conn = $this->getEntityManager()->getConnection();
+        $userId = $this->getUserId();
+        $userCondition = $userId ? 'AND user_id = :user_id' : '';
+
+        // Récupérer toutes les données
+        $endCondition = $excludeToday ? 'AND DATE(smoked_at) < CURDATE()' : '';
+        $sql = "
+            SELECT DATE(smoked_at) as date, COUNT(id) as count
+            FROM cigarette
+            WHERE DATE(smoked_at) >= :first_date {$endCondition} {$userCondition}
+            GROUP BY DATE(smoked_at)
+            ORDER BY date ASC
+        ";
+
+        $params = ['first_date' => $firstDateNormalized->format('Y-m-d')];
+        if ($userId) {
+            $params['user_id'] = $userId;
+        }
+
+        $results = $conn->executeQuery($sql, $params)->fetchAllAssociative();
+
+        $countsByDate = [];
+        foreach ($results as $row) {
+            $countsByDate[$row['date']] = (int) $row['count'];
+        }
+
+        // Période récente (les N derniers jours)
+        $currentPeriod = [];
+        $offset = $excludeToday ? 1 : 0;
+        for ($i = $periodDays - 1 + $offset; $i >= $offset; $i--) {
+            $date = (new \DateTime("-{$i} days"))->format('Y-m-d');
+            if ($date >= $firstDateNormalized->format('Y-m-d')) {
+                $currentPeriod[$date] = $countsByDate[$date] ?? 0;
+            }
+        }
+
+        // Période précédente (les N jours avant)
+        $previousPeriod = [];
+        for ($i = (2 * $periodDays) - 1 + $offset; $i >= $periodDays + $offset; $i--) {
+            $date = (new \DateTime("-{$i} days"))->format('Y-m-d');
+            if ($date >= $firstDateNormalized->format('Y-m-d')) {
+                $previousPeriod[$date] = $countsByDate[$date] ?? 0;
+            }
+        }
+
+        $currentDaysWithData = count($currentPeriod);
+        $previousDaysWithData = count($previousPeriod);
+
+        if ($currentDaysWithData < 2 || $previousDaysWithData < 2) {
+            return null;
+        }
+
+        $currentTotal = array_sum($currentPeriod);
+        $previousTotal = array_sum($previousPeriod);
+
+        $currentAvg = round($currentTotal / $currentDaysWithData, 1);
+        $previousAvg = round($previousTotal / $previousDaysWithData, 1);
+
+        return [
+            'current' => [
+                'days' => $currentPeriod,
+                'total' => $currentTotal,
+                'avg' => $currentAvg,
+                'days_count' => $currentDaysWithData,
+            ],
+            'previous' => [
+                'days' => $previousPeriod,
+                'total' => $previousTotal,
+                'avg' => $previousAvg,
+                'days_count' => $previousDaysWithData,
+            ],
+            'diff_total' => $currentTotal - $previousTotal,
+            'diff_avg' => round($currentAvg - $previousAvg, 1),
+            'is_early' => true,
+            'period_days' => $periodDays,
+            'period_label' => $periodDays . ' jours',
+        ];
+    }
+
+    /**
      * Find cigarettes for a date range (single query for batch operations)
      * @return array<string, array<Cigarette>>
      */

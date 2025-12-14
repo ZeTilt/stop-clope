@@ -248,16 +248,27 @@
             <div style="font-size: 2rem; margin-bottom: 10px;">📊</div>
             <div style="font-size: 0.9rem; color: var(--text-secondary);">
                 Continue encore quelques jours pour voir tes tendances !
-                <br>Les comparaisons seront disponibles après 2 semaines d'utilisation.
+                <br>Les comparaisons seront disponibles après 4 jours d'utilisation.
             </div>
         </div>
     </div>
     {% elseif weekly_comparison and savings.daily_avg > 0 %}
     <div class="card">
         <h3 style="margin-bottom: 15px;">📈 Tendances</h3>
+
+        {# Disclaimer si données précoces #}
+        {% if weekly_comparison.is_early is defined and weekly_comparison.is_early %}
+        <div style="padding: 10px; background: var(--warning); color: #000; border-radius: 8px; margin-bottom: 15px; font-size: 0.8rem;">
+            ⚠️ <strong>Tendance préliminaire</strong> — Basée sur {{ weekly_comparison.period_days * 2 }} jours de données seulement.
+            Elle sera plus fiable après 2 semaines d'utilisation.
+        </div>
+        {% endif %}
+
         {% set trend = weekly_comparison.diff_avg %}
         {% set trend_icon = trend < 0 ? '↘️' : (trend > 0 ? '↗️' : '➡️') %}
         {% set trend_color = trend < 0 ? 'var(--success)' : (trend > 0 ? 'var(--error)' : 'var(--text-secondary)') %}
+
+        {% set period_label = weekly_comparison.period_label is defined ? weekly_comparison.period_label : 'semaine' %}
 
         <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
             <span style="font-size: 2rem;">{{ trend_icon }}</span>
@@ -266,9 +277,13 @@
                     {{ trend >= 0 ? '+' : '' }}{{ trend }} clope{{ trend|abs != 1 ? 's' : '' }}/jour en moyenne
                 </div>
                 <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                    Moyenne cette semaine ({{ weekly_comparison.current.avg }}) vs semaine précédente ({{ weekly_comparison.previous.avg }})
-                    {% if weekly_comparison.previous.days_count is defined and weekly_comparison.previous.days_count < 7 %}
-                        <br><span style="color: var(--warning);">⚠️ Seulement {{ weekly_comparison.previous.days_count }}j de données en semaine précédente</span>
+                    {% if weekly_comparison.is_early is defined and weekly_comparison.is_early %}
+                        {{ weekly_comparison.period_days }} derniers jours ({{ weekly_comparison.current.avg }}) vs {{ weekly_comparison.period_days }} jours précédents ({{ weekly_comparison.previous.avg }})
+                    {% else %}
+                        Moyenne cette semaine ({{ weekly_comparison.current.avg }}) vs semaine précédente ({{ weekly_comparison.previous.avg }})
+                        {% if weekly_comparison.previous.days_count is defined and weekly_comparison.previous.days_count < 7 %}
+                            <br><span style="color: var(--warning);">⚠️ Seulement {{ weekly_comparison.previous.days_count }}j de données en semaine précédente</span>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>

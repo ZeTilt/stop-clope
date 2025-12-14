@@ -129,7 +129,7 @@ class StatsService
             'weekday_stats' => $this->cigaretteRepository->getWeekdayStats(),
             'hourly_stats' => $this->cigaretteRepository->getHourlyStats(),
             'daily_intervals' => $this->cigaretteRepository->getDailyAverageInterval(7),
-            'weekly_comparison' => $this->cigaretteRepository->getWeeklyComparison(),
+            'weekly_comparison' => $this->cigaretteRepository->getTrendComparison(),
             'savings' => $this->calculateSavings(),
             'first_date' => $this->cigaretteRepository->getFirstCigaretteDate(),
         ];
