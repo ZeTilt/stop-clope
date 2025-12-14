@@ -173,41 +173,18 @@
     </div>
     {% endif %}
 
-    <!-- Bouton principal -->
-    <button class="big-button" id="logBtn">
-        <span aria-hidden="true">🚬</span> J'ai fumé
-    </button>
-
-    <!-- Bouton ajout rétroactif -->
-    <button class="secondary-button" id="openRetroModalBtn">
-        <span aria-hidden="true">⏰</span> Ajouter une clope passée
-    </button>
-
-    <!-- Stats du jour -->
-    <div class="card">
-        <h3 style="margin-bottom: 15px;">Aujourd'hui</h3>
-        <div class="stats-grid">
-            <div class="stat-item">
-                <div class="stat-value" id="todayCount">{{ today_cigarettes|length }}</div>
-                <div class="stat-label">Clopes</div>
+    <!-- Stats du jour (compact) -->
+    <div class="card stats-compact">
+        <div class="stats-row">
+            <div class="stat-main">
+                <span class="stat-value" id="todayCount">{{ today_cigarettes|length }}</span>
+                <span class="stat-label">clopes</span>
             </div>
-            <div class="stat-item">
-                <div class="stat-value">{{ yesterday_count }}</div>
-                <div class="stat-label">Hier</div>
-            </div>
-            <div class="stat-item">
-                <div class="stat-value {{ (yesterday_count - today_cigarettes|length) > 0 ? 'positive' : ((yesterday_count - today_cigarettes|length) < 0 ? 'negative' : '') }}" style="color: {{ (yesterday_count - today_cigarettes|length) > 0 ? 'var(--success)' : ((yesterday_count - today_cigarettes|length) < 0 ? 'var(--accent)' : 'inherit') }}">
-                    {{ yesterday_count - today_cigarettes|length >= 0 ? '+' : '' }}{{ yesterday_count - today_cigarettes|length }}
-                </div>
-                <div class="stat-label">Différence</div>
-            </div>
-            <div class="stat-item">
-                {% if today_cigarettes|length > 0 %}
-                    <div class="stat-value">{{ today_cigarettes|first.smokedAt|date('H:i') }}</div>
-                {% else %}
-                    <div class="stat-value">--</div>
-                {% endif %}
-                <div class="stat-label">1ère clope</div>
+            <div class="stat-comparison">
+                {% set diff = yesterday_count - today_cigarettes|length %}
+                <span class="stat-diff {{ diff > 0 ? 'positive' : (diff < 0 ? 'negative' : '') }}">
+                    {{ diff >= 0 ? '+' : '' }}{{ diff }} vs hier
+                </span>
             </div>
         </div>
     </div>
@@ -332,6 +309,19 @@
             </div>
         {% endif %}
     </div>
+
+    <!-- Spacer pour le bouton sticky -->
+    <div class="sticky-spacer"></div>
+</div>
+
+<!-- Boutons d'action sticky -->
+<div class="sticky-actions">
+    <button class="big-button" id="logBtn">
+        <span aria-hidden="true">🚬</span> J'ai fumé
+    </button>
+    <button class="secondary-button" id="openRetroModalBtn">
+        <span aria-hidden="true">⏰</span> Ajouter une clope passée
+    </button>
 </div>
 
 <!-- Modal ajout rétroactif -->
@@ -614,14 +604,14 @@
                     });
                 }
 
-                // Toast avec bouton Annuler (5 secondes)
+                // Toast avec bouton Annuler (8 secondes)
                 showToast(message, {
                     type: type,
                     points: points,
                     icon: icon,
                     action: undoCigarette,
                     actionLabel: 'Annuler',
-                    duration: 5000
+                    duration: 8000
                 });
 
                 // Afficher les nouveaux badges obtenus
@@ -646,12 +636,12 @@
                 // Animation du bouton
                 btn.classList.add('feedback-' + type);
 
-                // Recharger la page après 5s si pas annulé
+                // Recharger la page après 8s si pas annulé
                 reloadTimeout = setTimeout(function() {
                     if (shouldReload) {
                         window.location.reload();
                     }
-                }, 5000);
+                }, 8000);
             } else if (data.error) {
                 showToast(data.error, { type: 'error', icon: '❌' });
             }
