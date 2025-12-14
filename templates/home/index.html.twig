@@ -135,7 +135,7 @@
                 </div>
             {% endif %}
             <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 8px;">
-                🎯 Intervalle cible : <strong>{{ next_cig_target.avg_interval|round }} min</strong>
+                🎯 Intervalle cible : <strong>{{ next_cig_target.avg_interval|round(0, 'floor') }} min</strong>
             </div>
             <div id="points-display"
                  data-wake-minutes="{{ next_cig_target.wake_minutes }}"
