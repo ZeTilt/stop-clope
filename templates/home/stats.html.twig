@@ -265,26 +265,27 @@
         {% endif %}
 
         {% set trend = weekly_comparison.diff_avg %}
+        {% set trend_abs = trend|abs %}
         {% set trend_icon = trend < 0 ? '↘️' : (trend > 0 ? '↗️' : '➡️') %}
         {% set trend_color = trend < 0 ? 'var(--success)' : (trend > 0 ? 'var(--error)' : 'var(--text-secondary)') %}
-
-        {% set period_label = weekly_comparison.period_label is defined ? weekly_comparison.period_label : 'semaine' %}
+        {% set is_early = weekly_comparison.is_early is defined and weekly_comparison.is_early %}
+        {% set period_ref = is_early ? 'la période précédente' : 'la semaine dernière' %}
 
         <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
             <span style="font-size: 2rem;">{{ trend_icon }}</span>
             <div>
-                <div style="font-size: 1.3rem; font-weight: 700; color: {{ trend_color }};">
-                    {{ trend >= 0 ? '+' : '' }}{{ trend }} clope{{ trend|abs != 1 ? 's' : '' }}/jour en moyenne
+                <div style="font-size: 1.1rem; font-weight: 600; color: {{ trend_color }};">
+                    {% if trend < 0 %}
+                        Tu fumes <strong>{{ trend_abs }}</strong> clope{{ trend_abs != 1 ? 's' : '' }} de moins par jour
+                    {% elseif trend > 0 %}
+                        Tu fumes <strong>{{ trend_abs }}</strong> clope{{ trend_abs != 1 ? 's' : '' }} de plus par jour
+                    {% else %}
+                        Ta consommation est stable
+                    {% endif %}
                 </div>
                 <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                    {% if weekly_comparison.is_early is defined and weekly_comparison.is_early %}
-                        {{ weekly_comparison.period_days }} derniers jours ({{ weekly_comparison.current.avg }}) vs {{ weekly_comparison.period_days }} jours précédents ({{ weekly_comparison.previous.avg }})
-                    {% else %}
-                        Moyenne cette semaine ({{ weekly_comparison.current.avg }}) vs semaine précédente ({{ weekly_comparison.previous.avg }})
-                        {% if weekly_comparison.previous.days_count is defined and weekly_comparison.previous.days_count < 7 %}
-                            <br><span style="color: var(--warning);">⚠️ Seulement {{ weekly_comparison.previous.days_count }}j de données en semaine précédente</span>
-                        {% endif %}
-                    {% endif %}
+                    {% if trend != 0 %}par rapport à {{ period_ref }}{% endif %}
+                    ({{ weekly_comparison.current.avg }}/j vs {{ weekly_comparison.previous.avg }}/j)
                 </div>
             </div>
         </div>
@@ -292,12 +293,14 @@
         {# Projection vers objectif zéro si tendance négative et données fiables #}
         {% if trend < 0 and savings.daily_avg > 0 and weekly_comparison.previous.days_count >= 5 %}
             {# Projection en semaines : si on perd X clopes/semaine, combien de semaines pour atteindre 0 #}
-            {% set weeks_to_zero = (weekly_comparison.current.avg / (trend|abs))|round %}
+            {% set weeks_to_zero = (weekly_comparison.current.avg / trend_abs)|round %}
             {% if weeks_to_zero > 0 and weeks_to_zero < 52 %}
+            {% set target_date = "now"|date_modify("+" ~ weeks_to_zero ~ " weeks") %}
             <div style="padding: 15px; background: linear-gradient(135deg, var(--success), #00ff88); border-radius: 8px; color: #000;">
                 <div style="font-weight: 600; margin-bottom: 5px;">🎯 Projection (si tendance maintenue)</div>
                 <div style="font-size: 0.9rem;">
-                    À ce rythme de réduction, tu pourrais atteindre <strong>zéro clope</strong> dans environ <strong>{{ weeks_to_zero }} semaine{{ weeks_to_zero > 1 ? 's' : '' }}</strong>.
+                    À ce rythme, tu pourrais atteindre <strong>zéro clope</strong> vers le <strong>{{ target_date|date('d/m/Y') }}</strong>
+                    <span style="opacity: 0.7;">(~{{ weeks_to_zero }} semaine{{ weeks_to_zero > 1 ? 's' : '' }})</span>
                 </div>
             </div>
             {% endif %}
