@@ -87,6 +87,9 @@ class HomeController extends AbstractController
         // Vérifier si un nouveau palier est atteint (pour célébration)
         $tierAchievement = $this->goalService->checkTierAchievement();
 
+        // Vérifier si c'est la première journée réussie
+        $firstDaySuccess = $this->goalService->checkFirstSuccessfulDay();
+
         // Prochain milestone de streak
         $nextMilestone = $this->streakService->getNextMilestone($streak['current']);
 
@@ -104,6 +107,7 @@ class HomeController extends AbstractController
             'show_wakeup_modal' => $todayWakeUp === null,
             'goal_progress' => $goalProgress,
             'tier_achievement' => $tierAchievement,
+            'first_day_success' => $firstDaySuccess,
         ]);
     }
 

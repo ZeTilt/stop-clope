@@ -164,6 +164,13 @@ class CigaretteService
         // Prochain milestone de streak
         $nextMilestone = $streakService->getNextMilestone($streak['current']);
 
+        // Vérifier si c'est le tout premier log (message de bienvenue)
+        $totalCount = $this->cigaretteRepository->getTotalCount();
+        $welcomeMessage = null;
+        if ($totalCount === 1) {
+            $welcomeMessage = $this->getWelcomeMessage();
+        }
+
         return [
             'cigarette_id' => $cigarette->getId(),
             'smoked_at' => $cigarette->getSmokedAt()->format('H:i'),
@@ -173,6 +180,19 @@ class CigaretteService
             'streak' => $streak,
             'next_milestone' => $nextMilestone,
             'new_badges' => $newBadgesInfo,
+            'welcome_message' => $welcomeMessage,
+        ];
+    }
+
+    /**
+     * Génère un message de bienvenue pour le premier log
+     */
+    private function getWelcomeMessage(): array
+    {
+        return [
+            'title' => 'Bienvenue sur StopClope !',
+            'message' => "Tu viens d'enregistrer ta première cigarette. Chaque clope comptée est un pas vers la liberté. On est avec toi !",
+            'icon' => '🚀',
         ];
     }
 }

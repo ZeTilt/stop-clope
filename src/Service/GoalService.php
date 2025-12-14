@@ -155,4 +155,66 @@ class GoalService
             'daily' => $dailyProgress,
         ];
     }
+
+    /**
+     * Vérifie si c'est la première journée réussie (objectif respecté)
+     * Une journée est réussie si hier s'est terminé sous l'objectif
+     * @return array{achieved: bool, message: string|null, cigs_count: int|null}
+     */
+    public function checkFirstSuccessfulDay(): array
+    {
+        // Vérifier si on a déjà célébré la première journée réussie
+        $alreadyCelebrated = $this->settingsRepository->get('first_day_celebrated');
+        if ($alreadyCelebrated === 'true') {
+            return ['achieved' => false, 'message' => null, 'cigs_count' => null];
+        }
+
+        // Vérifier hier (journée complète)
+        $yesterday = new \DateTime('-1 day');
+        $yesterdayCount = $this->cigaretteRepository->countByDate($yesterday);
+
+        // Récupérer l'objectif du jour (palier actuel)
+        $tierInfo = $this->getTierInfo();
+        $goal = $tierInfo['current_tier'];
+
+        // Vérifier si hier était un succès (sous ou égal à l'objectif)
+        if ($yesterdayCount <= $goal) {
+            // Marquer comme célébré pour ne plus afficher
+            $this->settingsRepository->set('first_day_celebrated', 'true');
+
+            return [
+                'achieved' => true,
+                'message' => $this->getFirstDayMessage($yesterdayCount, $goal),
+                'cigs_count' => $yesterdayCount,
+            ];
+        }
+
+        return ['achieved' => false, 'message' => null, 'cigs_count' => null];
+    }
+
+    /**
+     * Génère un message de célébration pour la première journée réussie
+     */
+    private function getFirstDayMessage(int $count, int $goal): string
+    {
+        if ($count === 0) {
+            return "Hier, zéro clope ! Tu as commencé de la meilleure façon possible !";
+        }
+
+        if ($count < $goal) {
+            $diff = $goal - $count;
+            return sprintf(
+                "Ta première journée réussie ! %d clopes, soit %d de moins que ton objectif de %d. Continue comme ça !",
+                $count,
+                $diff,
+                $goal
+            );
+        }
+
+        return sprintf(
+            "Ta première journée dans l'objectif ! %d clopes sur %d autorisées. C'est un excellent départ !",
+            $count,
+            $goal
+        );
+    }
 }

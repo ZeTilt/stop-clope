@@ -605,28 +605,28 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 **Tâches mineures** :
 - [x] Modales : remplacer `<h3>` par `<h2>` pour hiérarchie correcte
 - [x] Delete button : ajouter `aria-label="Supprimer la cigarette de HH:MM"` ✅ Déjà fait
-- [ ] Focus initial modal confirmation sur bouton primaire
+- [x] Focus initial modal confirmation sur bouton primaire
 
 ### 8.3 Qualité Code (P1 - Important)
 
 **Tâches** :
 - [x] Remplacer `catch (\Exception $e)` par exceptions spécifiques dans controllers
 - [x] Ajouter tests unitaires ScoringService (calculateDailyScore, persistDailyScore)
-- [ ] Vérifier et résoudre potentielle dépendance circulaire BadgeService ↔ ScoringService
+- [x] Vérifier et résoudre potentielle dépendance circulaire BadgeService ↔ ScoringService (aucune dépendance circulaire détectée)
 
 ### 8.4 Performance (P1 - Important)
 
 **Tâches** :
 - [x] Activer le cache Symfony sur données chaudes (stats, badges) - StatsService::getFullStats()
-- [ ] Ajouter HTTP cache headers sur assets statiques (Cache-Control: max-age)
-- [ ] Configurer compression gzip/brotli sur serveur
+- [x] Ajouter HTTP cache headers sur assets statiques (Cache-Control: max-age, immutable)
+- [x] Configurer compression gzip/deflate dans .htaccess
 
 ### 8.5 Engagement & Produit (P1 - Important)
 
 **Tâches** :
 - [x] Bouton "Je résiste" : valoriser les moments où l'utilisateur résiste à l'envie
-- [ ] Première journée : célébration/onboarding renforcé
-- [ ] Message de bienvenue personnalisé au premier log
+- [x] Première journée : célébration quand l'objectif est respecté pour la première fois
+- [x] Message de bienvenue personnalisé au premier log (modal avec animation)
 
 **Tâches futures (Sprint 9+)** :
 - [ ] Notifications push configurables

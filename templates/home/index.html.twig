@@ -46,6 +46,20 @@
     </div>
     {% endif %}
 
+    <!-- Célébration première journée réussie -->
+    {% if first_day_success.achieved %}
+    <div class="card first-day-celebration" style="padding: 20px; text-align: center; background: linear-gradient(135deg, #00d4aa, #00ff88); border: 2px solid #00d4aa;">
+        <div style="font-size: 3rem; margin-bottom: 10px;" aria-hidden="true">🌟</div>
+        <div style="color: #000; font-weight: 700; font-size: 1.2rem;">
+            Première journée réussie !
+        </div>
+        <div style="color: #333; font-size: 1rem; margin-top: 8px;">
+            {{ first_day_success.message }}
+        </div>
+        <div style="margin-top: 10px; font-size: 1.5rem;" aria-hidden="true">💪🎯</div>
+    </div>
+    {% endif %}
+
     <!-- Message d'encouragement -->
     {% if encouragement %}
     <div class="card" style="padding: 15px; text-align: center; background: {{ encouragement.type == 'success' ? 'linear-gradient(135deg, var(--success), #00ff88)' : 'linear-gradient(135deg, var(--warning), #ffdb4d)' }};">
@@ -630,6 +644,16 @@
                     });
                 }
 
+                // Afficher le message de bienvenue (premier log)
+                if (data.welcome_message) {
+                    var delay = (data.new_badges && data.new_badges.length > 0)
+                        ? 1500 + (data.new_badges.length * 2000) + 500
+                        : 1500;
+                    setTimeout(function() {
+                        showWelcomeMessage(data.welcome_message);
+                    }, delay);
+                }
+
                 // Animation du bouton
                 btn.classList.add('feedback-' + type);
 
@@ -699,6 +723,33 @@
                 }, 300);
             }
         }, 5000);
+    }
+
+    // Afficher le message de bienvenue (premier log)
+    function showWelcomeMessage(welcome) {
+        var overlay = document.createElement('div');
+        overlay.className = 'badge-notification-overlay welcome-overlay';
+        overlay.innerHTML = '<div class="badge-notification welcome-notification">' +
+            '<div class="badge-notification-icon">' + welcome.icon + '</div>' +
+            '<div class="badge-notification-title">' + welcome.title + '</div>' +
+            '<div class="badge-notification-desc">' + welcome.message + '</div>' +
+            '<button class="big-button" onclick="this.closest(\'.badge-notification-overlay\').remove()">C\'est parti !</button>' +
+            '</div>';
+        document.body.appendChild(overlay);
+
+        requestAnimationFrame(function() {
+            overlay.classList.add('active');
+        });
+
+        // Auto-fermeture après 8 secondes (plus long pour le premier message)
+        setTimeout(function() {
+            if (overlay.parentNode) {
+                overlay.classList.remove('active');
+                setTimeout(function() {
+                    if (overlay.parentNode) overlay.remove();
+                }, 300);
+            }
+        }, 8000);
     }
 
     window.openModal = function() {
@@ -773,9 +824,9 @@
     window.deleteCigarette = function(id) {
         pendingDeleteId = id;
         document.getElementById('confirmModal').classList.add('active');
-        // Focus sur le bouton annuler pour accessibilité
+        // Focus sur le bouton de confirmation (action principale)
         setTimeout(function() {
-            document.getElementById('confirmCancelBtn').focus();
+            document.getElementById('confirmOkBtn').focus();
         }, 100);
     };
 
