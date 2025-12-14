@@ -2,6 +2,7 @@
 
 namespace App\EventSubscriber;
 
+use App\Service\CspNonceService;
 use Symfony\Component\EventDispatcher\EventSubscriberInterface;
 use Symfony\Component\HttpKernel\Event\ResponseEvent;
 use Symfony\Component\HttpKernel\KernelEvents;
@@ -12,6 +13,11 @@ use Symfony\Component\HttpKernel\KernelEvents;
  */
 class SecurityHeadersSubscriber implements EventSubscriberInterface
 {
+    public function __construct(
+        private CspNonceService $cspNonceService,
+    ) {
+    }
+
     public static function getSubscribedEvents(): array
     {
         return [
@@ -26,6 +32,9 @@ class SecurityHeadersSubscriber implements EventSubscriberInterface
         }
 
         $response = $event->getResponse();
+
+        // HSTS: force HTTPS pendant 1 an (incluant sous-domaines)
+        $response->headers->set('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
 
         // X-Content-Type-Options: empêche le MIME sniffing
         $response->headers->set('X-Content-Type-Options', 'nosniff');
@@ -42,11 +51,11 @@ class SecurityHeadersSubscriber implements EventSubscriberInterface
         // Permissions-Policy: désactive les fonctionnalités non utilisées
         $response->headers->set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 
-        // Content-Security-Policy: politique de sécurité du contenu
-        // Note: 'unsafe-inline' nécessaire pour les styles et scripts inline actuels
+        // Content-Security-Policy avec nonce pour scripts inline
+        $nonce = $this->cspNonceService->getNonce();
         $csp = implode('; ', [
             "default-src 'self'",
-            "script-src 'self' 'unsafe-inline'",
+            "script-src 'self' 'nonce-{$nonce}'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data:",
             "font-src 'self'",

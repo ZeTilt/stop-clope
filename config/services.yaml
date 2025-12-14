@@ -26,3 +26,7 @@ services:
     App\Service\IntervalCalculator:
         arguments:
             $scoringCache: '@cache.scoring'
+
+    App\Service\StatsService:
+        arguments:
+            $scoringCache: '@cache.scoring'

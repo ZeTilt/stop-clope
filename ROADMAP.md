@@ -2,8 +2,8 @@
 
 > Roadmap établie suite à l'audit multi-agents du 11/12/2024
 > Mise à jour : 14/12/2024
-> Scores actuels : Code 7.5/10 | Sécurité 7/10 | UX 7.5/10 | Performance 6/10 | A11y 6.5/10
-> Score moyen : 6.9/10
+> Scores post-Sprint 7 : Code 7.5/10 | Sécurité 7.5/10 | UX 7.5/10 | Performance 7.5/10 | A11y 7/10 | Product 7/10
+> Score moyen : 7.3/10
 
 ---
 
@@ -569,3 +569,86 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 ---
 
 > **Pour toute évolution majeure** : relancer un audit multi-agents (code-reviewer, security-auditor, ux-reviewer, performance-expert, a11y-auditor) pour identifier les régressions et opportunités d'amélioration.
+
+---
+
+## Sprint 8 : Consolidation & Engagement (Audit 14/12/2024)
+
+**Objectif** : Atteindre 8.5/10 en corrigeant les défauts critiques identifiés
+
+### Résultats audit multi-agents (14/12/2024)
+
+| Agent | Score | Points clés |
+|-------|-------|-------------|
+| Product Owner | 7/10 | Manque dimension émotionnelle, pas de "Je résiste" |
+| Code Reviewer | 7.5/10 | Exceptions génériques, tests ScoringService manquants |
+| Security Auditor | 7.5/10 | APP_SECRET vide en .env, CSP unsafe-inline |
+| UX Reviewer | 7.5/10 | Surcharge cognitive home, bouton non sticky |
+| Performance Expert | 7.5/10 | Cache configuré mais non utilisé |
+| A11y Auditor | 7/10 | Graphiques sans alternatives textuelles liées |
+
+### 8.1 Sécurité (P0 - Bloquant)
+
+**Tâches critiques** :
+- [x] Définir APP_SECRET réel en production (variable d'environnement serveur) ✅ Déjà fait
+- [x] Remplacer CSP `'unsafe-inline'` par nonces pour scripts
+- [x] Ajouter header HSTS (`Strict-Transport-Security`)
+
+### 8.2 Accessibilité (P0 - Bloquant)
+
+**Tâches critiques** :
+- [x] Heatmap : afficher valeur numérique en plus de la couleur (WCAG 1.4.1)
+- [x] Tabs : ajouter navigation flèches clavier (ArrowLeft/ArrowRight)
+- [x] Graphiques : lier `aria-labelledby` aux tableaux sr-only existants
+- [x] Badges : ajouter `aria-label` avec description complète
+
+**Tâches mineures** :
+- [x] Modales : remplacer `<h3>` par `<h2>` pour hiérarchie correcte
+- [x] Delete button : ajouter `aria-label="Supprimer la cigarette de HH:MM"` ✅ Déjà fait
+- [ ] Focus initial modal confirmation sur bouton primaire
+
+### 8.3 Qualité Code (P1 - Important)
+
+**Tâches** :
+- [x] Remplacer `catch (\Exception $e)` par exceptions spécifiques dans controllers
+- [x] Ajouter tests unitaires ScoringService (calculateDailyScore, persistDailyScore)
+- [ ] Vérifier et résoudre potentielle dépendance circulaire BadgeService ↔ ScoringService
+
+### 8.4 Performance (P1 - Important)
+
+**Tâches** :
+- [x] Activer le cache Symfony sur données chaudes (stats, badges) - StatsService::getFullStats()
+- [ ] Ajouter HTTP cache headers sur assets statiques (Cache-Control: max-age)
+- [ ] Configurer compression gzip/brotli sur serveur
+
+### 8.5 Engagement & Produit (P1 - Important)
+
+**Tâches** :
+- [x] Bouton "Je résiste" : valoriser les moments où l'utilisateur résiste à l'envie
+- [ ] Première journée : célébration/onboarding renforcé
+- [ ] Message de bienvenue personnalisé au premier log
+
+**Tâches futures (Sprint 9+)** :
+- [ ] Notifications push configurables
+- [ ] Partage social des achievements
+
+### 8.6 UX (P2 - Souhaitable)
+
+**Tâches** :
+- [ ] Bouton principal sticky/flottant en bas d'écran
+- [ ] Réduire métriques affichées sur home (progressive disclosure)
+- [ ] Allonger durée toast "Annuler" à 8 secondes
+
+---
+
+## Scores cibles après Sprint 8
+
+| Domaine | Actuel | Cible | Delta |
+|---------|--------|-------|-------|
+| Product | 7/10 | 8/10 | +1 |
+| Code | 7.5/10 | 8.5/10 | +1 |
+| Sécurité | 7.5/10 | 9/10 | +1.5 |
+| UX | 7.5/10 | 8.5/10 | +1 |
+| Performance | 7.5/10 | 8.5/10 | +1 |
+| A11y | 7/10 | 8.5/10 | +1.5 |
+| **Moyenne** | **7.3/10** | **8.5/10** | **+1.2** |

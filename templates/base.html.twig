@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="fr">
     <head>
-        <script>
+        <script nonce="{{ csp_nonce() }}">
             // Appliquer le thème et la taille de police avant le rendu
             (function() {
                 var theme = localStorage.getItem('theme');

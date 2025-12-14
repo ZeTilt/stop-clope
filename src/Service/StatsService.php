@@ -4,6 +4,9 @@ namespace App\Service;
 
 use App\Repository\CigaretteRepository;
 use App\Repository\SettingsRepository;
+use Symfony\Bundle\SecurityBundle\Security;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 /**
  * Service dédié aux calculs statistiques
@@ -14,7 +17,9 @@ class StatsService
     public function __construct(
         private CigaretteRepository $cigaretteRepository,
         private SettingsRepository $settingsRepository,
-        private ScoringService $scoringService
+        private ScoringService $scoringService,
+        private Security $security,
+        private CacheInterface $scoringCache
     ) {}
 
     /**
@@ -120,19 +125,38 @@ class StatsService
 
     /**
      * Obtient toutes les statistiques pour la page stats
+     * Résultats mis en cache pour 60 secondes par utilisateur
      */
     public function getFullStats(): array
     {
-        return [
-            'monthly_stats' => $this->cigaretteRepository->getDailyStats(30),
-            'weekly_scores' => $this->getWeeklyScores(),
-            'weekday_stats' => $this->cigaretteRepository->getWeekdayStats(),
-            'hourly_stats' => $this->cigaretteRepository->getHourlyStats(),
-            'daily_intervals' => $this->cigaretteRepository->getDailyAverageInterval(7),
-            'weekly_comparison' => $this->cigaretteRepository->getTrendComparison(),
-            'savings' => $this->calculateSavings(),
-            'first_date' => $this->cigaretteRepository->getFirstCigaretteDate(),
-        ];
+        $user = $this->security->getUser();
+        $userId = $user ? $user->getId() : 'anon';
+        $cacheKey = "stats_full_{$userId}";
+
+        return $this->scoringCache->get($cacheKey, function (ItemInterface $item) {
+            $item->expiresAfter(60); // TTL 60 secondes
+
+            return [
+                'monthly_stats' => $this->cigaretteRepository->getDailyStats(30),
+                'weekly_scores' => $this->getWeeklyScores(),
+                'weekday_stats' => $this->cigaretteRepository->getWeekdayStats(),
+                'hourly_stats' => $this->cigaretteRepository->getHourlyStats(),
+                'daily_intervals' => $this->cigaretteRepository->getDailyAverageInterval(7),
+                'weekly_comparison' => $this->cigaretteRepository->getTrendComparison(),
+                'savings' => $this->calculateSavings(),
+                'first_date' => $this->cigaretteRepository->getFirstCigaretteDate(),
+            ];
+        });
+    }
+
+    /**
+     * Invalide le cache des stats (à appeler après modification des données)
+     */
+    public function invalidateCache(): void
+    {
+        $user = $this->security->getUser();
+        $userId = $user ? $user->getId() : 'anon';
+        $this->scoringCache->delete("stats_full_{$userId}");
     }
 
     /**

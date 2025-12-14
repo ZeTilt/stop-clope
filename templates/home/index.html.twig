@@ -159,10 +159,21 @@
     </div>
     {% endif %}
 
-    <!-- Bouton principal -->
-    <button class="big-button" id="logBtn" onclick="logCigarette()">
-        <span aria-hidden="true">🚬</span> J'ai fumé une clope
-    </button>
+    <!-- Boutons d'action -->
+    <div class="action-buttons">
+        <button class="big-button" id="logBtn" onclick="logCigarette()">
+            <span aria-hidden="true">🚬</span> J'ai fumé
+        </button>
+        <button class="resist-button" id="resistBtn" onclick="logResistance()">
+            <span aria-hidden="true">💪</span> Je résiste !
+        </button>
+    </div>
+
+    <!-- Compteur de résistances du jour -->
+    <div id="resistanceCounter" class="resistance-counter" style="display: none;">
+        <span aria-hidden="true">🏆</span>
+        <span id="resistanceCount">0</span> résistance(s) aujourd'hui !
+    </div>
 
     <!-- Bouton ajout rétroactif -->
     <button class="secondary-button" onclick="openModal()">
@@ -323,7 +334,7 @@
 <!-- Modal ajout rétroactif -->
 <div class="modal" id="retroModal" role="dialog" aria-modal="true" aria-labelledby="retroModalTitle">
     <div class="modal-content">
-        <h3 class="modal-title" id="retroModalTitle">Ajouter une clope passée</h3>
+        <h2 class="modal-title" id="retroModalTitle">Ajouter une clope passée</h2>
 
         <!-- Boutons rapides -->
         <div class="quick-buttons" style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
@@ -347,7 +358,7 @@
 <!-- Modal réveil -->
 <div class="modal" id="wakeUpModal" role="dialog" aria-modal="true" aria-labelledby="wakeUpModalTitle">
     <div class="modal-content">
-        <h3 class="modal-title" id="wakeUpModalTitle">Heure de réveil</h3>
+        <h2 class="modal-title" id="wakeUpModalTitle">Heure de réveil</h2>
         <p id="wakeUpModalSubtitle" style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 15px; display: none;">
             Note ton heure de réveil pour un calcul précis des points
         </p>
@@ -366,7 +377,7 @@
 <!-- Modal confirmation suppression (accessible) -->
 <div class="modal" id="confirmModal" role="alertdialog" aria-modal="true" aria-labelledby="confirmModalTitle" aria-describedby="confirmModalDesc">
     <div class="modal-content">
-        <h3 class="modal-title" id="confirmModalTitle">Supprimer cette clope ?</h3>
+        <h2 class="modal-title" id="confirmModalTitle">Supprimer cette clope ?</h2>
         <p id="confirmModalDesc" style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 15px;">
             Cette action est irréversible.
         </p>
@@ -377,7 +388,7 @@
     </div>
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 (function() {
     // Get CSRF token for secure requests
     var csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
@@ -917,6 +928,54 @@
             lastActiveTime = Date.now();
         }
     });
+
+    // ===== Gestion des résistances =====
+    function getTodayResistances() {
+        var today = new Date().toISOString().slice(0, 10);
+        var stored = localStorage.getItem('resistances_' + today);
+        return stored ? parseInt(stored, 10) : 0;
+    }
+
+    function setTodayResistances(count) {
+        var today = new Date().toISOString().slice(0, 10);
+        localStorage.setItem('resistances_' + today, count);
+    }
+
+    function updateResistanceDisplay() {
+        var count = getTodayResistances();
+        var counter = document.getElementById('resistanceCounter');
+        var countEl = document.getElementById('resistanceCount');
+        if (count > 0 && counter && countEl) {
+            counter.style.display = 'block';
+            countEl.textContent = count;
+        }
+    }
+
+    window.logResistance = function() {
+        var count = getTodayResistances() + 1;
+        setTodayResistances(count);
+
+        // Messages encourageants variés
+        var messages = [
+            'Bravo, tu es plus fort(e) que l\'envie !',
+            'Super résistance ! Continue comme ça !',
+            'Chaque fois que tu résistes, tu gagnes !',
+            'Tu contrôles, pas la cigarette !',
+            'Excellente décision, champion(ne) !'
+        ];
+        var message = messages[Math.floor(Math.random() * messages.length)];
+
+        showToast(message, {
+            type: 'success',
+            icon: '💪',
+            duration: 4000
+        });
+
+        updateResistanceDisplay();
+    };
+
+    // Afficher le compteur au chargement si résistances aujourd'hui
+    updateResistanceDisplay();
 })();
 </script>
 {% endblock %}

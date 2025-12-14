@@ -213,7 +213,7 @@
     }
 </style>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
     // Get CSRF token for secure requests
     const csrfToken = document.querySelector('meta[name="csrf-token"]').getAttribute('content');
 

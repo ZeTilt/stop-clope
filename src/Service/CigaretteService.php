@@ -17,7 +17,8 @@ class CigaretteService
         private EntityManagerInterface $entityManager,
         private CigaretteRepository $cigaretteRepository,
         private ScoringService $scoringService,
-        private BadgeService $badgeService
+        private BadgeService $badgeService,
+        private StatsService $statsService
     ) {}
 
     /**
@@ -87,8 +88,9 @@ class CigaretteService
             return ['success' => false, 'error' => 'Database error'];
         }
 
-        // Invalider le cache du scoring après mutation
+        // Invalider les caches après mutation
         $this->scoringService->invalidateCache();
+        $this->statsService->invalidateCache();
 
         // Persister le score du jour (optimisation performance)
         $today = new \DateTime();
@@ -121,8 +123,9 @@ class CigaretteService
             return ['success' => false, 'error' => 'Database error'];
         }
 
-        // Invalider le cache du scoring après mutation
+        // Invalider les caches après mutation
         $this->scoringService->invalidateCache();
+        $this->statsService->invalidateCache();
 
         // Persister le score du jour (optimisation performance)
         $today = new \DateTime();

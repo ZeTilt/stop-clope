@@ -195,10 +195,17 @@ html, body {
     transition: width 0.5s ease;
 }
 
+/* Container pour les boutons d'action */
+.action-buttons {
+    display: flex;
+    gap: 12px;
+    margin-bottom: 16px;
+}
+
 .big-button {
-    width: 100%;
-    padding: 25px;
-    font-size: 1.3rem;
+    flex: 2;
+    padding: 25px 15px;
+    font-size: 1.2rem;
     font-weight: 600;
     background: linear-gradient(135deg, var(--accent), var(--accent-dark));
     color: var(--bg-primary);
@@ -206,8 +213,55 @@ html, body {
     border-radius: var(--radius-lg);
     cursor: pointer;
     transition: transform 0.2s, box-shadow 0.2s;
-    margin-bottom: 16px;
     box-shadow: var(--shadow-md);
+}
+
+.resist-button {
+    flex: 1;
+    padding: 25px 15px;
+    font-size: 1rem;
+    font-weight: 600;
+    background: linear-gradient(135deg, var(--success), #00ff88);
+    color: var(--bg-primary);
+    border: none;
+    border-radius: var(--radius-lg);
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    box-shadow: var(--shadow-md);
+}
+
+.resist-button:active {
+    transform: scale(0.98);
+}
+
+.resist-button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0, 200, 83, 0.3);
+}
+
+@media (hover: none) {
+    .resist-button:hover {
+        transform: none;
+        box-shadow: var(--shadow-md);
+    }
+}
+
+/* Compteur de résistances */
+.resistance-counter {
+    text-align: center;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(0, 200, 83, 0.15), rgba(0, 255, 136, 0.1));
+    border: 1px solid var(--success);
+    border-radius: var(--radius-md);
+    color: var(--success);
+    font-weight: 600;
+    margin-bottom: 16px;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
 }
 
 .big-button:active {

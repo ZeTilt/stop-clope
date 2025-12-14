@@ -22,6 +22,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Doctrine\DBAL\Exception as DBALException;
 use Psr\Log\LoggerInterface;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
@@ -176,7 +177,8 @@ class HomeController extends AbstractController
         $tzString = sprintf('%+03d:%02d', intdiv($tzOffset, 60), abs($tzOffset) % 60);
         try {
             $tz = new \DateTimeZone($tzString);
-        } catch (\Exception $e) {
+        } catch (\DateInvalidTimeZoneException|\ValueError $e) {
+            $this->logger->warning('Invalid timezone string', ['tz' => $tzString, 'error' => $e->getMessage()]);
             return new JsonResponse(['success' => false, 'error' => 'Invalid timezone'], 400);
         }
 
@@ -209,8 +211,8 @@ class HomeController extends AbstractController
         try {
             $this->entityManager->persist($wakeUp);
             $this->entityManager->flush();
-        } catch (\Exception $e) {
-            $this->logger->error('Failed to persist wakeup', ['exception' => $e->getMessage()]);
+        } catch (DBALException $e) {
+            $this->logger->error('Database error persisting wakeup', ['exception' => $e->getMessage()]);
             return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
         }
 
@@ -238,13 +240,14 @@ class HomeController extends AbstractController
         try {
             $this->entityManager->remove($cigarette);
             $this->entityManager->flush();
-        } catch (\Exception $e) {
-            $this->logger->error('Failed to delete cigarette', ['exception' => $e->getMessage(), 'id' => $cigarette->getId()]);
+        } catch (DBALException $e) {
+            $this->logger->error('Database error deleting cigarette', ['exception' => $e->getMessage(), 'id' => $cigarette->getId()]);
             return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
         }
 
-        // Invalider le cache du scoring après mutation
+        // Invalider le cache après mutation
         $this->scoringService->invalidateCache();
+        $this->statsService->invalidateCache();
 
         // Persister le score du jour (optimisation performance)
         $today = new \DateTime();

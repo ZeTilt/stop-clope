@@ -193,10 +193,22 @@
         aspect-ratio: 1;
         border-radius: 4px;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        font-size: 0.6rem;
-        color: var(--text-secondary);
+        font-size: 0.55rem;
+        color: #000;
+        line-height: 1.1;
+        padding: 2px;
+    }
+
+    .heatmap-hour {
+        font-weight: 600;
+    }
+
+    .heatmap-value {
+        font-size: 0.5rem;
+        opacity: 0.8;
     }
 
     /* Savings card */
@@ -307,15 +319,15 @@
 
     <!-- Tabs navigation -->
     <div class="stats-tabs" role="tablist" aria-label="Sections statistiques">
-        <button class="stats-tab active" role="tab" aria-selected="true" aria-controls="tab-overview" id="btn-overview" onclick="switchTab('overview')">
+        <button class="stats-tab active" role="tab" aria-selected="true" aria-controls="tab-overview" id="btn-overview" tabindex="0" onclick="switchTab('overview')">
             <span class="stats-tab-icon" aria-hidden="true">📊</span>
             Vue d'ensemble
         </button>
-        <button class="stats-tab" role="tab" aria-selected="false" aria-controls="tab-graphs" id="btn-graphs" onclick="switchTab('graphs')">
+        <button class="stats-tab" role="tab" aria-selected="false" aria-controls="tab-graphs" id="btn-graphs" tabindex="-1" onclick="switchTab('graphs')">
             <span class="stats-tab-icon" aria-hidden="true">📈</span>
             Graphiques
         </button>
-        <button class="stats-tab" role="tab" aria-selected="false" aria-controls="tab-health" id="btn-health" onclick="switchTab('health')">
+        <button class="stats-tab" role="tab" aria-selected="false" aria-controls="tab-health" id="btn-health" tabindex="-1" onclick="switchTab('health')">
             <span class="stats-tab-icon" aria-hidden="true">❤️</span>
             Santé
         </button>
@@ -428,7 +440,9 @@
 
             <div class="badges-grid">
                 {% for code, badge in badges %}
-                <div class="badge-item {{ badge.unlocked ? 'unlocked' : 'locked' }}" title="{{ badge.description }}">
+                <div class="badge-item {{ badge.unlocked ? 'unlocked' : 'locked' }}"
+                     title="{{ badge.description }}"
+                     aria-label="{{ badge.name }} : {{ badge.description }}. {{ badge.unlocked ? 'Débloqué' : 'Verrouillé' }}{{ badge.unlocked and badge.unlocked_at ? ' le ' ~ badge.unlocked_at|date('d/m/Y') : '' }}">
                     <div class="badge-icon" aria-hidden="true">{{ badge.icon }}</div>
                     <div class="badge-name">{{ badge.name }}</div>
                     <div class="badge-desc">{{ badge.description }}</div>
@@ -472,9 +486,9 @@
         <!-- Graphique clopes/jour -->
         {% if first_date %}
         <div class="card">
-            <h3>Clopes par jour (7 jours)</h3>
+            <h3 id="chart-cigs-title">Clopes par jour (7 jours)</h3>
             <div class="chart-container">
-                <div class="bar-chart" role="img" aria-label="Graphique du nombre de cigarettes par jour">
+                <div class="bar-chart" role="img" aria-labelledby="chart-cigs-title chart-cigs-caption">
                     {% set max_count = 1 %}
                     {% for date, count in monthly_stats|slice(-7) %}
                         {% if count > max_count %}
@@ -498,7 +512,7 @@
             </div>
             <!-- Tableau accessible caché -->
             <table class="sr-only-table">
-                <caption>Nombre de cigarettes par jour sur les 7 derniers jours</caption>
+                <caption id="chart-cigs-caption">Nombre de cigarettes par jour sur les 7 derniers jours</caption>
                 <thead><tr><th>Jour</th><th>Cigarettes</th></tr></thead>
                 <tbody>
                 {% for i in 7..1 %}
@@ -515,9 +529,9 @@
         <!-- Graphique scores/jour -->
         {% if weekly_scores|length > 0 %}
         <div class="card">
-            <h3>Score par jour (7 jours)</h3>
+            <h3 id="chart-scores-title">Score par jour (7 jours)</h3>
             <div class="chart-container score-chart">
-                <div class="bar-chart" role="img" aria-label="Graphique des scores par jour">
+                <div class="bar-chart" role="img" aria-labelledby="chart-scores-title chart-scores-caption">
                     {% set max_score = 1 %}
                     {% set min_score = 0 %}
                     {% for date, score_data in weekly_scores %}
@@ -539,7 +553,7 @@
             </div>
             <!-- Tableau accessible caché -->
             <table class="sr-only-table">
-                <caption>Score par jour sur les 7 derniers jours</caption>
+                <caption id="chart-scores-caption">Score par jour sur les 7 derniers jours</caption>
                 <thead><tr><th>Jour</th><th>Score</th></tr></thead>
                 <tbody>
                 {% for date, score_data in weekly_scores %}
@@ -553,10 +567,10 @@
         <!-- Semaine type -->
         {% if weekday_stats|length > 0 %}
         <div class="card">
-            <h3>Semaine type</h3>
+            <h3 id="chart-weekday-title">Semaine type</h3>
             <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Moyenne par jour de la semaine</p>
             <div class="chart-container">
-                <div class="bar-chart" role="img" aria-label="Graphique de la moyenne par jour de semaine">
+                <div class="bar-chart" role="img" aria-labelledby="chart-weekday-title chart-weekday-caption">
                     {% set max_weekday = 1 %}
                     {% for day, count in weekday_stats %}
                         {% if count > max_weekday %}{% set max_weekday = count %}{% endif %}
@@ -576,7 +590,7 @@
             </div>
             <!-- Tableau accessible caché -->
             <table class="sr-only-table">
-                <caption>Moyenne de cigarettes par jour de la semaine</caption>
+                <caption id="chart-weekday-caption">Moyenne de cigarettes par jour de la semaine</caption>
                 <thead><tr><th>Jour</th><th>Moyenne</th></tr></thead>
                 <tbody>
                 {% for day in ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] %}
@@ -590,9 +604,9 @@
         <!-- Heatmap des heures -->
         {% if hourly_stats|length > 0 %}
         <div class="card">
-            <h3>Heures de consommation</h3>
+            <h3 id="heatmap-title">Heures de consommation</h3>
             <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">Moyenne par heure</p>
-            <div class="heatmap" role="img" aria-label="Carte thermique des heures de consommation">
+            <div class="heatmap" role="img" aria-labelledby="heatmap-title heatmap-caption">
                 {% set max_hour = 0 %}
                 {% for hour, count in hourly_stats %}
                     {% if count > max_hour %}{% set max_hour = count %}{% endif %}
@@ -612,14 +626,17 @@
                     {% elseif level == 7 %}{% set bg = '#ff5722' %}
                     {% elseif level == 8 %}{% set bg = '#f44336' %}
                     {% else %}{% set bg = '#d32f2f' %}{% endif %}
-                    <div class="heatmap-cell" style="background: {{ bg }}; color: #000;" title="{{ count|round(1) }} clopes/jour à {{ hour }}h">
-                        {{ hour }}h
+                    <div class="heatmap-cell" style="background: {{ bg }}; color: #000;"
+                         title="{{ count|round(1) }} clopes/jour à {{ hour }}h"
+                         aria-label="{{ hour }}h : {{ count|round(1) }} cigarettes/jour">
+                        <span class="heatmap-hour">{{ hour }}h</span>
+                        <span class="heatmap-value">{{ count|round(1) }}</span>
                     </div>
                 {% endfor %}
             </div>
             <!-- Tableau accessible caché -->
             <table class="sr-only-table">
-                <caption>Moyenne de cigarettes par heure de la journée</caption>
+                <caption id="heatmap-caption">Moyenne de cigarettes par heure de la journée</caption>
                 <thead><tr><th>Heure</th><th>Moyenne</th></tr></thead>
                 <tbody>
                 {% for hour in 0..23 %}
@@ -633,10 +650,10 @@
         <!-- Intervalle moyen -->
         {% if daily_intervals|length > 0 %}
         <div class="card">
-            <h3>Intervalle moyen entre clopes</h3>
+            <h3 id="chart-interval-title">Intervalle moyen entre clopes</h3>
             <p style="font-size: 0.8rem; color: var(--text-secondary); margin-bottom: 15px;">En minutes</p>
             <div class="chart-container">
-                <div class="bar-chart" role="img" aria-label="Graphique de l'intervalle moyen entre cigarettes">
+                <div class="bar-chart" role="img" aria-labelledby="chart-interval-title chart-interval-caption">
                     {% set max_interval = 1 %}
                     {% for date, interval in daily_intervals %}
                         {% if interval > max_interval %}{% set max_interval = interval %}{% endif %}
@@ -652,6 +669,16 @@
                     {% endfor %}
                 </div>
             </div>
+            <!-- Tableau accessible caché -->
+            <table class="sr-only-table">
+                <caption id="chart-interval-caption">Intervalle moyen entre cigarettes par jour</caption>
+                <thead><tr><th>Jour</th><th>Intervalle (min)</th></tr></thead>
+                <tbody>
+                {% for date, interval in daily_intervals %}
+                <tr><td>{{ date|date("D d/m") }}</td><td>{{ interval }} minutes</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
         </div>
         {% endif %}
 
@@ -799,25 +826,64 @@
 
 </div>
 
-<script>
+<script nonce="{{ csp_nonce() }}">
 function switchTab(tabName) {
+    var tabs = document.querySelectorAll('.stats-tab');
+
     // Hide all tabs
-    document.querySelectorAll('.tab-content').forEach(tab => {
+    document.querySelectorAll('.tab-content').forEach(function(tab) {
         tab.classList.remove('active');
     });
 
-    // Deactivate all buttons
-    document.querySelectorAll('.stats-tab').forEach(btn => {
+    // Deactivate all buttons and reset tabindex
+    tabs.forEach(function(btn) {
         btn.classList.remove('active');
         btn.setAttribute('aria-selected', 'false');
+        btn.setAttribute('tabindex', '-1');
     });
 
     // Show selected tab
     document.getElementById('tab-' + tabName).classList.add('active');
 
     // Activate selected button
-    document.getElementById('btn-' + tabName).classList.add('active');
-    document.getElementById('btn-' + tabName).setAttribute('aria-selected', 'true');
+    var activeBtn = document.getElementById('btn-' + tabName);
+    activeBtn.classList.add('active');
+    activeBtn.setAttribute('aria-selected', 'true');
+    activeBtn.setAttribute('tabindex', '0');
 }
+
+// Navigation clavier pour les tabs (flèches gauche/droite)
+document.addEventListener('DOMContentLoaded', function() {
+    var tablist = document.querySelector('[role="tablist"]');
+    if (!tablist) return;
+
+    var tabs = tablist.querySelectorAll('[role="tab"]');
+    var tabNames = ['overview', 'graphs', 'health'];
+
+    tabs.forEach(function(tab, index) {
+        tab.addEventListener('keydown', function(e) {
+            var targetIndex = index;
+
+            if (e.key === 'ArrowRight' || e.key === 'ArrowDown') {
+                targetIndex = (index + 1) % tabs.length;
+                e.preventDefault();
+            } else if (e.key === 'ArrowLeft' || e.key === 'ArrowUp') {
+                targetIndex = (index - 1 + tabs.length) % tabs.length;
+                e.preventDefault();
+            } else if (e.key === 'Home') {
+                targetIndex = 0;
+                e.preventDefault();
+            } else if (e.key === 'End') {
+                targetIndex = tabs.length - 1;
+                e.preventDefault();
+            }
+
+            if (targetIndex !== index) {
+                switchTab(tabNames[targetIndex]);
+                tabs[targetIndex].focus();
+            }
+        });
+    });
+});
 </script>
 {% endblock %}
