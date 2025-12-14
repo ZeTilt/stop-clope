@@ -46,30 +46,6 @@ class ScoringService
 
     // ========== Délégation aux services spécialisés ==========
 
-    /**
-     * @deprecated Utiliser IntervalCalculator::timeToMinutes() directement
-     */
-    public static function timeToMinutes(\DateTimeInterface $time): int
-    {
-        return IntervalCalculator::timeToMinutes($time);
-    }
-
-    /**
-     * @deprecated Utiliser IntervalCalculator::minutesSinceWakeUp() directement
-     */
-    public static function minutesSinceWakeUp(\DateTimeInterface $time, \DateTimeInterface $wakeTime): int
-    {
-        return IntervalCalculator::minutesSinceWakeUp($time, $wakeTime);
-    }
-
-    /**
-     * @deprecated Utiliser IntervalCalculator::getPointsForDiff() directement
-     */
-    public static function getPointsForDiff(float $diff, float $interval): int
-    {
-        return IntervalCalculator::getPointsForDiff($diff, $interval);
-    }
-
     public function getDayAverageInterval(array $cigs): float
     {
         return $this->intervalCalculator->getDayAverageInterval($cigs);

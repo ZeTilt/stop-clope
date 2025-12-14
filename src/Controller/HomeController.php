@@ -21,6 +21,7 @@ use Symfony\Component\HttpFoundation\JsonResponse;
 use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Attribute\Route;
+use Psr\Log\LoggerInterface;
 use Symfony\Component\Security\Csrf\CsrfToken;
 use Symfony\Component\Security\Csrf\CsrfTokenManagerInterface;
 use Symfony\Component\Security\Http\Attribute\CurrentUser;
@@ -39,7 +40,8 @@ class HomeController extends AbstractController
         private StatsService $statsService,
         private StreakService $streakService,
         private IntervalCalculator $intervalCalculator,
-        private CsrfTokenManagerInterface $csrfTokenManager
+        private CsrfTokenManagerInterface $csrfTokenManager,
+        private LoggerInterface $logger
     ) {}
 
     private function validateCsrfToken(Request $request): bool
@@ -158,6 +160,7 @@ class HomeController extends AbstractController
             $this->entityManager->persist($cigarette);
             $this->entityManager->flush();
         } catch (\Exception $e) {
+            $this->logger->error('Failed to persist cigarette', ['exception' => $e->getMessage()]);
             return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
         }
 
@@ -263,6 +266,7 @@ class HomeController extends AbstractController
             $this->entityManager->persist($wakeUp);
             $this->entityManager->flush();
         } catch (\Exception $e) {
+            $this->logger->error('Failed to persist wakeup', ['exception' => $e->getMessage()]);
             return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
         }
 
@@ -291,6 +295,7 @@ class HomeController extends AbstractController
             $this->entityManager->remove($cigarette);
             $this->entityManager->flush();
         } catch (\Exception $e) {
+            $this->logger->error('Failed to delete cigarette', ['exception' => $e->getMessage(), 'id' => $cigarette->getId()]);
             return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
         }
 

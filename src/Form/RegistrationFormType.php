@@ -12,6 +12,7 @@ use Symfony\Component\OptionsResolver\OptionsResolver;
 use Symfony\Component\Validator\Constraints\Email;
 use Symfony\Component\Validator\Constraints\Length;
 use Symfony\Component\Validator\Constraints\NotBlank;
+use Symfony\Component\Validator\Constraints\PasswordStrength;
 
 class RegistrationFormType extends AbstractType
 {
@@ -33,9 +34,13 @@ class RegistrationFormType extends AbstractType
                     'constraints' => [
                         new NotBlank(message: 'Merci de saisir un mot de passe'),
                         new Length(
-                            min: 6,
+                            min: 8,
                             minMessage: 'Le mot de passe doit faire au moins {{ limit }} caractères',
                             max: 4096,
+                        ),
+                        new PasswordStrength(
+                            minScore: PasswordStrength::STRENGTH_WEAK,
+                            message: 'Mot de passe trop faible. Utilise des lettres, chiffres et caractères spéciaux.'
                         ),
                     ],
                 ],

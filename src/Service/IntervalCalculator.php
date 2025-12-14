@@ -2,8 +2,11 @@
 
 namespace App\Service;
 
+use App\Constants\ScoringConstants;
 use App\Repository\CigaretteRepository;
 use App\Repository\WakeUpRepository;
+use Symfony\Contracts\Cache\CacheInterface;
+use Symfony\Contracts\Cache\ItemInterface;
 
 /**
  * Service dédié aux calculs d'intervalles entre cigarettes
@@ -16,7 +19,8 @@ class IntervalCalculator
 
     public function __construct(
         private CigaretteRepository $cigaretteRepository,
-        private WakeUpRepository $wakeUpRepository
+        private WakeUpRepository $wakeUpRepository,
+        private CacheInterface $scoringCache
     ) {}
 
     /**
@@ -71,6 +75,9 @@ class IntervalCalculator
     {
         $this->cachedHistoricalData = null;
         $this->cacheDate = null;
+        // Invalider aussi le cache Symfony
+        $this->scoringCache->delete('smoothed_interval_' . date('Y-m-d'));
+        $this->scoringCache->delete('smoothed_first_cig_' . date('Y-m-d'));
     }
 
     /**
@@ -120,7 +127,7 @@ class IntervalCalculator
         }
 
         if (empty($intervals)) {
-            return 60; // Défaut : 1 heure
+            return ScoringConstants::DEFAULT_INTERVAL_MINUTES;
         }
 
         return array_sum($intervals) / count($intervals);
@@ -146,7 +153,7 @@ class IntervalCalculator
         }
 
         if (empty($times)) {
-            return 30; // Défaut : 30 min après réveil
+            return ScoringConstants::DEFAULT_FIRST_CIG_MINUTES;
         }
 
         return array_sum($times) / count($times);
@@ -186,23 +193,23 @@ class IntervalCalculator
     public static function getPointsForDiff(float $diff, float $interval): int
     {
         if ($interval <= 0) {
-            $interval = 60; // Défaut 1h pour éviter division par 0
+            $interval = ScoringConstants::DEFAULT_INTERVAL_MINUTES;
         }
 
         // Ratio : combien de fois l'intervalle on a attendu en plus/moins
         $ratio = $diff / $interval;
 
         if ($diff > 0.001) {
-            // Positif : 20 pts par intervalle attendu en plus, minimum 1 pt
-            $points = (int) round($ratio * 20);
-            return max(1, $points);
+            // Positif : points par intervalle attendu en plus, minimum 1 pt
+            $points = (int) round($ratio * ScoringConstants::POINTS_PER_INTERVAL);
+            return max(ScoringConstants::MIN_POSITIVE_POINTS, $points);
         } elseif (abs($diff) < 0.001) {
             // Fix: comparaison float avec tolérance (pile à l'heure = léger malus)
-            return -1;
+            return ScoringConstants::POINTS_NEUTRAL;
         } else {
-            // Négatif : malus proportionnel, plafonné à -20
-            $points = (int) round($ratio * 20);
-            return max(-20, $points);
+            // Négatif : malus proportionnel, plafonné
+            $points = (int) round($ratio * ScoringConstants::POINTS_PER_INTERVAL);
+            return max(ScoringConstants::MAX_MALUS_POINTS, $points);
         }
     }
 
@@ -232,7 +239,7 @@ class IntervalCalculator
         }
 
         if (empty($intervals)) {
-            return 60; // Défaut : 1 heure
+            return ScoringConstants::DEFAULT_INTERVAL_MINUTES;
         }
 
         return array_sum($intervals) / count($intervals);
@@ -258,7 +265,7 @@ class IntervalCalculator
         }
 
         if (empty($times)) {
-            return 30; // Défaut : 30 min après réveil
+            return ScoringConstants::DEFAULT_FIRST_CIG_MINUTES;
         }
 
         return array_sum($times) / count($times);

@@ -6,9 +6,9 @@
     --bg-primary: #24303E;
     --bg-secondary: #354252;
     --bg-card: #354252;
-    --accent: #D5B18A;
-    --accent-light: #E9CBA9;
-    --accent-dark: #B89468;
+    --accent: #E8C9A0; /* Ajusté pour WCAG AA (4.5:1) - était #D5B18A (3.8:1) */
+    --accent-light: #F5DDB8;
+    --accent-dark: #C9A87A;
     --success: #28a745;
     --warning: #D5B18A;
     --error: #dc3545;
@@ -744,4 +744,74 @@ select:focus-visible {
 
 @keyframes spin {
     to { transform: rotate(360deg); }
+}
+
+/* Accordéon */
+.accordion {
+    border: none;
+}
+
+.accordion-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    padding: 5px 0;
+    list-style: none;
+}
+
+.accordion-header::-webkit-details-marker {
+    display: none;
+}
+
+.accordion-icon {
+    font-size: 0.8rem;
+    transition: transform 0.2s ease;
+    color: var(--text-secondary);
+}
+
+details[open] .accordion-icon {
+    transform: rotate(180deg);
+}
+
+/* Skip link amélioré */
+.skip-link {
+    position: absolute;
+    top: -100px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 24px;
+    background: var(--accent);
+    color: var(--bg-primary);
+    font-weight: 600;
+    border-radius: var(--radius-md);
+    z-index: 10000;
+    transition: top 0.2s ease;
+}
+
+.skip-link:focus {
+    top: 10px;
+    outline: 3px solid var(--text-primary);
+    outline-offset: 2px;
+}
+
+/* Boutons rapides dans modal rétroactif */
+.btn-quick {
+    padding: 10px 14px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--accent);
+    border-radius: var(--radius-md);
+    color: var(--text-primary);
+    font-size: calc(0.85rem * var(--font-scale));
+    cursor: pointer;
+    transition: background 0.2s ease, transform 0.1s ease;
+}
+
+.btn-quick:hover {
+    background: var(--accent);
+    color: var(--bg-primary);
+}
+
+.btn-quick:active {
+    transform: scale(0.95);
 }

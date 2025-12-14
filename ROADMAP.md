@@ -500,9 +500,9 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 - [x] Configurer `login_throttling` (anti-bruteforce)
 
 **Tâches moyennes** :
-- [ ] Logger les exceptions dans les controllers (actuellement avalées)
-- [ ] Installer `nelmio/security-bundle` pour headers sécurité
-- [ ] Ajouter contrainte complexité mot de passe
+- [x] Logger les exceptions dans les controllers
+- [x] Headers de sécurité HTTP (SecurityHeadersSubscriber - nelmio incompatible Sf8)
+- [x] Ajouter contrainte complexité mot de passe (PasswordStrength)
 
 ### 7.2 Performance (Score: 6/10 → 9/10)
 
@@ -514,7 +514,7 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 **Tâches moyennes** :
 - [x] Externaliser CSS dans `public/css/app.css` (~500 lignes)
 - [x] Externaliser JS dans `public/js/app.js` (~300 lignes)
-- [ ] Implémenter cache APCu/Redis pour données chaudes (TTL 60s)
+- [x] Implémenter cache Symfony pour données chaudes (TTL 60s)
 
 ### 7.3 Qualité Code (Score: 7.5/10 → 9/10)
 
@@ -524,9 +524,9 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 - [ ] Centraliser calcul économies dans StatsService
 
 **Tâches moyennes** :
-- [ ] Supprimer méthodes @deprecated de ScoringService
+- [x] Supprimer méthodes @deprecated de ScoringService
 - [ ] Transformer méthodes statiques IntervalCalculator en méthodes d'instance
-- [ ] Créer constantes pour valeurs magiques (DEFAULT_INTERVAL_MINUTES, etc.)
+- [x] Créer constantes pour valeurs magiques (ScoringConstants.php)
 
 ### 7.4 UX (Score: 7.5/10 → 8.5/10)
 
@@ -536,8 +536,8 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 - [x] Désactiver bouton principal 3 sec après log (anti double-clic)
 
 **Tâches moyennes** :
-- [ ] Accordéon repliable pour "Détail des points"
-- [ ] Boutons rapides dans modal rétroactif ("Il y a 15 min", "Il y a 30 min")
+- [x] Accordéon repliable pour "Détail des points"
+- [x] Boutons rapides dans modal rétroactif ("Il y a 15 min", "Il y a 30 min", "Il y a 1h")
 - [ ] Tabs dans Stats : "Vue d'ensemble" / "Graphiques" / "Santé"
 - [ ] Toast "Annuler" temporaire (3-5 sec) après logging
 
@@ -549,9 +549,9 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 - [x] Ajouter `aria-live="polite"` sur section score (déjà présent sur toast)
 
 **Tâches moyennes** :
-- [ ] Corriger contraste accent (#D5B18A = 3.8:1, besoin 4.5:1)
+- [x] Corriger contraste accent (#E8C9A0 = 4.5:1+)
 - [ ] Alternative textuelle pour graphiques (tableau caché)
-- [ ] Améliorer visibilité skip link
+- [x] Améliorer visibilité skip link (CSS ajouté)
 
 ---
 

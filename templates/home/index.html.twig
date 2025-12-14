@@ -198,10 +198,14 @@
         </div>
     </div>
 
-    <!-- Détail des points -->
+    <!-- Détail des points (accordéon) -->
     <div class="card">
-        <h3 style="margin-bottom: 10px;">Détail des points</h3>
-        <div class="score-breakdown">
+        <details class="accordion">
+            <summary class="accordion-header">
+                <h3 style="margin: 0; display: inline;">Détail des points</h3>
+                <span class="accordion-icon" aria-hidden="true">▼</span>
+            </summary>
+        <div class="score-breakdown" style="margin-top: 10px;">
             {% if daily_score.details.comparisons is defined %}
                 {% for comp in daily_score.details.comparisons %}
                 <div class="breakdown-item">
@@ -257,6 +261,7 @@
                 </div>
             {% endif %}
         </div>
+        </details>
     </div>
 
     <!-- Guide premier jour -->
@@ -319,8 +324,16 @@
 <div class="modal" id="retroModal" role="dialog" aria-modal="true" aria-labelledby="retroModalTitle">
     <div class="modal-content">
         <h3 class="modal-title" id="retroModalTitle">Ajouter une clope passée</h3>
+
+        <!-- Boutons rapides -->
+        <div class="quick-buttons" style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
+            <button type="button" class="btn-quick" onclick="setQuickTime(15)">Il y a 15 min</button>
+            <button type="button" class="btn-quick" onclick="setQuickTime(30)">Il y a 30 min</button>
+            <button type="button" class="btn-quick" onclick="setQuickTime(60)">Il y a 1h</button>
+        </div>
+
         <div class="input-group">
-            <label for="customTime">Date et heure</label>
+            <label for="customTime">Ou choisis une date/heure</label>
             <input type="datetime-local" id="customTime" aria-describedby="customTimeHelp">
             <small id="customTimeHelp" style="color: var(--text-secondary); font-size: 0.75rem;">Sélectionne la date et l'heure de la cigarette</small>
         </div>
@@ -647,6 +660,14 @@
 
     window.closeModal = function() {
         document.getElementById('retroModal').classList.remove('active');
+    };
+
+    window.setQuickTime = function(minutesAgo) {
+        var date = new Date();
+        date.setMinutes(date.getMinutes() - minutesAgo);
+        document.getElementById('customTime').value = date.toISOString().slice(0, 16);
+        // Soumettre directement
+        logRetroactive();
     };
 
     window.logRetroactive = function() {
