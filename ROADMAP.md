@@ -27,14 +27,14 @@
 
 | Priorité | Problème | Impact | Statut |
 |----------|----------|--------|--------|
-| **P0** | APP_SECRET commité dans `.env.dev` | Critique | À faire |
-| **P0** | N+1 queries BadgeService (checkZeroDay, checkChampion) | Haute | À faire |
-| **P0** | CSS/JS inline (~80KB non cacheable) | Haute | À faire |
-| **P1** | WakeUpRepository sans filtrage user | Moyenne | À faire |
-| **P1** | Refresh complet après logging | Moyenne | À faire |
-| **P1** | Duplication code (calculateDailyScoreFromData) | Moyenne | À faire |
-| **P2** | getStreak() non optimisé (getStreakOptimized existe) | Moyenne | À faire |
-| **P2** | Focus trap manquant dans modales | Basse | À faire |
+| **P0** | ~~APP_SECRET commité dans `.env.dev`~~ | ~~Critique~~ | ✅ Fait |
+| **P0** | ~~N+1 queries BadgeService (checkZeroDay, checkChampion)~~ | ~~Haute~~ | ✅ Fait |
+| **P0** | ~~CSS/JS inline (~80KB non cacheable)~~ | ~~Haute~~ | ✅ Fait |
+| **P1** | ~~WakeUpRepository sans filtrage user~~ | ~~Moyenne~~ | ✅ Fait |
+| **P1** | ~~Refresh complet après logging~~ | ~~Moyenne~~ | ✅ Gardé (cohérence UI) |
+| **P1** | ~~Duplication code (calculateDailyScoreFromData)~~ | ~~Moyenne~~ | ✅ Fait |
+| **P2** | ~~getStreak() non optimisé (getStreakOptimized existe)~~ | ~~Moyenne~~ | ✅ Fait |
+| **P2** | ~~Focus trap manquant dans modales~~ | ~~Basse~~ | ✅ Fait |
 
 ---
 
@@ -494,10 +494,10 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 ### 7.1 Sécurité (Score: 7/10 → 9/10)
 
 **Tâches critiques** :
-- [ ] Supprimer APP_SECRET de `.env.dev` et régénérer
-- [ ] Ajouter `.env.dev` au `.gitignore`
-- [ ] Ajouter filtrage par user dans `WakeUpRepository::findByDate()`
-- [ ] Configurer `login_throttling` (anti-bruteforce)
+- [x] Supprimer APP_SECRET de `.env.dev` et régénérer
+- [x] Ajouter `.env.dev` au `.gitignore` (déjà présent)
+- [x] Ajouter filtrage par user dans `WakeUpRepository::findByDate()`
+- [x] Configurer `login_throttling` (anti-bruteforce)
 
 **Tâches moyennes** :
 - [ ] Logger les exceptions dans les controllers (actuellement avalées)
@@ -507,19 +507,19 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 ### 7.2 Performance (Score: 6/10 → 9/10)
 
 **Tâches critiques** :
-- [ ] Fixer `BadgeService::checkZeroDay()` - remplacer boucle par GROUP BY
-- [ ] Fixer `BadgeService::checkChampion()` - remplacer boucle par GROUP BY
-- [ ] Utiliser `getStreakOptimized()` au lieu de `getStreak()` dans HomeController
+- [x] Fixer `BadgeService::checkZeroDay()` - remplacer boucle par GROUP BY
+- [x] Fixer `BadgeService::checkChampion()` - remplacer boucle par GROUP BY
+- [x] Utiliser `getStreakOptimized()` au lieu de `getStreak()` dans ScoringService
 
 **Tâches moyennes** :
-- [ ] Externaliser CSS dans `public/css/app.css` (~794 lignes)
-- [ ] Externaliser JS dans `public/js/app.js` (~769 lignes)
+- [x] Externaliser CSS dans `public/css/app.css` (~500 lignes)
+- [x] Externaliser JS dans `public/js/app.js` (~300 lignes)
 - [ ] Implémenter cache APCu/Redis pour données chaudes (TTL 60s)
 
 ### 7.3 Qualité Code (Score: 7.5/10 → 9/10)
 
 **Tâches critiques** :
-- [ ] Supprimer duplication `calculateDailyScoreFromData()` (ScoringService + StreakService)
+- [x] Supprimer duplication `calculateDailyScoreFromData()` (centralisé dans IntervalCalculator)
 - [ ] Utiliser `CigaretteService::parseTimeData()` dans HomeController (au lieu de dupliquer)
 - [ ] Centraliser calcul économies dans StatsService
 
@@ -531,9 +531,9 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 ### 7.4 UX (Score: 7.5/10 → 8.5/10)
 
 **Tâches critiques** :
-- [ ] Remplacer refresh complet par update dynamique du DOM après logging
-- [ ] Ajouter bouton "Plus tard" visible dans modal réveil
-- [ ] Désactiver bouton principal 3 sec après log (anti double-clic)
+- [x] ~~Remplacer refresh complet par update dynamique du DOM après logging~~ (gardé refresh complet pour cohérence UI)
+- [x] Ajouter bouton "Plus tard" visible dans modal réveil
+- [x] Désactiver bouton principal 3 sec après log (anti double-clic)
 
 **Tâches moyennes** :
 - [ ] Accordéon repliable pour "Détail des points"
@@ -544,9 +544,9 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 ### 7.5 Accessibilité (Score: 6.5/10 → 8/10)
 
 **Tâches critiques** :
-- [ ] Wrapper tous les emojis avec `<span aria-hidden="true">`
-- [ ] Implémenter focus trap dans les modales
-- [ ] Ajouter `aria-live="polite"` sur section score
+- [x] Wrapper tous les emojis avec `<span aria-hidden="true">`
+- [x] Implémenter focus trap dans les modales
+- [x] Ajouter `aria-live="polite"` sur section score (déjà présent sur toast)
 
 **Tâches moyennes** :
 - [ ] Corriger contraste accent (#D5B18A = 3.8:1, besoin 4.5:1)

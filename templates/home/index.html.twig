@@ -33,7 +33,7 @@
     <!-- Célébration nouveau palier -->
     {% if tier_achievement.achieved %}
     <div class="card tier-celebration" style="padding: 20px; text-align: center; background: linear-gradient(135deg, #ffd700, #ffec8b); border: 2px solid #ffd700;">
-        <div style="font-size: 3rem; margin-bottom: 10px;">🎉</div>
+        <div style="font-size: 3rem; margin-bottom: 10px;" aria-hidden="true">🎉</div>
         <div style="color: #000; font-weight: 700; font-size: 1.2rem;">
             Nouveau palier atteint !
         </div>
@@ -41,7 +41,7 @@
             {{ tier_achievement.message }}
         </div>
         {% if tier_achievement.new_tier == 0 %}
-        <div style="margin-top: 10px; font-size: 2rem;">🏆</div>
+        <div style="margin-top: 10px; font-size: 2rem;" aria-hidden="true">🏆</div>
         {% endif %}
     </div>
     {% endif %}
@@ -49,7 +49,7 @@
     <!-- Message d'encouragement -->
     {% if encouragement %}
     <div class="card" style="padding: 15px; text-align: center; background: {{ encouragement.type == 'success' ? 'linear-gradient(135deg, var(--success), #00ff88)' : 'linear-gradient(135deg, var(--warning), #ffdb4d)' }};">
-        <span style="font-size: 1.5rem;">{{ encouragement.icon }}</span>
+        <span style="font-size: 1.5rem;" aria-hidden="true">{{ encouragement.icon }}</span>
         <div style="color: #000; font-weight: 600; margin-top: 5px;">
             {{ encouragement.message }}
         </div>
@@ -60,7 +60,7 @@
     {% if goal_progress %}
     <div class="card" style="padding: 15px;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <span style="font-size: 0.85rem; color: var(--text-secondary);">🎯 Objectif du jour</span>
+            <span style="font-size: 0.85rem; color: var(--text-secondary);"><span aria-hidden="true">🎯</span> Objectif du jour</span>
             <span style="font-weight: 700; color: {{ goal_progress.exceeded ? 'var(--error)' : (goal_progress.remaining == 0 ? 'var(--warning)' : 'var(--success)') }};">
                 {{ goal_progress.current }} / {{ goal_progress.goal }}
             </span>
@@ -72,7 +72,7 @@
             {% if goal_progress.exceeded %}
                 <span style="color: var(--error);">Objectif dépassé de {{ goal_progress.exceeded_by }} clope{{ goal_progress.exceeded_by > 1 ? 's' : '' }}</span>
             {% elseif goal_progress.remaining == 0 %}
-                <span style="color: var(--warning);">⚠️ Objectif atteint, tiens bon !</span>
+                <span style="color: var(--warning);"><span aria-hidden="true">⚠️</span> Objectif atteint, tiens bon !</span>
             {% elseif goal_progress.remaining == 1 %}
                 <span style="color: var(--warning);">Plus qu'une clope autorisée</span>
             {% else %}
@@ -93,14 +93,14 @@
         <div style="margin-top: 15px; display: flex; justify-content: center; gap: 20px;">
             <div style="text-align: center;">
                 <div style="font-size: 1.5rem; font-weight: 700; color: {{ streak.today_positive ? 'var(--success)' : 'var(--warning)' }};">
-                    🔥 {{ streak.current }}
+                    <span aria-hidden="true">🔥</span> {{ streak.current }}
                 </div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary);">Jours positifs</div>
             </div>
             {% if streak.best > streak.current %}
             <div style="text-align: center;">
                 <div style="font-size: 1.2rem; font-weight: 600; color: var(--text-secondary);">
-                    ⭐ {{ streak.best }}
+                    <span aria-hidden="true">⭐</span> {{ streak.best }}
                 </div>
                 <div style="font-size: 0.75rem; color: var(--text-secondary);">Record</div>
             </div>
@@ -109,7 +109,7 @@
         {% if next_milestone %}
         <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bg-secondary); text-align: center;">
             <div style="font-size: 0.8rem; color: var(--text-secondary);">
-                {{ next_milestone.emoji }} Prochain palier : <strong>{{ next_milestone.days }}j</strong>
+                <span aria-hidden="true">{{ next_milestone.emoji }}</span> Prochain palier : <strong>{{ next_milestone.days }}j</strong>
                 <span style="color: var(--accent);">({{ next_milestone.days_remaining }}j restants)</span>
             </div>
         </div>
@@ -131,11 +131,11 @@
         {% if next_cig_target.status == 'active' or next_cig_target.status == 'exceeded' %}
             {% if next_cig_target.exceeded is defined and next_cig_target.exceeded %}
                 <div style="color: var(--accent); font-size: 0.85rem; margin-bottom: 10px;">
-                    ⚠️ Tu as dépassé hier ({{ next_cig_target.yesterday_count }} clopes) - intervalle moyen utilisé
+                    <span aria-hidden="true">⚠️</span> Tu as dépassé hier ({{ next_cig_target.yesterday_count }} clopes) - intervalle moyen utilisé
                 </div>
             {% endif %}
             <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 8px;">
-                🎯 Intervalle cible : <strong>{{ next_cig_target.avg_interval|round(0, 'floor') }} min</strong>
+                <span aria-hidden="true">🎯</span> Intervalle cible : <strong>{{ next_cig_target.avg_interval|round(0, 'floor') }} min</strong>
             </div>
             <div id="points-display"
                  data-wake-minutes="{{ next_cig_target.wake_minutes }}"
@@ -149,11 +149,11 @@
             </div>
         {% elseif next_cig_target.status == 'no_wakeup' %}
             <div style="color: var(--warning); font-size: 0.9rem;">
-                ⏰ {{ next_cig_target.message }}
+                <span aria-hidden="true">⏰</span> {{ next_cig_target.message }}
             </div>
         {% elseif next_cig_target.status == 'first_day' %}
             <div style="color: var(--text-secondary); font-size: 0.9rem;">
-                📊 {{ next_cig_target.message }}
+                <span aria-hidden="true">📊</span> {{ next_cig_target.message }}
             </div>
         {% endif %}
     </div>
@@ -161,12 +161,12 @@
 
     <!-- Bouton principal -->
     <button class="big-button" id="logBtn" onclick="logCigarette()">
-        🚬 J'ai fumé une clope
+        <span aria-hidden="true">🚬</span> J'ai fumé une clope
     </button>
 
     <!-- Bouton ajout rétroactif -->
     <button class="secondary-button" onclick="openModal()">
-        ⏰ Ajouter une clope passée
+        <span aria-hidden="true">⏰</span> Ajouter une clope passée
     </button>
 
     <!-- Stats du jour -->
@@ -231,7 +231,7 @@
                 {# Bonus de réduction vs hier (potentiel) #}
                 {% if daily_score.potential_reduction_bonus is defined and daily_score.potential_reduction_bonus > 0 %}
                 <div class="breakdown-item" style="opacity: 0.7;">
-                    <span>📉 Réduction vs hier (-{{ daily_score.yesterday_count - daily_score.cigarette_count }})</span>
+                    <span><span aria-hidden="true">📉</span> Réduction vs hier (-{{ daily_score.yesterday_count - daily_score.cigarette_count }})</span>
                     <span class="breakdown-score" style="color: var(--text-secondary);">+{{ daily_score.potential_reduction_bonus }}</span>
                 </div>
                 {% endif %}
@@ -239,7 +239,7 @@
                 {# Bonus tendance hebdo (potentiel) #}
                 {% if daily_score.potential_weekly_bonus is defined and daily_score.potential_weekly_bonus > 0 %}
                 <div class="breakdown-item" style="opacity: 0.7;">
-                    <span>📊 Tendance hebdo positive</span>
+                    <span><span aria-hidden="true">📊</span> Tendance hebdo positive</span>
                     <span class="breakdown-score" style="color: var(--text-secondary);">+{{ daily_score.potential_weekly_bonus }}</span>
                 </div>
                 {% endif %}
@@ -247,7 +247,7 @@
                 {# Bonus de régularité (potentiel) #}
                 {% if daily_score.potential_regularity_bonus is defined and daily_score.potential_regularity_bonus > 0 %}
                 <div class="breakdown-item" style="opacity: 0.7;">
-                    <span>⭐ Bonus régularité</span>
+                    <span><span aria-hidden="true">⭐</span> Bonus régularité</span>
                     <span class="breakdown-score" style="color: var(--text-secondary);">+{{ daily_score.potential_regularity_bonus }}</span>
                 </div>
                 {% endif %}
@@ -263,14 +263,14 @@
     {% if next_cig_target.status == 'first_day' and today_cigarettes|length == 0 %}
     <div class="card" style="padding: 20px; background: linear-gradient(135deg, var(--bg-card), var(--bg-secondary)); border: 2px dashed var(--accent);">
         <div style="text-align: center;">
-            <div style="font-size: 2.5rem; margin-bottom: 10px;">👋</div>
+            <div style="font-size: 2.5rem; margin-bottom: 10px;" aria-hidden="true">👋</div>
             <h3 style="margin-bottom: 10px; color: var(--text-primary);">Bienvenue !</h3>
             <p style="color: var(--text-secondary); font-size: 0.9rem; line-height: 1.5;">
                 C'est ton premier jour. Enregistre chaque cigarette pour commencer à créer ton historique.
             </p>
             <div style="margin-top: 15px; padding: 12px; background: var(--bg-secondary); border-radius: 8px;">
                 <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                    <strong style="color: var(--accent);">💡 Conseil :</strong> Les points seront calculés à partir de demain, une fois ton historique créé.
+                    <strong style="color: var(--accent);"><span aria-hidden="true">💡</span> Conseil :</strong> Les points seront calculés à partir de demain, une fois ton historique créé.
                 </div>
             </div>
         </div>
@@ -278,7 +278,7 @@
     {% elseif next_cig_target.status == 'first_day' and today_cigarettes|length > 0 and today_cigarettes|length < 3 %}
     <div class="card" style="padding: 15px; background: var(--bg-card);">
         <div style="display: flex; align-items: center; gap: 12px;">
-            <div style="font-size: 1.8rem;">📊</div>
+            <div style="font-size: 1.8rem;" aria-hidden="true">📊</div>
             <div>
                 <div style="font-weight: 600; color: var(--text-primary);">Continue comme ça !</div>
                 <div style="font-size: 0.85rem; color: var(--text-secondary);">
@@ -308,7 +308,7 @@
             </ul>
         {% else %}
             <div class="empty-state">
-                <div class="empty-state-icon">🎉</div>
+                <div class="empty-state-icon" aria-hidden="true">🎉</div>
                 <p>Aucune clope aujourd'hui !</p>
             </div>
         {% endif %}
@@ -344,6 +344,7 @@
         </div>
         <div class="modal-buttons">
             <button class="btn-cancel" id="wakeUpCancelBtn" onclick="closeWakeUpModal()">Annuler</button>
+            <button class="btn-cancel" id="wakeUpLaterBtn" onclick="dismissWakeUpModal()" style="display: none;">Plus tard</button>
             <button class="btn-confirm" onclick="saveWakeUp()">Enregistrer</button>
         </div>
     </div>
@@ -374,10 +375,16 @@
 
     // Ouvrir automatiquement le modal de réveil si pas encore renseigné aujourd'hui
     {% if show_wakeup_modal %}
-    document.getElementById('wakeUpModalTitle').textContent = 'Bonjour !';
-    document.getElementById('wakeUpModalSubtitle').style.display = 'block';
-    document.getElementById('wakeUpCancelBtn').style.display = 'none';
-    document.getElementById('wakeUpModal').classList.add('active');
+    // Vérifier si l'utilisateur n'a pas déjà cliqué "Plus tard" aujourd'hui
+    var dismissedDate = sessionStorage.getItem('wakeupDismissed');
+    var todayStr = new Date().toISOString().slice(0, 10);
+    if (dismissedDate !== todayStr) {
+        document.getElementById('wakeUpModalTitle').textContent = 'Bonjour !';
+        document.getElementById('wakeUpModalSubtitle').style.display = 'block';
+        document.getElementById('wakeUpCancelBtn').style.display = 'none';
+        document.getElementById('wakeUpLaterBtn').style.display = 'block';
+        document.getElementById('wakeUpModal').classList.add('active');
+    }
     {% endif %}
 
     // Calcul des points côté client (même logique que ScoringService - PAS DE TIMESTAMPS)
@@ -594,8 +601,12 @@
             }
         })
         .finally(function() {
-            btn.disabled = false;
-            btn.innerHTML = '🚬 J\'ai fumé une clope';
+            // Garder le bouton désactivé 3s après un log réussi pour éviter les double-clics
+            setTimeout(function() {
+                btn.disabled = false;
+                btn.innerHTML = '<span aria-hidden="true">🚬</span> J\'ai fumé une clope';
+                btn.classList.remove('feedback-success', 'feedback-warning');
+            }, 3000);
         });
     };
 
@@ -748,12 +759,20 @@
         document.getElementById('wakeUpModalTitle').textContent = 'Heure de réveil';
         document.getElementById('wakeUpModalSubtitle').style.display = 'none';
         document.getElementById('wakeUpCancelBtn').style.display = 'block';
+        document.getElementById('wakeUpLaterBtn').style.display = 'none';
         document.getElementById('wakeUpModal').classList.add('active');
         document.getElementById('wakeTime').value = new Date().toTimeString().slice(0, 5);
     };
 
     window.closeWakeUpModal = function() {
         document.getElementById('wakeUpModal').classList.remove('active');
+    };
+
+    window.dismissWakeUpModal = function() {
+        // Mémoriser que l'utilisateur a cliqué "Plus tard" pour cette session/journée
+        sessionStorage.setItem('wakeupDismissed', new Date().toISOString().slice(0, 10));
+        closeWakeUpModal();
+        showToast('Tu pourras noter ton réveil plus tard', { icon: '⏰' });
     };
 
     window.saveWakeUp = function() {

@@ -3,6 +3,7 @@
 namespace App\Service;
 
 use App\Entity\Cigarette;
+use App\Entity\WakeUp;
 use App\Repository\CigaretteRepository;
 
 class MessageService
@@ -16,10 +17,17 @@ class MessageService
      * @param Cigarette[] $todayCigs
      * @param Cigarette[] $yesterdayCigs
      * @param array $dailyScore
+     * @param WakeUp|null $todayWakeUp
+     * @param WakeUp|null $yesterdayWakeUp
      * @return array{type: string, message: string, icon: string}|null
      */
-    public function getEncouragementMessage(array $todayCigs, array $yesterdayCigs, array $dailyScore): ?array
-    {
+    public function getEncouragementMessage(
+        array $todayCigs,
+        array $yesterdayCigs,
+        array $dailyScore,
+        ?WakeUp $todayWakeUp = null,
+        ?WakeUp $yesterdayWakeUp = null
+    ): ?array {
         $todayCount = count($todayCigs);
         $totalScore = $dailyScore['total_score'];
         $hour = (int) (new \DateTime())->format('H');
@@ -38,17 +46,21 @@ class MessageService
             return $this->getRecordMessage($todayCount, $seed);
         }
 
-        // 3. Comparaison avec hier à la même heure
-        $yesterdayAtSameTime = $this->countYesterdayAtSameTime($yesterdayCigs);
+        // 3. Comparaison avec hier au même temps écoulé depuis le réveil
+        $yesterdayAtSameRelativeTime = $this->countYesterdayAtSameRelativeTime(
+            $yesterdayCigs,
+            $todayWakeUp,
+            $yesterdayWakeUp
+        );
 
-        if ($todayCount < $yesterdayAtSameTime) {
-            $diff = $yesterdayAtSameTime - $todayCount;
+        if ($todayCount < $yesterdayAtSameRelativeTime) {
+            $diff = $yesterdayAtSameRelativeTime - $todayCount;
             return $this->getLessMessage($diff, $seed);
         }
 
         // 4. Plus de clopes qu'hier
-        if ($todayCount > $yesterdayAtSameTime && $yesterdayAtSameTime > 0) {
-            $diff = $todayCount - $yesterdayAtSameTime;
+        if ($todayCount > $yesterdayAtSameRelativeTime && $yesterdayAtSameRelativeTime > 0) {
+            $diff = $todayCount - $yesterdayAtSameRelativeTime;
             return $this->getMoreMessage($diff, $seed);
         }
 
@@ -84,9 +96,40 @@ class MessageService
         return null;
     }
 
-    private function countYesterdayAtSameTime(array $yesterdayCigs): int
-    {
+    /**
+     * Compte les clopes d'hier au même temps relatif depuis le réveil
+     * Si pas d'heure de réveil disponible, fallback sur comparaison horaire absolue
+     */
+    private function countYesterdayAtSameRelativeTime(
+        array $yesterdayCigs,
+        ?WakeUp $todayWakeUp,
+        ?WakeUp $yesterdayWakeUp
+    ): int {
         $now = new \DateTime();
+
+        // Si on a les deux heures de réveil, comparaison relative
+        if ($todayWakeUp && $yesterdayWakeUp) {
+            $todayWake = $todayWakeUp->getWakeTime();
+            $yesterdayWake = $yesterdayWakeUp->getWakeTime();
+
+            // Temps écoulé depuis le réveil aujourd'hui (en minutes)
+            $minutesSinceWakeToday = ($now->getTimestamp() - $todayWake->getTimestamp()) / 60;
+
+            // Ne compte que les clopes fumées dans le même intervalle depuis le réveil hier
+            $count = 0;
+            foreach ($yesterdayCigs as $cig) {
+                $cigTime = $cig->getSmokedAt();
+                $minutesSinceWakeYesterday = ($cigTime->getTimestamp() - $yesterdayWake->getTimestamp()) / 60;
+
+                // La clope d'hier était-elle fumée dans le même temps depuis le réveil ?
+                if ($minutesSinceWakeYesterday <= $minutesSinceWakeToday) {
+                    $count++;
+                }
+            }
+            return $count;
+        }
+
+        // Fallback: comparaison horaire absolue (ancienne méthode)
         $count = 0;
         foreach ($yesterdayCigs as $cig) {
             $cigTime = $cig->getSmokedAt();

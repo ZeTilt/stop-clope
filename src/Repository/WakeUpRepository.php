@@ -2,29 +2,47 @@
 
 namespace App\Repository;
 
+use App\Entity\User;
 use App\Entity\WakeUp;
 use Doctrine\Bundle\DoctrineBundle\Repository\ServiceEntityRepository;
 use Doctrine\Persistence\ManagerRegistry;
+use Symfony\Bundle\SecurityBundle\Security;
 
 /**
  * @extends ServiceEntityRepository<WakeUp>
  */
 class WakeUpRepository extends ServiceEntityRepository
 {
-    public function __construct(ManagerRegistry $registry)
-    {
+    public function __construct(
+        ManagerRegistry $registry,
+        private Security $security
+    ) {
         parent::__construct($registry, WakeUp::class);
+    }
+
+    private function getCurrentUser(): ?User
+    {
+        $user = $this->security->getUser();
+        return $user instanceof User ? $user : null;
     }
 
     public function findByDate(\DateTimeInterface $date): ?WakeUp
     {
         $dateOnly = (clone $date)->setTime(0, 0, 0);
+        $user = $this->getCurrentUser();
 
-        return $this->createQueryBuilder('w')
+        $qb = $this->createQueryBuilder('w')
             ->where('w.date = :date')
-            ->setParameter('date', $dateOnly)
-            ->getQuery()
-            ->getOneOrNullResult();
+            ->setParameter('date', $dateOnly);
+
+        if ($user) {
+            $qb->andWhere('w.user = :user')
+               ->setParameter('user', $user);
+        } else {
+            $qb->andWhere('w.user IS NULL');
+        }
+
+        return $qb->getQuery()->getOneOrNullResult();
     }
 
     public function findTodayWakeUp(): ?WakeUp
@@ -45,14 +63,22 @@ class WakeUpRepository extends ServiceEntityRepository
     {
         $start = (clone $startDate)->setTime(0, 0, 0);
         $end = (clone $endDate)->setTime(0, 0, 0);
+        $user = $this->getCurrentUser();
 
-        $wakeUps = $this->createQueryBuilder('w')
+        $qb = $this->createQueryBuilder('w')
             ->where('w.date >= :start')
             ->andWhere('w.date <= :end')
             ->setParameter('start', $start)
-            ->setParameter('end', $end)
-            ->getQuery()
-            ->getResult();
+            ->setParameter('end', $end);
+
+        if ($user) {
+            $qb->andWhere('w.user = :user')
+               ->setParameter('user', $user);
+        } else {
+            $qb->andWhere('w.user IS NULL');
+        }
+
+        $wakeUps = $qb->getQuery()->getResult();
 
         $indexed = [];
         foreach ($wakeUps as $wakeUp) {

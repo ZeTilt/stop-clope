@@ -8,6 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: WakeUpRepository::class)]
 #[ORM\Index(columns: ['date'], name: 'idx_wakeup_date')]
+#[ORM\UniqueConstraint(name: 'unique_user_date', columns: ['user_id', 'date'])]
 class WakeUp
 {
     #[ORM\Id]
@@ -15,7 +16,11 @@ class WakeUp
     #[ORM\Column]
     private ?int $id = null;
 
-    #[ORM\Column(type: Types::DATE_MUTABLE, unique: true)]
+    #[ORM\ManyToOne(targetEntity: User::class)]
+    #[ORM\JoinColumn(nullable: true)]
+    private ?User $user = null;
+
+    #[ORM\Column(type: Types::DATE_MUTABLE)]
     private ?\DateTimeInterface $date = null;
 
     #[ORM\Column(type: Types::TIME_MUTABLE)]
@@ -72,5 +77,16 @@ class WakeUp
             0
         );
         return $dateTime;
+    }
+
+    public function getUser(): ?User
+    {
+        return $this->user;
+    }
+
+    public function setUser(?User $user): static
+    {
+        $this->user = $user;
+        return $this;
     }
 }

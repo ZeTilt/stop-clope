@@ -95,14 +95,22 @@ class ScoringService
         return $this->intervalCalculator->hasHistoricalData($today);
     }
 
+    /**
+     * Récupère le streak pour l'affichage (version optimisée)
+     * Utilise les DailyScore pré-calculés
+     */
     public function getStreak(): array
     {
-        return $this->streakService->getStreak();
+        return $this->streakService->getStreakOptimized();
     }
 
-    public function getStreakOptimized(): array
+    /**
+     * Calcule le streak en recalculant tout (utilisé pour persistance)
+     * Plus coûteux mais nécessaire pour la mise à jour des DailyScore
+     */
+    public function getStreakFull(): array
     {
-        return $this->streakService->getStreakOptimized();
+        return $this->streakService->getStreak();
     }
 
     public function getCurrentRank(): array
@@ -137,8 +145,8 @@ class ScoringService
             $avgInterval = $totalMinutes / (count($cigs) - 1);
         }
 
-        // Calculer le streak
-        $streakData = $this->getStreak();
+        // Calculer le streak (version complète pour persistance)
+        $streakData = $this->getStreakFull();
 
         // Score final = total_score + tous les bonus potentiels (maintenant réalisés)
         $finalScore = $dailyScoreData['total_score']
@@ -386,7 +394,7 @@ class ScoringService
         $currentDate = clone $firstDate;
 
         while ($currentDate <= $today) {
-            $dailyScore = $this->calculateDailyScoreFromData(
+            $dailyScore = $this->intervalCalculator->calculateDailyScoreFromData(
                 $currentDate,
                 $allCigarettes,
                 $allWakeups
@@ -396,81 +404,5 @@ class ScoringService
         }
 
         return $total;
-    }
-
-    /**
-     * Calcule le score d'un jour à partir des données pré-chargées
-     * Version optimisée sans requêtes supplémentaires
-     */
-    private function calculateDailyScoreFromData(
-        \DateTimeInterface $date,
-        array $allCigarettes,
-        array $allWakeups
-    ): int {
-        $dateStr = $date->format('Y-m-d');
-        $todayCigs = $allCigarettes[$dateStr] ?? [];
-        $todayWakeUp = $allWakeups[$dateStr] ?? null;
-
-        if (empty($todayCigs)) {
-            return 0;
-        }
-
-        // Calculer l'intervalle moyen des 7 jours précédents
-        $avgInterval = $this->intervalCalculator->calculateSmoothedIntervalFromData($date, $allCigarettes);
-
-        // Pas de données historiques = premier jour
-        $hasHistory = false;
-        for ($i = 1; $i <= 7; $i++) {
-            $prevDateStr = (clone $date)->modify("-{$i} day")->format('Y-m-d');
-            if (!empty($allCigarettes[$prevDateStr] ?? [])) {
-                $hasHistory = true;
-                break;
-            }
-        }
-        if (!$hasHistory) {
-            return 0;
-        }
-
-        // Calculer le temps moyen de la 1ère clope
-        $avgFirstCigTime = $this->intervalCalculator->calculateSmoothedFirstCigTimeFromData(
-            $date,
-            $allCigarettes,
-            $allWakeups
-        );
-
-        $totalScore = 0;
-
-        foreach ($todayCigs as $index => $todayCig) {
-            // Calculer la cible
-            if ($index === 0) {
-                $targetMinutes = $avgFirstCigTime;
-            } else {
-                $prevCig = $todayCigs[$index - 1];
-                if ($todayWakeUp) {
-                    $prevMinutes = IntervalCalculator::minutesSinceWakeUp(
-                        $prevCig->getSmokedAt(),
-                        $todayWakeUp->getWakeTime()
-                    );
-                } else {
-                    $prevMinutes = IntervalCalculator::timeToMinutes($prevCig->getSmokedAt());
-                }
-                $targetMinutes = $prevMinutes + $avgInterval;
-            }
-
-            if ($todayWakeUp) {
-                $actualMinutes = IntervalCalculator::minutesSinceWakeUp(
-                    $todayCig->getSmokedAt(),
-                    $todayWakeUp->getWakeTime()
-                );
-            } else {
-                $actualMinutes = IntervalCalculator::timeToMinutes($todayCig->getSmokedAt());
-            }
-
-            $diff = $actualMinutes - $targetMinutes;
-            $points = IntervalCalculator::getPointsForDiff($diff, $avgInterval);
-            $totalScore += $points;
-        }
-
-        return $totalScore;
     }
 }

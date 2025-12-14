@@ -235,58 +235,21 @@ class BadgeService
 
     /**
      * Vérifie si l'utilisateur a eu un jour sans fumer
+     * Optimisé: une seule requête au lieu de N requêtes (N = nombre de jours)
      */
     private function checkZeroDay(): bool
     {
-        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
-        if (!$firstDate) {
-            return false;
-        }
-
-        // Vérifier chaque jour depuis le début (excluant aujourd'hui)
-        $today = (new \DateTime())->setTime(0, 0, 0);
-        $date = clone $firstDate;
-        $date->setTime(0, 0, 0);
-
-        while ($date < $today) {
-            $count = $this->cigaretteRepository->countByDate($date);
-            if ($count === 0) {
-                return true;
-            }
-            $date->modify('+1 day');
-        }
-
-        return false;
+        $zeroDays = $this->cigaretteRepository->findZeroDays();
+        return !empty($zeroDays);
     }
 
     /**
      * Vérifie si objectif 0 atteint pendant 7 jours consécutifs
+     * Optimisé: une seule requête au lieu de N requêtes
      */
     private function checkChampion(): bool
     {
-        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
-        if (!$firstDate) {
-            return false;
-        }
-
-        // Compter les jours consécutifs à 0
-        $today = (new \DateTime())->setTime(0, 0, 0);
-        $date = (clone $today)->modify('-1 day'); // Commencer par hier
-        $consecutiveZeroDays = 0;
-
-        for ($i = 0; $i < 30; $i++) { // Max 30 jours en arrière
-            if ($date < $firstDate) {
-                break;
-            }
-            $count = $this->cigaretteRepository->countByDate($date);
-            if ($count === 0) {
-                $consecutiveZeroDays++;
-            } else {
-                break;
-            }
-            $date->modify('-1 day');
-        }
-
+        $consecutiveZeroDays = $this->cigaretteRepository->getConsecutiveZeroDaysFromYesterday();
         return $consecutiveZeroDays >= 7;
     }
 

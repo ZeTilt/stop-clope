@@ -36,13 +36,18 @@ class StreakService
 
     /**
      * Récupère le streak depuis les DailyScore pré-calculés (O(1))
+     * Calcule today_positive en temps réel pour l'UI
      */
     public function getStreakOptimized(): array
     {
+        // Récupérer le score du jour d'aujourd'hui s'il existe
+        $todayScore = $this->dailyScoreRepository->findByDate(new \DateTime());
+        $todayPositive = $todayScore && $todayScore->getScore() > 0;
+
         return [
             'current' => $this->dailyScoreRepository->getCurrentStreak(),
             'best' => $this->dailyScoreRepository->getBestStreak(),
-            'today_positive' => false, // À calculer en temps réel si besoin
+            'today_positive' => $todayPositive,
         ];
     }
 
@@ -75,7 +80,7 @@ class StreakService
 
         while ($currentDate <= $today) {
             $dateStr = $currentDate->format('Y-m-d');
-            $dailyScore = $this->calculateDailyScoreFromData($currentDate, $allCigarettes, $allWakeups);
+            $dailyScore = $this->intervalCalculator->calculateDailyScoreFromData($currentDate, $allCigarettes, $allWakeups);
 
             if ($dailyScore > 0) {
                 $tempStreak++;
@@ -160,82 +165,4 @@ class StreakService
         return $result;
     }
 
-    /**
-     * Calcule le score d'un jour à partir des données pré-chargées
-     * Version simplifiée pour le calcul de streak
-     */
-    private function calculateDailyScoreFromData(
-        \DateTimeInterface $date,
-        array $allCigarettes,
-        array $allWakeups
-    ): int {
-        $dateStr = $date->format('Y-m-d');
-        $todayCigs = $allCigarettes[$dateStr] ?? [];
-        $todayWakeUp = $allWakeups[$dateStr] ?? null;
-
-        if (empty($todayCigs)) {
-            return 0;
-        }
-
-        // Calculer l'intervalle moyen des 7 jours précédents
-        $avgInterval = $this->intervalCalculator->calculateSmoothedIntervalFromData($date, $allCigarettes);
-
-        // Pas de données historiques = premier jour
-        if ($avgInterval === 60.0) {
-            // Vérifier si c'est vraiment le premier jour ou juste pas de données
-            $hasHistory = false;
-            for ($i = 1; $i <= 7; $i++) {
-                $prevDateStr = (clone $date)->modify("-{$i} day")->format('Y-m-d');
-                if (!empty($allCigarettes[$prevDateStr] ?? [])) {
-                    $hasHistory = true;
-                    break;
-                }
-            }
-            if (!$hasHistory) {
-                return 0;
-            }
-        }
-
-        // Calculer le temps moyen de la 1ère clope
-        $avgFirstCigTime = $this->intervalCalculator->calculateSmoothedFirstCigTimeFromData(
-            $date,
-            $allCigarettes,
-            $allWakeups
-        );
-
-        $totalScore = 0;
-
-        foreach ($todayCigs as $index => $todayCig) {
-            // Calculer la cible
-            if ($index === 0) {
-                $targetMinutes = $avgFirstCigTime;
-            } else {
-                $prevCig = $todayCigs[$index - 1];
-                if ($todayWakeUp) {
-                    $prevMinutes = IntervalCalculator::minutesSinceWakeUp(
-                        $prevCig->getSmokedAt(),
-                        $todayWakeUp->getWakeTime()
-                    );
-                } else {
-                    $prevMinutes = IntervalCalculator::timeToMinutes($prevCig->getSmokedAt());
-                }
-                $targetMinutes = $prevMinutes + $avgInterval;
-            }
-
-            if ($todayWakeUp) {
-                $actualMinutes = IntervalCalculator::minutesSinceWakeUp(
-                    $todayCig->getSmokedAt(),
-                    $todayWakeUp->getWakeTime()
-                );
-            } else {
-                $actualMinutes = IntervalCalculator::timeToMinutes($todayCig->getSmokedAt());
-            }
-
-            $diff = $actualMinutes - $targetMinutes;
-            $points = IntervalCalculator::getPointsForDiff($diff, $avgInterval);
-            $totalScore += $points;
-        }
-
-        return $totalScore;
-    }
 }

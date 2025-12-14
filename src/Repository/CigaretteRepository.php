@@ -565,6 +565,112 @@ class CigaretteRepository extends ServiceEntityRepository
     }
 
     /**
+     * Trouve les jours avec zéro cigarette (pour badge zero_day)
+     * @return string[] Dates au format Y-m-d où count = 0
+     */
+    public function findZeroDays(): array
+    {
+        $firstDate = $this->getFirstCigaretteDate();
+        if (!$firstDate) {
+            return [];
+        }
+
+        $conn = $this->getEntityManager()->getConnection();
+        $userId = $this->getUserId();
+        $userCondition = $userId ? 'AND user_id = :user_id' : '';
+        $params = ['first_date' => $firstDate->format('Y-m-d')];
+        if ($userId) {
+            $params['user_id'] = $userId;
+        }
+
+        // Obtenir tous les jours avec des cigarettes
+        $sql = "
+            SELECT DISTINCT DATE(smoked_at) as date
+            FROM cigarette
+            WHERE DATE(smoked_at) >= :first_date
+              AND DATE(smoked_at) < CURDATE()
+              {$userCondition}
+        ";
+
+        $daysWithCigs = $conn->executeQuery($sql, $params)->fetchFirstColumn();
+        $daysWithCigsSet = array_flip($daysWithCigs);
+
+        // Construire la liste des jours sans cigarette
+        $zeroDays = [];
+        $date = clone $firstDate;
+        $date->setTime(0, 0, 0);
+        $today = (new \DateTime())->setTime(0, 0, 0);
+
+        while ($date < $today) {
+            $dateStr = $date->format('Y-m-d');
+            if (!isset($daysWithCigsSet[$dateStr])) {
+                $zeroDays[] = $dateStr;
+            }
+            $date->modify('+1 day');
+        }
+
+        return $zeroDays;
+    }
+
+    /**
+     * Trouve le nombre de jours consécutifs à zéro en partant d'hier
+     * @return int Nombre de jours consécutifs sans cigarette
+     */
+    public function getConsecutiveZeroDaysFromYesterday(): int
+    {
+        $firstDate = $this->getFirstCigaretteDate();
+        if (!$firstDate) {
+            return 0;
+        }
+
+        $conn = $this->getEntityManager()->getConnection();
+        $userId = $this->getUserId();
+        $userCondition = $userId ? 'AND user_id = :user_id' : '';
+        $params = ['first_date' => $firstDate->format('Y-m-d')];
+        if ($userId) {
+            $params['user_id'] = $userId;
+        }
+
+        // Obtenir le nombre de cigarettes par jour pour les 30 derniers jours (hors aujourd'hui)
+        $sql = "
+            SELECT DATE(smoked_at) as date, COUNT(id) as count
+            FROM cigarette
+            WHERE DATE(smoked_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+              AND DATE(smoked_at) < CURDATE()
+              AND DATE(smoked_at) >= :first_date
+              {$userCondition}
+            GROUP BY DATE(smoked_at)
+        ";
+
+        $results = $conn->executeQuery($sql, $params)->fetchAllAssociative();
+        $countsByDate = [];
+        foreach ($results as $row) {
+            $countsByDate[$row['date']] = (int) $row['count'];
+        }
+
+        // Compter les jours consécutifs à zéro en partant d'hier
+        $consecutive = 0;
+        $date = (new \DateTime('-1 day'))->setTime(0, 0, 0);
+        $firstDateNormalized = (clone $firstDate)->setTime(0, 0, 0);
+
+        for ($i = 0; $i < 30; $i++) {
+            if ($date < $firstDateNormalized) {
+                break;
+            }
+            $dateStr = $date->format('Y-m-d');
+            // Si pas dans le tableau = 0 clopes ce jour
+            if (!isset($countsByDate[$dateStr]) || $countsByDate[$dateStr] === 0) {
+                $consecutive++;
+            } else {
+                break;
+            }
+            $date->modify('-1 day');
+        }
+
+        return $consecutive;
+    }
+
+    /**
      * Find cigarettes for a date range (single query for batch operations)
      * @return array<string, array<Cigarette>>
      */

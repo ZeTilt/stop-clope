@@ -67,8 +67,14 @@ class HomeController extends AbstractController
         // Calculer le compte à rebours pour la prochaine clope (via ScoringService)
         $nextCigTarget = $this->scoringService->getNextCigaretteInfo($today);
 
-        // Message d'encouragement contextuel
-        $encouragement = $this->messageService->getEncouragementMessage($todayCigs, $yesterdayCigs, $dailyScore);
+        // Message d'encouragement contextuel (avec heures de réveil pour comparaison relative)
+        $encouragement = $this->messageService->getEncouragementMessage(
+            $todayCigs,
+            $yesterdayCigs,
+            $dailyScore,
+            $todayWakeUp,
+            $yesterdayWakeUp
+        );
 
         // Objectif quotidien (personnalisé ou palier automatique)
         $goalProgress = $this->goalService->getDailyProgress();
@@ -236,6 +242,9 @@ class HomeController extends AbstractController
         if (!$wakeUp) {
             $wakeUp = new WakeUp();
             $wakeUp->setDate($today);
+            /** @var User $user */
+            $user = $this->getUser();
+            $wakeUp->setUser($user);
         }
 
         if ($wakeTimeStr) {

@@ -243,9 +243,9 @@
     <!-- Tendances et projection -->
     {% if weekly_comparison is null and first_date %}
     <div class="card">
-        <h3 style="margin-bottom: 15px;">📈 Tendances</h3>
+        <h3 style="margin-bottom: 15px;"><span aria-hidden="true">📈</span> Tendances</h3>
         <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
-            <div style="font-size: 2rem; margin-bottom: 10px;">📊</div>
+            <div style="font-size: 2rem; margin-bottom: 10px;" aria-hidden="true">📊</div>
             <div style="font-size: 0.9rem; color: var(--text-secondary);">
                 Continue encore quelques jours pour voir tes tendances !
                 <br>Les comparaisons seront disponibles après 4 jours d'utilisation.
@@ -254,12 +254,12 @@
     </div>
     {% elseif weekly_comparison and savings.daily_avg > 0 %}
     <div class="card">
-        <h3 style="margin-bottom: 15px;">📈 Tendances</h3>
+        <h3 style="margin-bottom: 15px;"><span aria-hidden="true">📈</span> Tendances</h3>
 
         {# Disclaimer si données précoces #}
         {% if weekly_comparison.is_early is defined and weekly_comparison.is_early %}
         <div style="padding: 10px; background: var(--warning); color: #000; border-radius: 8px; margin-bottom: 15px; font-size: 0.8rem;">
-            ⚠️ <strong>Tendance préliminaire</strong> — Basée sur {{ weekly_comparison.period_days * 2 }} jours de données seulement.
+            <span aria-hidden="true">⚠️</span> <strong>Tendance préliminaire</strong> — Basée sur {{ weekly_comparison.period_days * 2 }} jours de données seulement.
             Elle sera plus fiable après 2 semaines d'utilisation.
         </div>
         {% endif %}
@@ -272,7 +272,7 @@
         {% set period_ref = is_early ? 'la période précédente' : 'la semaine dernière' %}
 
         <div style="display: flex; align-items: center; gap: 15px; margin-bottom: 15px; padding: 15px; background: var(--bg-secondary); border-radius: 8px;">
-            <span style="font-size: 2rem;">{{ trend_icon }}</span>
+            <span style="font-size: 2rem;" aria-hidden="true">{{ trend_icon }}</span>
             <div>
                 <div style="font-size: 1.1rem; font-weight: 600; color: {{ trend_color }};">
                     {% if trend < 0 %}
@@ -297,7 +297,7 @@
             {% if weeks_to_zero > 0 and weeks_to_zero < 52 %}
             {% set target_date = "now"|date_modify("+" ~ weeks_to_zero ~ " weeks") %}
             <div style="padding: 15px; background: linear-gradient(135deg, var(--success), #00ff88); border-radius: 8px; color: #000;">
-                <div style="font-weight: 600; margin-bottom: 5px;">🎯 Projection (si tendance maintenue)</div>
+                <div style="font-weight: 600; margin-bottom: 5px;"><span aria-hidden="true">🎯</span> Projection (si tendance maintenue)</div>
                 <div style="font-size: 0.9rem;">
                     À ce rythme, tu pourrais atteindre <strong>zéro clope</strong> vers le <strong>{{ target_date|date('d/m/Y') }}</strong>
                     <span style="opacity: 0.7;">(~{{ weeks_to_zero }} semaine{{ weeks_to_zero > 1 ? 's' : '' }})</span>
@@ -306,14 +306,14 @@
             {% endif %}
         {% elseif trend < 0 and weekly_comparison.previous.days_count < 5 %}
             <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--success);">
-                <div style="font-weight: 600; margin-bottom: 5px; color: var(--success);">👍 Bonne tendance !</div>
+                <div style="font-weight: 600; margin-bottom: 5px; color: var(--success);"><span aria-hidden="true">👍</span> Bonne tendance !</div>
                 <div style="font-size: 0.9rem; color: var(--text-secondary);">
                     Continue encore quelques jours pour voir une projection fiable.
                 </div>
             </div>
         {% elseif trend > 0 %}
             <div style="padding: 15px; background: var(--bg-secondary); border-radius: 8px; border-left: 3px solid var(--warning);">
-                <div style="font-weight: 600; margin-bottom: 5px;">💡 Conseil</div>
+                <div style="font-weight: 600; margin-bottom: 5px;"><span aria-hidden="true">💡</span> Conseil</div>
                 <div style="font-size: 0.9rem; color: var(--text-secondary);">
                     Ta consommation augmente légèrement. Essaie d'espacer un peu plus tes clopes cette semaine.
                 </div>
@@ -346,12 +346,12 @@
             {% if best_day and worst_day and best_day != worst_day %}
             <div style="display: flex; gap: 10px; margin-top: 15px;">
                 <div style="flex: 1; padding: 12px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
-                    <div style="font-size: 1.5rem;">🏆</div>
+                    <div style="font-size: 1.5rem;" aria-hidden="true">🏆</div>
                     <div style="font-size: 0.85rem; font-weight: 600;">Meilleur jour</div>
                     <div style="font-size: 0.8rem; color: var(--text-secondary);">{{ best_day }} ({{ best_count }} clopes)</div>
                 </div>
                 <div style="flex: 1; padding: 12px; background: var(--bg-secondary); border-radius: 8px; text-align: center;">
-                    <div style="font-size: 1.5rem;">⚠️</div>
+                    <div style="font-size: 1.5rem;" aria-hidden="true">⚠️</div>
                     <div style="font-size: 0.85rem; font-weight: 600;">Jour difficile</div>
                     <div style="font-size: 0.8rem; color: var(--text-secondary);">{{ worst_day }} ({{ worst_count }} clopes)</div>
                 </div>
@@ -386,14 +386,14 @@
         {% endfor %}
 
         <div class="badges-summary">
-            <span style="font-size: 1.5rem;">🏅</span>
+            <span style="font-size: 1.5rem;" aria-hidden="true">🏅</span>
             <span style="font-weight: 600;">{{ unlocked_count }} / {{ badges|length }} badges débloqués</span>
         </div>
 
         <div class="badges-grid">
             {% for code, badge in badges %}
             <div class="badge-item {{ badge.unlocked ? 'unlocked' : 'locked' }}" title="{{ badge.description }}">
-                <div class="badge-icon">{{ badge.icon }}</div>
+                <div class="badge-icon" aria-hidden="true">{{ badge.icon }}</div>
                 <div class="badge-name">{{ badge.name }}</div>
                 <div class="badge-desc">{{ badge.description }}</div>
                 {% if badge.unlocked and badge.unlocked_at %}
@@ -421,9 +421,9 @@
         <div style="padding: 15px; background: linear-gradient(135deg, rgba(0, 217, 165, 0.15), rgba(0, 255, 136, 0.1)); border-radius: 12px; border-left: 4px solid var(--success); margin-bottom: 20px;">
             <div style="font-size: 1.1rem; font-weight: 600; color: var(--success); margin-bottom: 8px;">
                 {% if reduction_percent >= 50 %}
-                    📉 -{{ ((reduction_percent / 50) * 20)|round }}% risque cancer du poumon
+                    <span aria-hidden="true">📉</span> -{{ ((reduction_percent / 50) * 20)|round }}% risque cancer du poumon
                 {% else %}
-                    📉 -{{ ((reduction_percent / 25) * 10)|round }}% risque cancer du poumon
+                    <span aria-hidden="true">📉</span> -{{ ((reduction_percent / 25) * 10)|round }}% risque cancer du poumon
                 {% endif %}
             </div>
             <div style="font-size: 0.85rem; color: var(--text-secondary);">
@@ -484,7 +484,7 @@
                         {{ milestone.reduction }}% de réduction
                     </div>
                     <div class="health-benefit">
-                        <span class="health-icon">{{ milestone.icon }}</span>
+                        <span class="health-icon" aria-hidden="true">{{ milestone.icon }}</span>
                         {{ milestone.benefit }}
                     </div>
                     {% if is_achieved or is_next %}
