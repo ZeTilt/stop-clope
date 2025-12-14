@@ -431,22 +431,28 @@
             var minutesToNext, nextPoints, nextLabel;
 
             if (currentPoints < 1) {
-                // En négatif ou nul : afficher L'HEURE cible pour passer en positif (+1 pt)
-                // +1 pt quand diff >= 0.5 * avgInterval / 20 = avgInterval / 40
-                var diffForPositive = avgInterval / 40;
-                minutesToNext = Math.ceil(diffForPositive - diff);
-                nextPoints = 1;
+                // En négatif : afficher L'HEURE cible (diff = 0, moment "autorisé")
+                minutesToNext = Math.ceil(-diff); // diff est négatif, donc -diff = temps restant
+                if (minutesToNext < 0) minutesToNext = 0;
 
-                // Calculer l'heure cible
+                // Calculer l'heure cible (heure dernière clope + intervalle)
                 var targetTime = new Date();
                 targetTime.setMinutes(targetTime.getMinutes() + minutesToNext);
                 var targetHour = targetTime.getHours().toString().padStart(2, '0');
                 var targetMin = targetTime.getMinutes().toString().padStart(2, '0');
 
-                nextMsg.innerHTML = 'Zone positive à <strong>' + targetHour + ':' + targetMin + '</strong> → +' + nextPoints + ' pt';
-                countdown.textContent = targetHour + ':' + targetMin;
-                countdown.style.color = 'var(--warning)';
-                nextInfo.style.display = 'block';
+                if (minutesToNext > 0) {
+                    nextMsg.innerHTML = 'Prochaine clope à <strong>' + targetHour + ':' + targetMin + '</strong>';
+                    countdown.textContent = targetHour + ':' + targetMin;
+                    countdown.style.color = 'var(--warning)';
+                    nextInfo.style.display = 'block';
+                } else {
+                    // On est pile à l'heure ou après
+                    nextMsg.innerHTML = 'Tu peux fumer maintenant (0 pt)';
+                    countdown.textContent = '✓';
+                    countdown.style.color = 'var(--success)';
+                    nextInfo.style.display = 'block';
+                }
             } else {
                 // Déjà en positif : afficher le temps avant prochain palier
                 var nextPointDiff = (currentPoints + 0.5) * avgInterval / 20;
