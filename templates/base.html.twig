@@ -18,7 +18,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, maximum-scale=5.0">
         <meta name="csrf-token" content="{{ csrf_token('ajax') }}">
         <meta name="theme-color" content="#24303E">
-        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
         <meta name="apple-mobile-web-app-title" content="StopClope">
         <title>{% block title %}StopClope{% endblock %}</title>
@@ -29,9 +29,7 @@
         <link rel="stylesheet" href="{{ asset('css/app.css') }}">
         {% endblock %}
 
-        {% block javascripts %}
-            {% block importmap %}{{ importmap('app') }}{% endblock %}
-        {% endblock %}
+        {% block javascripts %}{% endblock %}
     </head>
     <body>
         <a href="#main-content" class="skip-link">Aller au contenu principal</a>
