@@ -113,8 +113,9 @@
             </div>
             <div class="stat-item">
                 {% if average_interval > 0 %}
-                    {% set hours = (average_interval / 60)|round(0, 'floor') %}
-                    {% set minutes = (average_interval % 60)|round %}
+                    {% set total_minutes = average_interval|round(0, 'floor') %}
+                    {% set hours = (total_minutes / 60)|round(0, 'floor') %}
+                    {% set minutes = total_minutes % 60 %}
                     <div class="stat-value">
                         {% if hours > 0 %}{{ hours }}h{% endif %}{{ '%02d'|format(minutes) }}
                     </div>
