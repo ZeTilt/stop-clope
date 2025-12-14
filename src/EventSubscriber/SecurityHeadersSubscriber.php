@@ -51,11 +51,12 @@ class SecurityHeadersSubscriber implements EventSubscriberInterface
         // Permissions-Policy: désactive les fonctionnalités non utilisées
         $response->headers->set('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
 
-        // Content-Security-Policy avec nonce pour scripts inline
-        $nonce = $this->cspNonceService->getNonce();
+        // Content-Security-Policy
+        // Note: 'unsafe-inline' requis pour les onclick handlers
+        // TODO: Migrer vers addEventListener pour supprimer 'unsafe-inline'
         $csp = implode('; ', [
             "default-src 'self'",
-            "script-src 'self' 'nonce-{$nonce}'",
+            "script-src 'self' 'unsafe-inline'",
             "style-src 'self' 'unsafe-inline'",
             "img-src 'self' data:",
             "font-src 'self'",

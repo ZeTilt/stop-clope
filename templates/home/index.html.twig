@@ -173,21 +173,10 @@
     </div>
     {% endif %}
 
-    <!-- Boutons d'action -->
-    <div class="action-buttons">
-        <button class="big-button" id="logBtn" onclick="logCigarette()">
-            <span aria-hidden="true">🚬</span> J'ai fumé
-        </button>
-        <button class="resist-button" id="resistBtn" onclick="logResistance()">
-            <span aria-hidden="true">💪</span> Je résiste !
-        </button>
-    </div>
-
-    <!-- Compteur de résistances du jour -->
-    <div id="resistanceCounter" class="resistance-counter" style="display: none;">
-        <span aria-hidden="true">🏆</span>
-        <span id="resistanceCount">0</span> résistance(s) aujourd'hui !
-    </div>
+    <!-- Bouton principal -->
+    <button class="big-button" id="logBtn" onclick="logCigarette()">
+        <span aria-hidden="true">🚬</span> J'ai fumé
+    </button>
 
     <!-- Bouton ajout rétroactif -->
     <button class="secondary-button" onclick="openModal()">
@@ -979,54 +968,6 @@
             lastActiveTime = Date.now();
         }
     });
-
-    // ===== Gestion des résistances =====
-    function getTodayResistances() {
-        var today = new Date().toISOString().slice(0, 10);
-        var stored = localStorage.getItem('resistances_' + today);
-        return stored ? parseInt(stored, 10) : 0;
-    }
-
-    function setTodayResistances(count) {
-        var today = new Date().toISOString().slice(0, 10);
-        localStorage.setItem('resistances_' + today, count);
-    }
-
-    function updateResistanceDisplay() {
-        var count = getTodayResistances();
-        var counter = document.getElementById('resistanceCounter');
-        var countEl = document.getElementById('resistanceCount');
-        if (count > 0 && counter && countEl) {
-            counter.style.display = 'block';
-            countEl.textContent = count;
-        }
-    }
-
-    window.logResistance = function() {
-        var count = getTodayResistances() + 1;
-        setTodayResistances(count);
-
-        // Messages encourageants variés
-        var messages = [
-            'Bravo, tu es plus fort(e) que l\'envie !',
-            'Super résistance ! Continue comme ça !',
-            'Chaque fois que tu résistes, tu gagnes !',
-            'Tu contrôles, pas la cigarette !',
-            'Excellente décision, champion(ne) !'
-        ];
-        var message = messages[Math.floor(Math.random() * messages.length)];
-
-        showToast(message, {
-            type: 'success',
-            icon: '💪',
-            duration: 4000
-        });
-
-        updateResistanceDisplay();
-    };
-
-    // Afficher le compteur au chargement si résistances aujourd'hui
-    updateResistanceDisplay();
 })();
 </script>
 {% endblock %}

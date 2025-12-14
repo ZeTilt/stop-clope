@@ -591,7 +591,7 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 
 **Tâches critiques** :
 - [x] Définir APP_SECRET réel en production (variable d'environnement serveur) ✅ Déjà fait
-- [x] Remplacer CSP `'unsafe-inline'` par nonces pour scripts
+- [x] ~~Remplacer CSP `'unsafe-inline'` par nonces~~ → Gardé unsafe-inline (onclick handlers)
 - [x] Ajouter header HSTS (`Strict-Transport-Security`)
 
 ### 8.2 Accessibilité (P0 - Bloquant)
@@ -624,7 +624,7 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 ### 8.5 Engagement & Produit (P1 - Important)
 
 **Tâches** :
-- [x] Bouton "Je résiste" : valoriser les moments où l'utilisateur résiste à l'envie
+- [x] ~~Bouton "Je résiste"~~ → Retiré (pas de plus-value identifiée)
 - [x] Première journée : célébration quand l'objectif est respecté pour la première fois
 - [x] Message de bienvenue personnalisé au premier log (modal avec animation)
 
