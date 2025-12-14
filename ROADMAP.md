@@ -591,7 +591,7 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 
 **Tâches critiques** :
 - [x] Définir APP_SECRET réel en production (variable d'environnement serveur) ✅ Déjà fait
-- [x] ~~Remplacer CSP `'unsafe-inline'` par nonces~~ → Gardé unsafe-inline (onclick handlers)
+- [x] Remplacer CSP `'unsafe-inline'` par nonces (onclick → addEventListener)
 - [x] Ajouter header HSTS (`Strict-Transport-Security`)
 
 ### 8.2 Accessibilité (P0 - Bloquant)

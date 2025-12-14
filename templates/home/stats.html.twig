@@ -319,15 +319,15 @@
 
     <!-- Tabs navigation -->
     <div class="stats-tabs" role="tablist" aria-label="Sections statistiques">
-        <button class="stats-tab active" role="tab" aria-selected="true" aria-controls="tab-overview" id="btn-overview" tabindex="0" onclick="switchTab('overview')">
+        <button class="stats-tab active" role="tab" aria-selected="true" aria-controls="tab-overview" id="btn-overview" tabindex="0" data-tab="overview">
             <span class="stats-tab-icon" aria-hidden="true">📊</span>
             Vue d'ensemble
         </button>
-        <button class="stats-tab" role="tab" aria-selected="false" aria-controls="tab-graphs" id="btn-graphs" tabindex="-1" onclick="switchTab('graphs')">
+        <button class="stats-tab" role="tab" aria-selected="false" aria-controls="tab-graphs" id="btn-graphs" tabindex="-1" data-tab="graphs">
             <span class="stats-tab-icon" aria-hidden="true">📈</span>
             Graphiques
         </button>
-        <button class="stats-tab" role="tab" aria-selected="false" aria-controls="tab-health" id="btn-health" tabindex="-1" onclick="switchTab('health')">
+        <button class="stats-tab" role="tab" aria-selected="false" aria-controls="tab-health" id="btn-health" tabindex="-1" data-tab="health">
             <span class="stats-tab-icon" aria-hidden="true">❤️</span>
             Santé
         </button>
@@ -827,39 +827,47 @@
 </div>
 
 <script nonce="{{ csp_nonce() }}">
-function switchTab(tabName) {
-    var tabs = document.querySelectorAll('.stats-tab');
+(function() {
+    function switchTab(tabName) {
+        var tabs = document.querySelectorAll('.stats-tab');
 
-    // Hide all tabs
-    document.querySelectorAll('.tab-content').forEach(function(tab) {
-        tab.classList.remove('active');
-    });
+        // Hide all tabs
+        document.querySelectorAll('.tab-content').forEach(function(tab) {
+            tab.classList.remove('active');
+        });
 
-    // Deactivate all buttons and reset tabindex
-    tabs.forEach(function(btn) {
-        btn.classList.remove('active');
-        btn.setAttribute('aria-selected', 'false');
-        btn.setAttribute('tabindex', '-1');
-    });
+        // Deactivate all buttons and reset tabindex
+        tabs.forEach(function(btn) {
+            btn.classList.remove('active');
+            btn.setAttribute('aria-selected', 'false');
+            btn.setAttribute('tabindex', '-1');
+        });
 
-    // Show selected tab
-    document.getElementById('tab-' + tabName).classList.add('active');
+        // Show selected tab
+        document.getElementById('tab-' + tabName).classList.add('active');
 
-    // Activate selected button
-    var activeBtn = document.getElementById('btn-' + tabName);
-    activeBtn.classList.add('active');
-    activeBtn.setAttribute('aria-selected', 'true');
-    activeBtn.setAttribute('tabindex', '0');
-}
+        // Activate selected button
+        var activeBtn = document.getElementById('btn-' + tabName);
+        activeBtn.classList.add('active');
+        activeBtn.setAttribute('aria-selected', 'true');
+        activeBtn.setAttribute('tabindex', '0');
+    }
 
-// Navigation clavier pour les tabs (flèches gauche/droite)
-document.addEventListener('DOMContentLoaded', function() {
+    // Event listeners pour les tabs
     var tablist = document.querySelector('[role="tablist"]');
     if (!tablist) return;
 
     var tabs = tablist.querySelectorAll('[role="tab"]');
     var tabNames = ['overview', 'graphs', 'health'];
 
+    // Click handlers
+    tabs.forEach(function(tab) {
+        tab.addEventListener('click', function() {
+            switchTab(this.dataset.tab);
+        });
+    });
+
+    // Navigation clavier pour les tabs (flèches gauche/droite)
     tabs.forEach(function(tab, index) {
         tab.addEventListener('keydown', function(e) {
             var targetIndex = index;
@@ -884,6 +892,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     });
-});
+})();
 </script>
 {% endblock %}

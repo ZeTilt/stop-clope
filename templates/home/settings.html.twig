@@ -69,7 +69,7 @@
             </p>
         </div>
 
-        <button class="big-button" onclick="saveSettings()" style="margin-top: 20px;">
+        <button class="big-button" id="saveSettingsBtn" style="margin-top: 20px;">
             Enregistrer
         </button>
     </div>
@@ -500,5 +500,8 @@
     });
 
     loadFontSizeSettings();
+
+    // Bouton sauvegarder paramètres
+    document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
 </script>
 {% endblock %}

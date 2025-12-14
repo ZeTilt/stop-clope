@@ -66,16 +66,15 @@
 
     <!-- Navigation de date -->
     <div class="date-nav">
-        <button onclick="changeDate(-1)" {{ selected_date|date('Y-m-d') == first_date|date('Y-m-d') ? 'disabled' : '' }} aria-label="Jour précédent">◀</button>
+        <button id="prevDayBtn" {{ selected_date|date('Y-m-d') == first_date|date('Y-m-d') ? 'disabled' : '' }} aria-label="Jour précédent">◀</button>
         <div>
             <input type="date" class="date-picker" id="datePicker"
                    value="{{ selected_date|date('Y-m-d') }}"
                    min="{{ first_date|date('Y-m-d') }}"
                    max="{{ 'now'|date('Y-m-d') }}"
-                   onchange="goToDate(this.value)"
                    aria-label="Sélectionner une date">
         </div>
-        <button onclick="changeDate(1)" {{ selected_date|date('Y-m-d') == 'now'|date('Y-m-d') ? 'disabled' : '' }} aria-label="Jour suivant">▶</button>
+        <button id="nextDayBtn" {{ selected_date|date('Y-m-d') == 'now'|date('Y-m-d') ? 'disabled' : '' }} aria-label="Jour suivant">▶</button>
     </div>
     <p class="swipe-hint">Swipe pour changer de jour</p>
 
@@ -194,7 +193,7 @@
         var firstDate = parseLocalDate('{{ first_date|date('Y-m-d') }}');
         var selectedDate = parseLocalDate('{{ selected_date|date('Y-m-d') }}');
 
-        window.changeDate = function(offset) {
+        function changeDate(offset) {
             var newDate = new Date(selectedDate);
             newDate.setDate(newDate.getDate() + offset);
 
@@ -202,13 +201,24 @@
             today.setHours(12, 0, 0, 0);
 
             if (newDate >= firstDate && newDate <= today) {
-                window.goToDate(formatDate(newDate));
+                goToDate(formatDate(newDate));
             }
-        };
+        }
 
-        window.goToDate = function(date) {
+        function goToDate(date) {
             window.location.href = '{{ path('app_history') }}?date=' + date;
-        };
+        }
+
+        // Event listeners pour la navigation
+        document.getElementById('prevDayBtn').addEventListener('click', function() {
+            changeDate(-1);
+        });
+        document.getElementById('nextDayBtn').addEventListener('click', function() {
+            changeDate(1);
+        });
+        document.getElementById('datePicker').addEventListener('change', function() {
+            goToDate(this.value);
+        });
 
         // Swipe support pour navigation entre jours
         var container = document.querySelector('.container');

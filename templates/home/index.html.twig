@@ -24,7 +24,7 @@
                     {% endif %}
                 </div>
             </div>
-            <button class="secondary-button" style="width: auto; margin: 0; padding: 10px 15px;{% if not today_wakeup %} background: var(--accent);{% endif %}" onclick="openWakeUpModal()">
+            <button class="secondary-button" id="openWakeUpBtn" style="width: auto; margin: 0; padding: 10px 15px;{% if not today_wakeup %} background: var(--accent);{% endif %}">
                 {% if today_wakeup %}Modifier{% else %}Noter le réveil{% endif %}
             </button>
         </div>
@@ -174,12 +174,12 @@
     {% endif %}
 
     <!-- Bouton principal -->
-    <button class="big-button" id="logBtn" onclick="logCigarette()">
+    <button class="big-button" id="logBtn">
         <span aria-hidden="true">🚬</span> J'ai fumé
     </button>
 
     <!-- Bouton ajout rétroactif -->
-    <button class="secondary-button" onclick="openModal()">
+    <button class="secondary-button" id="openRetroModalBtn">
         <span aria-hidden="true">⏰</span> Ajouter une clope passée
     </button>
 
@@ -321,7 +321,7 @@
                                 <span class="cig-badge">ajoutée après</span>
                             {% endif %}
                         </div>
-                        <button class="delete-btn" onclick="deleteCigarette({{ cig.id }})" aria-label="Supprimer la cigarette de {{ cig.smokedAt|date('H:i') }}"><span aria-hidden="true">✕</span></button>
+                        <button class="delete-btn" data-cig-id="{{ cig.id }}" aria-label="Supprimer la cigarette de {{ cig.smokedAt|date('H:i') }}"><span aria-hidden="true">✕</span></button>
                     </li>
                 {% endfor %}
             </ul>
@@ -341,9 +341,9 @@
 
         <!-- Boutons rapides -->
         <div class="quick-buttons" style="display: flex; gap: 8px; margin-bottom: 15px; flex-wrap: wrap;">
-            <button type="button" class="btn-quick" onclick="setQuickTime(15)">Il y a 15 min</button>
-            <button type="button" class="btn-quick" onclick="setQuickTime(30)">Il y a 30 min</button>
-            <button type="button" class="btn-quick" onclick="setQuickTime(60)">Il y a 1h</button>
+            <button type="button" class="btn-quick" data-quick-time="15">Il y a 15 min</button>
+            <button type="button" class="btn-quick" data-quick-time="30">Il y a 30 min</button>
+            <button type="button" class="btn-quick" data-quick-time="60">Il y a 1h</button>
         </div>
 
         <div class="input-group">
@@ -352,8 +352,8 @@
             <small id="customTimeHelp" style="color: var(--text-secondary); font-size: 0.75rem;">Sélectionne la date et l'heure de la cigarette</small>
         </div>
         <div class="modal-buttons">
-            <button class="btn-cancel" onclick="closeModal()">Annuler</button>
-            <button class="btn-confirm" onclick="logRetroactive()">Ajouter</button>
+            <button class="btn-cancel" id="closeRetroModalBtn">Annuler</button>
+            <button class="btn-confirm" id="logRetroactiveBtn">Ajouter</button>
         </div>
     </div>
 </div>
@@ -370,9 +370,9 @@
             <input type="time" id="wakeTime" aria-required="true">
         </div>
         <div class="modal-buttons">
-            <button class="btn-cancel" id="wakeUpCancelBtn" onclick="closeWakeUpModal()">Annuler</button>
-            <button class="btn-cancel" id="wakeUpLaterBtn" onclick="dismissWakeUpModal()" style="display: none;">Plus tard</button>
-            <button class="btn-confirm" onclick="saveWakeUp()">Enregistrer</button>
+            <button class="btn-cancel" id="wakeUpCancelBtn">Annuler</button>
+            <button class="btn-cancel" id="wakeUpLaterBtn" style="display: none;">Plus tard</button>
+            <button class="btn-confirm" id="saveWakeUpBtn">Enregistrer</button>
         </div>
     </div>
 </div>
@@ -543,7 +543,7 @@
         });
     }
 
-    window.logCigarette = function() {
+    function logCigarette() {
         var btn = document.getElementById('logBtn');
         btn.disabled = true;
         btn.innerHTML = '<span class="spinner"></span> Enregistrement...';
@@ -694,9 +694,14 @@
             '<div class="badge-notification-title">Nouveau badge !</div>' +
             '<div class="badge-notification-name">' + badge.name + '</div>' +
             '<div class="badge-notification-desc">' + badge.description + '</div>' +
-            '<button class="big-button" onclick="this.closest(\'.badge-notification-overlay\').remove()">Super !</button>' +
+            '<button class="big-button badge-dismiss-btn">Super !</button>' +
             '</div>';
         document.body.appendChild(overlay);
+
+        // Event listener pour fermer
+        overlay.querySelector('.badge-dismiss-btn').addEventListener('click', function() {
+            overlay.remove();
+        });
 
         // Animation d'entrée
         requestAnimationFrame(function() {
@@ -722,9 +727,14 @@
             '<div class="badge-notification-icon">' + welcome.icon + '</div>' +
             '<div class="badge-notification-title">' + welcome.title + '</div>' +
             '<div class="badge-notification-desc">' + welcome.message + '</div>' +
-            '<button class="big-button" onclick="this.closest(\'.badge-notification-overlay\').remove()">C\'est parti !</button>' +
+            '<button class="big-button badge-dismiss-btn">C\'est parti !</button>' +
             '</div>';
         document.body.appendChild(overlay);
+
+        // Event listener pour fermer
+        overlay.querySelector('.badge-dismiss-btn').addEventListener('click', function() {
+            overlay.remove();
+        });
 
         requestAnimationFrame(function() {
             overlay.classList.add('active');
@@ -741,24 +751,24 @@
         }, 8000);
     }
 
-    window.openModal = function() {
+    function openModal() {
         document.getElementById('retroModal').classList.add('active');
         document.getElementById('customTime').value = new Date().toISOString().slice(0, 16);
-    };
+    }
 
-    window.closeModal = function() {
+    function closeModal() {
         document.getElementById('retroModal').classList.remove('active');
-    };
+    }
 
-    window.setQuickTime = function(minutesAgo) {
+    function setQuickTime(minutesAgo) {
         var date = new Date();
         date.setMinutes(date.getMinutes() - minutesAgo);
         document.getElementById('customTime').value = date.toISOString().slice(0, 16);
         // Soumettre directement
         logRetroactive();
-    };
+    }
 
-    window.logRetroactive = function() {
+    function logRetroactive() {
         var customTime = document.getElementById('customTime').value;
         // Convertir le format datetime-local (YYYY-MM-DDTHH:MM) en (YYYY-MM-DD HH:MM)
         var localTime = customTime.replace('T', ' ');
@@ -805,19 +815,19 @@
                 closeModal();
             }
         });
-    };
+    }
 
     // Modal de confirmation accessible
     var pendingDeleteId = null;
 
-    window.deleteCigarette = function(id) {
+    function deleteCigarette(id) {
         pendingDeleteId = id;
         document.getElementById('confirmModal').classList.add('active');
         // Focus sur le bouton de confirmation (action principale)
         setTimeout(function() {
             document.getElementById('confirmOkBtn').focus();
         }, 100);
-    };
+    }
 
     function closeConfirmModal() {
         document.getElementById('confirmModal').classList.remove('active');
@@ -864,27 +874,27 @@
         if (e.key === 'Escape') closeConfirmModal();
     });
 
-    window.openWakeUpModal = function() {
+    function openWakeUpModal() {
         document.getElementById('wakeUpModalTitle').textContent = 'Heure de réveil';
         document.getElementById('wakeUpModalSubtitle').style.display = 'none';
         document.getElementById('wakeUpCancelBtn').style.display = 'block';
         document.getElementById('wakeUpLaterBtn').style.display = 'none';
         document.getElementById('wakeUpModal').classList.add('active');
         document.getElementById('wakeTime').value = new Date().toTimeString().slice(0, 5);
-    };
+    }
 
-    window.closeWakeUpModal = function() {
+    function closeWakeUpModal() {
         document.getElementById('wakeUpModal').classList.remove('active');
-    };
+    }
 
-    window.dismissWakeUpModal = function() {
+    function dismissWakeUpModal() {
         // Mémoriser que l'utilisateur a cliqué "Plus tard" pour cette session/journée
         sessionStorage.setItem('wakeupDismissed', new Date().toISOString().slice(0, 10));
         closeWakeUpModal();
         showToast('Tu pourras noter ton réveil plus tard', { icon: '⏰' });
-    };
+    }
 
-    window.saveWakeUp = function() {
+    function saveWakeUp() {
         var wakeTime = document.getElementById('wakeTime').value;
         var tzOffset = -new Date().getTimezoneOffset();
 
@@ -927,7 +937,41 @@
                 closeWakeUpModal();
             }
         });
-    };
+    }
+
+    // ===== Event Listeners =====
+
+    // Bouton principal "J'ai fumé"
+    document.getElementById('logBtn').addEventListener('click', logCigarette);
+
+    // Bouton ouvrir modal rétroactif
+    document.getElementById('openRetroModalBtn').addEventListener('click', openModal);
+
+    // Modal rétroactif - fermer et soumettre
+    document.getElementById('closeRetroModalBtn').addEventListener('click', closeModal);
+    document.getElementById('logRetroactiveBtn').addEventListener('click', logRetroactive);
+
+    // Boutons rapides (15min, 30min, 1h)
+    document.querySelectorAll('[data-quick-time]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            setQuickTime(parseInt(this.dataset.quickTime, 10));
+        });
+    });
+
+    // Boutons suppression de cigarette
+    document.querySelectorAll('.delete-btn[data-cig-id]').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            deleteCigarette(parseInt(this.dataset.cigId, 10));
+        });
+    });
+
+    // Bouton ouvrir modal réveil
+    document.getElementById('openWakeUpBtn').addEventListener('click', openWakeUpModal);
+
+    // Modal réveil - boutons
+    document.getElementById('wakeUpCancelBtn').addEventListener('click', closeWakeUpModal);
+    document.getElementById('wakeUpLaterBtn').addEventListener('click', dismissWakeUpModal);
+    document.getElementById('saveWakeUpBtn').addEventListener('click', saveWakeUp);
 
     // Close modals on outside click
     document.getElementById('retroModal').addEventListener('click', function(e) {
