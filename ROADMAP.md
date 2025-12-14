@@ -1,8 +1,9 @@
 # StopClope - Roadmap d'Amélioration
 
 > Roadmap établie suite à l'audit multi-agents du 11/12/2024
-> Mise à jour : 12/12/2024
-> Scores actuels : UX 7.5/10 | Sécurité 6/10 | Performance 6/10 | Architecture 6/10 | A11y 6/10
+> Mise à jour : 14/12/2024
+> Scores actuels : Code 7.5/10 | Sécurité 7/10 | UX 7.5/10 | Performance 6/10 | A11y 6.5/10
+> Score moyen : 6.9/10
 
 ---
 
@@ -21,6 +22,19 @@
 | **P2** | Cache Redis (optionnel) | Moyenne | En attente |
 | **P2** | ~~N+1 queries sur getDailyAverageInterval~~ | ~~Moyenne~~ | ✅ Fait |
 | **P2** | ~~Contrastes insuffisants (WCAG AA)~~ | ~~Moyenne~~ | ✅ Fait |
+
+### Nouveaux problèmes (Audit 14/12/2024)
+
+| Priorité | Problème | Impact | Statut |
+|----------|----------|--------|--------|
+| **P0** | APP_SECRET commité dans `.env.dev` | Critique | À faire |
+| **P0** | N+1 queries BadgeService (checkZeroDay, checkChampion) | Haute | À faire |
+| **P0** | CSS/JS inline (~80KB non cacheable) | Haute | À faire |
+| **P1** | WakeUpRepository sans filtrage user | Moyenne | À faire |
+| **P1** | Refresh complet après logging | Moyenne | À faire |
+| **P1** | Duplication code (calculateDailyScoreFromData) | Moyenne | À faire |
+| **P2** | getStreak() non optimisé (getStreakOptimized existe) | Moyenne | À faire |
+| **P2** | Focus trap manquant dans modales | Basse | À faire |
 
 ---
 
@@ -473,6 +487,85 @@ palier_du_jour = min(palier_précédent, floor(moyenne_14_jours) - 1)
 
 ---
 
-> **Roadmap complétée !** Prochaines pistes : CI/CD, tests E2E, monitoring (Sentry), ou nouvelles features.
->
+## Sprint 7 : Corrections Post-Audit (14/12/2024)
+
+**Objectif** : Corriger les problèmes identifiés par l'audit multi-agents
+
+### 7.1 Sécurité (Score: 7/10 → 9/10)
+
+**Tâches critiques** :
+- [ ] Supprimer APP_SECRET de `.env.dev` et régénérer
+- [ ] Ajouter `.env.dev` au `.gitignore`
+- [ ] Ajouter filtrage par user dans `WakeUpRepository::findByDate()`
+- [ ] Configurer `login_throttling` (anti-bruteforce)
+
+**Tâches moyennes** :
+- [ ] Logger les exceptions dans les controllers (actuellement avalées)
+- [ ] Installer `nelmio/security-bundle` pour headers sécurité
+- [ ] Ajouter contrainte complexité mot de passe
+
+### 7.2 Performance (Score: 6/10 → 9/10)
+
+**Tâches critiques** :
+- [ ] Fixer `BadgeService::checkZeroDay()` - remplacer boucle par GROUP BY
+- [ ] Fixer `BadgeService::checkChampion()` - remplacer boucle par GROUP BY
+- [ ] Utiliser `getStreakOptimized()` au lieu de `getStreak()` dans HomeController
+
+**Tâches moyennes** :
+- [ ] Externaliser CSS dans `public/css/app.css` (~794 lignes)
+- [ ] Externaliser JS dans `public/js/app.js` (~769 lignes)
+- [ ] Implémenter cache APCu/Redis pour données chaudes (TTL 60s)
+
+### 7.3 Qualité Code (Score: 7.5/10 → 9/10)
+
+**Tâches critiques** :
+- [ ] Supprimer duplication `calculateDailyScoreFromData()` (ScoringService + StreakService)
+- [ ] Utiliser `CigaretteService::parseTimeData()` dans HomeController (au lieu de dupliquer)
+- [ ] Centraliser calcul économies dans StatsService
+
+**Tâches moyennes** :
+- [ ] Supprimer méthodes @deprecated de ScoringService
+- [ ] Transformer méthodes statiques IntervalCalculator en méthodes d'instance
+- [ ] Créer constantes pour valeurs magiques (DEFAULT_INTERVAL_MINUTES, etc.)
+
+### 7.4 UX (Score: 7.5/10 → 8.5/10)
+
+**Tâches critiques** :
+- [ ] Remplacer refresh complet par update dynamique du DOM après logging
+- [ ] Ajouter bouton "Plus tard" visible dans modal réveil
+- [ ] Désactiver bouton principal 3 sec après log (anti double-clic)
+
+**Tâches moyennes** :
+- [ ] Accordéon repliable pour "Détail des points"
+- [ ] Boutons rapides dans modal rétroactif ("Il y a 15 min", "Il y a 30 min")
+- [ ] Tabs dans Stats : "Vue d'ensemble" / "Graphiques" / "Santé"
+- [ ] Toast "Annuler" temporaire (3-5 sec) après logging
+
+### 7.5 Accessibilité (Score: 6.5/10 → 8/10)
+
+**Tâches critiques** :
+- [ ] Wrapper tous les emojis avec `<span aria-hidden="true">`
+- [ ] Implémenter focus trap dans les modales
+- [ ] Ajouter `aria-live="polite"` sur section score
+
+**Tâches moyennes** :
+- [ ] Corriger contraste accent (#D5B18A = 3.8:1, besoin 4.5:1)
+- [ ] Alternative textuelle pour graphiques (tableau caché)
+- [ ] Améliorer visibilité skip link
+
+---
+
+## Scores cibles après Sprint 7
+
+| Domaine | Avant | Après | Delta |
+|---------|-------|-------|-------|
+| Code | 7.5/10 | 9/10 | +1.5 |
+| Sécurité | 7/10 | 9/10 | +2 |
+| UX | 7.5/10 | 8.5/10 | +1 |
+| Performance | 6/10 | 9/10 | +3 |
+| A11y | 6.5/10 | 8/10 | +1.5 |
+| **Moyenne** | **6.9/10** | **8.7/10** | **+1.8** |
+
+---
+
 > **Pour toute évolution majeure** : relancer un audit multi-agents (code-reviewer, security-auditor, ux-reviewer, performance-expert, a11y-auditor) pour identifier les régressions et opportunités d'amélioration.

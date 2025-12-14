@@ -479,6 +479,30 @@
         setInterval(updatePointsDisplay, 60000);
     }
 
+    // Fonction pour faire une requête avec retry automatique (utile après réveil de l'app)
+    function fetchWithRetry(url, options, retries) {
+        retries = retries || 2;
+        return fetch(url, options).then(function(response) {
+            if (!response.ok) {
+                var error = new Error('HTTP ' + response.status);
+                error.status = response.status;
+                throw error;
+            }
+            return response;
+        }).catch(function(err) {
+            // Si c'est une erreur réseau et qu'on a des retries restants
+            if (retries > 0 && !err.status) {
+                // Attendre un peu et réessayer (l'app peut être en train de se réveiller)
+                return new Promise(function(resolve) {
+                    setTimeout(resolve, 500);
+                }).then(function() {
+                    return fetchWithRetry(url, options, retries - 1);
+                });
+            }
+            throw err;
+        });
+    }
+
     window.logCigarette = function() {
         var btn = document.getElementById('logBtn');
         btn.disabled = true;
@@ -493,7 +517,7 @@
             String(now.getMinutes()).padStart(2, '0');
         var tzOffset = -now.getTimezoneOffset(); // En minutes, positif pour Est de UTC
 
-        fetch('{{ path('app_log_cigarette') }}', {
+        fetchWithRetry('{{ path('app_log_cigarette') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -502,7 +526,6 @@
             body: 'local_time=' + encodeURIComponent(localTime) + '&tz_offset=' + tzOffset
         })
         .then(function(response) {
-            if (!response.ok) throw new Error('Network error');
             return response.json();
         })
         .then(function(data) {
@@ -542,15 +565,27 @@
                 setTimeout(function() {
                     window.location.reload();
                 }, 800);
+            } else if (data.error) {
+                showToast(data.error, { type: 'error', icon: '❌' });
             }
         })
         .catch(function(err) {
-            // Mode offline : ajouter à la queue avec l'heure locale + timezone
-            addToOfflineQueue('log_cigarette', { local_time: localTime, tz_offset: tzOffset });
-            showToast('Clope enregistrée (hors-ligne)', { icon: '📴' });
-            // Incrémenter visuellement le compteur
-            var countEl = document.getElementById('todayCount');
-            countEl.textContent = parseInt(countEl.textContent) + 1;
+            // Vérifier si c'est vraiment un problème de réseau ou une erreur serveur
+            if (err.status === 403) {
+                // Token CSRF invalide - recharger la page pour en obtenir un nouveau
+                showToast('Session expirée, rechargement...', { type: 'warning', icon: '🔄' });
+                setTimeout(function() { window.location.reload(); }, 1000);
+            } else if (err.status >= 500) {
+                // Erreur serveur - ne pas mettre en queue offline
+                showToast('Erreur serveur, réessayez', { type: 'error', icon: '❌' });
+            } else {
+                // Vraiment offline - ajouter à la queue
+                addToOfflineQueue('log_cigarette', { local_time: localTime, tz_offset: tzOffset });
+                showToast('Clope enregistrée (hors-ligne)', { icon: '📴' });
+                // Incrémenter visuellement le compteur
+                var countEl = document.getElementById('todayCount');
+                countEl.textContent = parseInt(countEl.textContent) + 1;
+            }
         })
         .finally(function() {
             btn.disabled = false;
@@ -603,7 +638,7 @@
         var localTime = customTime.replace('T', ' ');
         var tzOffset = -new Date().getTimezoneOffset();
 
-        fetch('{{ path('app_log_cigarette') }}', {
+        fetchWithRetry('{{ path('app_log_cigarette') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -612,7 +647,6 @@
             body: 'local_time=' + encodeURIComponent(localTime) + '&tz_offset=' + tzOffset + '&is_retroactive=1'
         })
         .then(function(response) {
-            if (!response.ok) throw new Error('Network error');
             return response.json();
         })
         .then(function(data) {
@@ -629,12 +663,21 @@
                 setTimeout(function() {
                     window.location.reload();
                 }, 800);
+            } else if (data.error) {
+                showToast(data.error, { type: 'error', icon: '❌' });
             }
         })
         .catch(function(err) {
-            addToOfflineQueue('log_cigarette', { local_time: localTime, tz_offset: tzOffset });
-            showToast('Clope ajoutée (hors-ligne)', { icon: '📴' });
-            closeModal();
+            if (err.status === 403) {
+                showToast('Session expirée, rechargement...', { type: 'warning', icon: '🔄' });
+                setTimeout(function() { window.location.reload(); }, 1000);
+            } else if (err.status >= 500) {
+                showToast('Erreur serveur, réessayez', { type: 'error', icon: '❌' });
+            } else {
+                addToOfflineQueue('log_cigarette', { local_time: localTime, tz_offset: tzOffset });
+                showToast('Clope ajoutée (hors-ligne)', { icon: '📴' });
+                closeModal();
+            }
         });
     };
 
@@ -711,7 +754,7 @@
         var wakeTime = document.getElementById('wakeTime').value;
         var tzOffset = -new Date().getTimezoneOffset();
 
-        fetch('{{ path('app_log_wakeup') }}', {
+        fetchWithRetry('{{ path('app_log_wakeup') }}', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/x-www-form-urlencoded',
@@ -720,7 +763,6 @@
             body: 'wake_time=' + encodeURIComponent(wakeTime) + '&tz_offset=' + tzOffset
         })
         .then(function(response) {
-            if (!response.ok) throw new Error('Network error');
             return response.json();
         })
         .then(function(data) {
@@ -734,13 +776,22 @@
                     wakeBtn.textContent = 'Modifier';
                     wakeBtn.style.background = '';
                 }
+            } else if (data.error) {
+                showToast(data.error, { type: 'error', icon: '❌' });
             }
         })
         .catch(function(err) {
-            addToOfflineQueue('log_wakeup', { wake_time: wakeTime, tz_offset: tzOffset });
-            showToast('Réveil enregistré (hors-ligne)', { icon: '📴' });
-            document.getElementById('wakeupDisplay').textContent = wakeTime;
-            closeWakeUpModal();
+            if (err.status === 403) {
+                showToast('Session expirée, rechargement...', { type: 'warning', icon: '🔄' });
+                setTimeout(function() { window.location.reload(); }, 1000);
+            } else if (err.status >= 500) {
+                showToast('Erreur serveur, réessayez', { type: 'error', icon: '❌' });
+            } else {
+                addToOfflineQueue('log_wakeup', { wake_time: wakeTime, tz_offset: tzOffset });
+                showToast('Réveil enregistré (hors-ligne)', { icon: '📴' });
+                document.getElementById('wakeupDisplay').textContent = wakeTime;
+                closeWakeUpModal();
+            }
         });
     };
 
@@ -764,6 +815,25 @@
     updateOnlineStatus();
     window.addEventListener('online', updateOnlineStatus);
     window.addEventListener('offline', updateOnlineStatus);
+
+    // Détecter quand l'app revient du background et rafraîchir si les données sont périmées
+    var lastActiveTime = Date.now();
+    var STALE_THRESHOLD = 5 * 60 * 1000; // 5 minutes
+
+    document.addEventListener('visibilitychange', function() {
+        if (document.visibilityState === 'visible') {
+            var now = Date.now();
+            var elapsed = now - lastActiveTime;
+
+            // Si l'app était en background depuis plus de 5 min, rafraîchir
+            if (elapsed > STALE_THRESHOLD) {
+                console.log('App was in background for ' + Math.round(elapsed/1000) + 's, refreshing...');
+                window.location.reload();
+            }
+        } else {
+            lastActiveTime = Date.now();
+        }
+    });
 })();
 </script>
 {% endblock %}
