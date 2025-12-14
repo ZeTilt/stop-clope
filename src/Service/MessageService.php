@@ -109,8 +109,9 @@ class MessageService
 
         // Si on a les deux heures de réveil, comparaison relative
         if ($todayWakeUp && $yesterdayWakeUp) {
-            $todayWake = $todayWakeUp->getWakeTime();
-            $yesterdayWake = $yesterdayWakeUp->getWakeTime();
+            // getWakeDateTime() combine date + time correctement (vs getWakeTime() qui est juste TIME)
+            $todayWake = $todayWakeUp->getWakeDateTime();
+            $yesterdayWake = $yesterdayWakeUp->getWakeDateTime();
 
             // Temps écoulé depuis le réveil aujourd'hui (en minutes)
             $minutesSinceWakeToday = ($now->getTimestamp() - $todayWake->getTimestamp()) / 60;
