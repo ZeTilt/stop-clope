@@ -111,6 +111,18 @@
                 {% endif %}
                 <div class="stat-label">1ère clope</div>
             </div>
+            <div class="stat-item">
+                {% if average_interval > 0 %}
+                    {% set hours = (average_interval / 60)|round(0, 'floor') %}
+                    {% set minutes = (average_interval % 60)|round %}
+                    <div class="stat-value">
+                        {% if hours > 0 %}{{ hours }}h{% endif %}{{ '%02d'|format(minutes) }}
+                    </div>
+                {% else %}
+                    <div class="stat-value">--</div>
+                {% endif %}
+                <div class="stat-label">Intervalle moy.</div>
+            </div>
         </div>
     </div>
 

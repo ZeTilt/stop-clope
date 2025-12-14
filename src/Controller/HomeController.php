@@ -10,6 +10,7 @@ use App\Repository\SettingsRepository;
 use App\Repository\WakeUpRepository;
 use App\Service\BadgeService;
 use App\Service\GoalService;
+use App\Service\IntervalCalculator;
 use App\Service\MessageService;
 use App\Service\ScoringService;
 use App\Service\StatsService;
@@ -37,6 +38,7 @@ class HomeController extends AbstractController
         private GoalService $goalService,
         private StatsService $statsService,
         private StreakService $streakService,
+        private IntervalCalculator $intervalCalculator,
         private CsrfTokenManagerInterface $csrfTokenManager
     ) {}
 
@@ -416,12 +418,16 @@ class HomeController extends AbstractController
         $wakeUp = $this->wakeUpRepository->findByDate($selectedDate);
         $dailyScore = $this->scoringService->calculateDailyScore($selectedDate);
 
+        // Calcul de l'intervalle moyen du jour
+        $averageInterval = $this->intervalCalculator->getDayAverageInterval($cigarettes);
+
         return $this->render('home/history.html.twig', [
             'selected_date' => $selectedDate,
             'cigarettes' => $cigarettes,
             'wakeup' => $wakeUp,
             'daily_score' => $dailyScore,
             'first_date' => $firstDate,
+            'average_interval' => $averageInterval,
         ]);
     }
 }
