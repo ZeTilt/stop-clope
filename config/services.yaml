@@ -30,3 +30,7 @@ services:
     App\Service\StatsService:
         arguments:
             $scoringCache: '@cache.scoring'
+
+    App\EventSubscriber\DevAutoLoginSubscriber:
+        arguments:
+            $appEnv: '%kernel.environment%'

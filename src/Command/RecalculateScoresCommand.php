@@ -125,9 +125,12 @@ class RecalculateScoresCommand extends Command
                 ->getQuery()
                 ->getResult();
 
-            // Calculer le score via ScoringService
+            // Calculer le score via ScoringService (avec bonus car jour passé)
             $dailyScoreData = $this->scoringService->calculateDailyScore($currentDate);
-            $score = $dailyScoreData['total_score'];
+            $score = $dailyScoreData['total_score']
+                + ($dailyScoreData['potential_reduction_bonus'] ?? 0)
+                + ($dailyScoreData['potential_regularity_bonus'] ?? 0)
+                + ($dailyScoreData['potential_weekly_bonus'] ?? 0);
 
             // Calculer le streak
             if ($score > 0) {

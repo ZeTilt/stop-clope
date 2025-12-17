@@ -60,6 +60,11 @@ class HomeController extends AbstractController
     public function index(): Response
     {
         $today = new \DateTime();
+
+        // Finaliser le score d'hier si besoin (pour attribuer les bonus potentiels)
+        $yesterday = (clone $today)->modify('-1 day');
+        $this->scoringService->persistDailyScore($yesterday);
+
         $todayCigs = $this->cigaretteRepository->findTodayCigarettes();
         $yesterdayCigs = $this->cigaretteRepository->findYesterdayCigarettes();
         $todayWakeUp = $this->wakeUpRepository->findTodayWakeUp();
