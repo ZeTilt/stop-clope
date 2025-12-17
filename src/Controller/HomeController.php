@@ -6,6 +6,7 @@ use App\Entity\Cigarette;
 use App\Entity\User;
 use App\Entity\WakeUp;
 use App\Repository\CigaretteRepository;
+use App\Repository\DailyScoreRepository;
 use App\Repository\SettingsRepository;
 use App\Repository\WakeUpRepository;
 use App\Service\BadgeService;
@@ -35,6 +36,7 @@ class HomeController extends AbstractController
         private CigaretteRepository $cigaretteRepository,
         private WakeUpRepository $wakeUpRepository,
         private SettingsRepository $settingsRepository,
+        private DailyScoreRepository $dailyScoreRepository,
         private ScoringService $scoringService,
         private BadgeService $badgeService,
         private MessageService $messageService,
@@ -386,7 +388,22 @@ class HomeController extends AbstractController
 
         $cigarettes = $this->cigaretteRepository->findByDate($selectedDate);
         $wakeUp = $this->wakeUpRepository->findByDate($selectedDate);
-        $dailyScore = $this->scoringService->calculateDailyScore($selectedDate);
+
+        // Calculer les détails du score (comparisons pour l'affichage)
+        $dailyScoreData = $this->scoringService->calculateDailyScore($selectedDate);
+
+        // Pour les jours passés, utiliser le score persisté (qui inclut les bonus)
+        $today = new \DateTime();
+        $today->setTime(0, 0, 0);
+        $selectedDateNormalized->setTime(0, 0, 0);
+
+        if ($selectedDateNormalized < $today) {
+            // Jour passé : récupérer le score persisté
+            $persistedScore = $this->dailyScoreRepository->findByDate($selectedDate);
+            if ($persistedScore) {
+                $dailyScoreData['total_score'] = $persistedScore->getScore();
+            }
+        }
 
         // Calcul de l'intervalle moyen du jour
         $averageInterval = $this->intervalCalculator->getDayAverageInterval($cigarettes);
@@ -395,7 +412,7 @@ class HomeController extends AbstractController
             'selected_date' => $selectedDate,
             'cigarettes' => $cigarettes,
             'wakeup' => $wakeUp,
-            'daily_score' => $dailyScore,
+            'daily_score' => $dailyScoreData,
             'first_date' => $firstDate,
             'average_interval' => $averageInterval,
         ]);
