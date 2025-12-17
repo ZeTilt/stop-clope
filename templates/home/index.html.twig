@@ -120,14 +120,6 @@
             </div>
             {% endif %}
         </div>
-        {% if next_milestone %}
-        <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--bg-secondary); text-align: center;">
-            <div style="font-size: 0.8rem; color: var(--text-secondary);">
-                <span aria-hidden="true">{{ next_milestone.emoji }}</span> Prochain palier : <strong>{{ next_milestone.days }}j</strong>
-                <span style="color: var(--accent);">({{ next_milestone.days_remaining }}j restants)</span>
-            </div>
-        </div>
-        {% endif %}
         {% endif %}
 
         <div class="rank-badge" style="margin-top: 15px;">{{ rank.rank }}</div>

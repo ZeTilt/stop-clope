@@ -97,9 +97,6 @@ class HomeController extends AbstractController
         // Vérifier si c'est la première journée réussie
         $firstDaySuccess = $this->goalService->checkFirstSuccessfulDay();
 
-        // Prochain milestone de streak
-        $nextMilestone = $this->streakService->getNextMilestone($streak['current']);
-
         return $this->render('home/index.html.twig', [
             'today_cigarettes' => $todayCigs,
             'yesterday_count' => count($yesterdayCigs),
@@ -110,7 +107,6 @@ class HomeController extends AbstractController
             'next_cig_target' => $nextCigTarget,
             'encouragement' => $encouragement,
             'streak' => $streak,
-            'next_milestone' => $nextMilestone,
             'show_wakeup_modal' => $todayWakeUp === null,
             'goal_progress' => $goalProgress,
             'tier_achievement' => $tierAchievement,
