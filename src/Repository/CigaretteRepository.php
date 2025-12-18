@@ -182,37 +182,81 @@ class CigaretteRepository extends ServiceEntityRepository
     {
         $conn = $this->getEntityManager()->getConnection();
 
+        $userId = $this->getUserId();
+        $userCondition = $userId ? 'AND user_id = :user_id' : '';
+        $userConditionFirst = $userId ? 'WHERE user_id = :user_id' : '';
+        $params = $userId ? ['user_id' => $userId] : [];
+
+        // Récupérer la première date et calculer la période
+        $firstDate = $conn->executeQuery(
+            "SELECT MIN(DATE(smoked_at)) FROM cigarette {$userConditionFirst}",
+            $params
+        )->fetchOne();
+
+        if (!$firstDate) {
+            return [];
+        }
+
+        $startDate = new \DateTime($firstDate);
+        $endDate = new \DateTime('yesterday');
+        $endDate->setTime(23, 59, 59);
+
+        // Calculer le nombre de chaque jour de la semaine dans la période
+        $weekdayCounts = $this->countWeekdaysInPeriod($startDate, $endDate);
+
         // Exclure aujourd'hui pour ne pas fausser les stats
         $endCondition = $excludeToday ? 'AND DATE(smoked_at) < CURDATE()' : '';
 
-        $userId = $this->getUserId();
-        $userCondition = $userId ? 'AND user_id = :user_id' : '';
-
-        // Compter les clopes par jour de la semaine ET le nombre de jours distincts
+        // Compter les clopes par jour de la semaine
         $sql = "
-            SELECT
-                DAYOFWEEK(smoked_at) as day_num,
-                COUNT(id) as count,
-                COUNT(DISTINCT DATE(smoked_at)) as day_count
+            SELECT DAYOFWEEK(smoked_at) as day_num, COUNT(id) as count
             FROM cigarette
             WHERE 1=1 {$endCondition} {$userCondition}
             GROUP BY DAYOFWEEK(smoked_at)
             ORDER BY day_num
         ";
 
-        $params = $userId ? ['user_id' => $userId] : [];
         $results = $conn->executeQuery($sql, $params)->fetchAllAssociative();
 
-        // MySQL: 1=Dimanche, 2=Lundi, etc.
+        // MySQL: 1=Dimanche, 2=Lundi, etc. => PHP: 0=Dimanche, 1=Lundi, etc.
         $days = [1 => 'Dim', 2 => 'Lun', 3 => 'Mar', 4 => 'Mer', 5 => 'Jeu', 6 => 'Ven', 7 => 'Sam'];
         $stats = [];
         foreach ($results as $row) {
-            $dayCount = (int) $row['day_count'];
+            $dayNum = (int) $row['day_num'];
+            // MySQL DAYOFWEEK: 1=Dim, 2=Lun => PHP: 0=Dim, 1=Lun
+            $phpDayNum = $dayNum - 1;
+            $dayCount = $weekdayCounts[$phpDayNum] ?? 1;
             $avg = $dayCount > 0 ? round((int) $row['count'] / $dayCount, 1) : 0;
-            $stats[$days[(int) $row['day_num']]] = $avg;
+            $stats[$days[$dayNum]] = $avg;
         }
 
         return $stats;
+    }
+
+    /**
+     * Compte le nombre de chaque jour de la semaine dans une période
+     * @return array<int, int> Index 0=Dimanche, 1=Lundi, etc.
+     */
+    private function countWeekdaysInPeriod(\DateTime $start, \DateTime $end): array
+    {
+        $counts = array_fill(0, 7, 0);
+        $totalDays = $start->diff($end)->days + 1;
+        $fullWeeks = intdiv($totalDays, 7);
+
+        // Chaque jour apparaît au moins fullWeeks fois
+        for ($i = 0; $i < 7; $i++) {
+            $counts[$i] = $fullWeeks;
+        }
+
+        // Ajouter les jours restants
+        $remainingDays = $totalDays % 7;
+        $currentDay = (int) $start->format('w'); // 0=Dimanche, 1=Lundi, etc.
+        for ($i = 0; $i < $remainingDays; $i++) {
+            $counts[$currentDay]++;
+            $currentDay = ($currentDay + 1) % 7;
+        }
+
+        return $counts;
     }
 
     public function getHourlyStats(bool $excludeToday = true): array
