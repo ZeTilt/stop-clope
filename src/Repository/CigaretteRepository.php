@@ -226,9 +226,10 @@ class CigaretteRepository extends ServiceEntityRepository
         $userCondition = $userId ? 'AND user_id = :user_id' : '';
         $params = $userId ? ['user_id' => $userId] : [];
 
-        // Nombre total de jours avec des données (hors aujourd'hui)
+        // Nombre de jours calendaires depuis le premier jour jusqu'à hier
+        $userConditionFirst = $userId ? 'WHERE user_id = :user_id' : '';
         $totalDays = $conn->executeQuery(
-            "SELECT COUNT(DISTINCT DATE(smoked_at)) FROM cigarette WHERE {$baseCondition} {$userCondition}",
+            "SELECT DATEDIFF(CURDATE(), MIN(DATE(smoked_at))) FROM cigarette {$userConditionFirst}",
             $params
         )->fetchOne();
         $totalDays = max(1, (int) $totalDays);
