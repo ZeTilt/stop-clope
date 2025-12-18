@@ -11,21 +11,15 @@
         </div>
     </header>
 
-    <!-- Réveil du jour -->
-    <div class="card" style="padding: 15px;">
+    <!-- Réveil du jour (compact) -->
+    <div class="card" style="padding: 10px 15px;">
         <div style="display: flex; justify-content: space-between; align-items: center;">
-            <div>
-                <span style="color: var(--text-secondary); font-size: 0.85rem;">Réveil</span>
-                <div style="font-size: 1.3rem; font-weight: 600;" id="wakeupDisplay">
-                    {% if today_wakeup %}
-                        {{ today_wakeup.wakeTime|date('H:i') }}
-                    {% else %}
-                        --:--
-                    {% endif %}
-                </div>
+            <div style="display: flex; align-items: center; gap: 8px;">
+                <span style="color: var(--text-secondary); font-size: 0.8rem;">Réveil</span>
+                <span style="font-size: 1.1rem; font-weight: 600;" id="wakeupDisplay">{% if today_wakeup %}{{ today_wakeup.wakeTime|date('H:i') }}{% else %}--:--{% endif %}</span>
             </div>
-            <button class="secondary-button" id="openWakeUpBtn" style="width: auto; margin: 0; padding: 10px 15px;{% if not today_wakeup %} background: var(--accent);{% endif %}">
-                {% if today_wakeup %}Modifier{% else %}Noter le réveil{% endif %}
+            <button class="secondary-button" id="openWakeUpBtn" style="width: auto; margin: 0; padding: 6px 12px; font-size: 0.85rem;{% if not today_wakeup %} background: var(--accent);{% endif %}">
+                {% if today_wakeup %}Modifier{% else %}Noter{% endif %}
             </button>
         </div>
     </div>
@@ -60,105 +54,87 @@
     </div>
     {% endif %}
 
-    <!-- Message d'encouragement -->
+    <!-- Message d'encouragement (compact) -->
     {% if encouragement %}
-    <div class="card" style="padding: 15px; text-align: center; background: {{ encouragement.type == 'success' ? 'linear-gradient(135deg, var(--success), #00ff88)' : 'linear-gradient(135deg, var(--warning), #ffdb4d)' }};">
-        <span style="font-size: 1.5rem;" aria-hidden="true">{{ encouragement.icon }}</span>
-        <div style="color: #000; font-weight: 600; margin-top: 5px;">
-            {{ encouragement.message }}
+    <div class="card" style="padding: 10px 15px; background: {{ encouragement.type == 'success' ? 'linear-gradient(135deg, var(--success), #00ff88)' : 'linear-gradient(135deg, var(--warning), #ffdb4d)' }};">
+        <div style="display: flex; align-items: center; gap: 10px;">
+            <span style="font-size: 1.3rem;" aria-hidden="true">{{ encouragement.icon }}</span>
+            <span style="color: #000; font-weight: 600; font-size: 0.9rem;">{{ encouragement.message }}</span>
         </div>
     </div>
     {% endif %}
 
-    <!-- Objectif quotidien -->
+    <!-- Objectif quotidien (compact) -->
     {% if goal_progress %}
-    <div class="card" style="padding: 15px;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-            <span style="font-size: 0.85rem; color: var(--text-secondary);"><span aria-hidden="true">🎯</span> Objectif du jour</span>
-            <span style="font-weight: 700; color: {{ goal_progress.exceeded ? 'var(--error)' : (goal_progress.remaining == 0 ? 'var(--warning)' : 'var(--success)') }};">
+    <div class="card" style="padding: 10px 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+            <span style="font-size: 0.8rem; color: var(--text-secondary);"><span aria-hidden="true">🎯</span> Objectif</span>
+            <span style="font-weight: 700; font-size: 0.9rem; color: {{ goal_progress.exceeded ? 'var(--error)' : (goal_progress.remaining == 0 ? 'var(--warning)' : 'var(--success)') }};">
                 {{ goal_progress.current }} / {{ goal_progress.goal }}
+                {% if goal_progress.exceeded %}
+                    (+{{ goal_progress.exceeded_by }})
+                {% elseif goal_progress.remaining > 0 %}
+                    <span style="font-weight: 400; color: var(--text-secondary);">({{ goal_progress.remaining }} restantes)</span>
+                {% endif %}
             </span>
         </div>
-        <div class="progress-bar" style="height: 10px; margin: 0;">
+        <div class="progress-bar" style="height: 6px; margin: 0;">
             <div class="progress-fill" style="width: {{ goal_progress.progress_percent }}%; background: {{ goal_progress.exceeded ? 'linear-gradient(90deg, var(--error), #ff6b6b)' : (goal_progress.progress_percent >= 80 ? 'linear-gradient(90deg, var(--warning), #ffdb4d)' : 'linear-gradient(90deg, var(--success), #00ff88)') }};"></div>
-        </div>
-        <div style="margin-top: 8px; font-size: 0.85rem; text-align: center;">
-            {% if goal_progress.exceeded %}
-                <span style="color: var(--error);">Objectif dépassé de {{ goal_progress.exceeded_by }} clope{{ goal_progress.exceeded_by > 1 ? 's' : '' }}</span>
-            {% elseif goal_progress.remaining == 0 %}
-                <span style="color: var(--warning);"><span aria-hidden="true">⚠️</span> Objectif atteint, tiens bon !</span>
-            {% elseif goal_progress.remaining == 1 %}
-                <span style="color: var(--warning);">Plus qu'une clope autorisée</span>
-            {% else %}
-                <span style="color: var(--success);">{{ goal_progress.remaining }} clopes max restantes</span>
-            {% endif %}
         </div>
     </div>
     {% endif %}
 
-    <!-- Score du jour + Streak -->
-    <div class="card score-display">
-        <div class="score-value {{ daily_score.total_score < 0 ? 'negative' : '' }}">
-            {{ daily_score.total_score > 0 ? '+' : '' }}{{ daily_score.total_score }}
-        </div>
-        <div class="score-label">Points aujourd'hui</div>
-
-        {% if streak.current > 0 %}
-        <div style="margin-top: 15px; display: flex; justify-content: center; gap: 20px;">
+    <!-- Score du jour + Streak + Rank (compact) -->
+    <div class="card" style="padding: 15px;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <!-- Score -->
             <div style="text-align: center;">
-                <div style="font-size: 1.5rem; font-weight: 700; color: {{ streak.today_positive ? 'var(--success)' : 'var(--warning)' }};">
+                <div class="score-value {{ daily_score.total_score < 0 ? 'negative' : '' }}" style="font-size: 2rem; margin: 0;">
+                    {{ daily_score.total_score > 0 ? '+' : '' }}{{ daily_score.total_score }}
+                </div>
+                <div style="font-size: 0.7rem; color: var(--text-secondary);">pts</div>
+            </div>
+            <!-- Streak -->
+            {% if streak.current > 0 %}
+            <div style="text-align: center;">
+                <div style="font-size: 1.3rem; font-weight: 700; color: {{ streak.today_positive ? 'var(--success)' : 'var(--warning)' }};">
                     <span aria-hidden="true">🔥</span> {{ streak.current }}
                 </div>
-                <div style="font-size: 0.75rem; color: var(--text-secondary);">Jours positifs</div>
-            </div>
-            {% if streak.best > streak.current %}
-            <div style="text-align: center;">
-                <div style="font-size: 1.2rem; font-weight: 600; color: var(--text-secondary);">
-                    <span aria-hidden="true">⭐</span> {{ streak.best }}
-                </div>
-                <div style="font-size: 0.75rem; color: var(--text-secondary);">Record</div>
+                <div style="font-size: 0.7rem; color: var(--text-secondary);">série</div>
             </div>
             {% endif %}
+            <!-- Rank -->
+            <div style="text-align: center;">
+                <div class="rank-badge" style="margin: 0; padding: 4px 10px; font-size: 0.75rem;">{{ rank.rank }}</div>
+                <div style="font-size: 0.65rem; color: var(--text-secondary); margin-top: 4px;">{{ rank.total_score }}/{{ rank.next_rank_threshold }}</div>
+            </div>
         </div>
-        {% endif %}
-
-        <div class="rank-badge" style="margin-top: 15px;">{{ rank.rank }}</div>
-        <div class="progress-bar">
+        <div class="progress-bar" style="height: 4px; margin-top: 10px;">
             <div class="progress-fill" style="width: {{ rank.progress }}%"></div>
-        </div>
-        <div class="score-label" style="margin-top: 8px;">
-            {{ rank.total_score }} / {{ rank.next_rank_threshold }} pts
         </div>
     </div>
 
-    <!-- Compte à rebours et paliers de points -->
+    <!-- Compte à rebours (compact) -->
     {% if next_cig_target %}
-    <div class="card" style="padding: 15px; text-align: center;">
+    <div class="card" style="padding: 10px 15px;">
         {% if next_cig_target.status == 'active' or next_cig_target.status == 'exceeded' %}
-            {% if next_cig_target.exceeded is defined and next_cig_target.exceeded %}
-                <div style="color: var(--accent); font-size: 0.85rem; margin-bottom: 10px;">
-                    <span aria-hidden="true">⚠️</span> Tu as dépassé hier ({{ next_cig_target.yesterday_count }} clopes) - intervalle moyen utilisé
-                </div>
-            {% endif %}
-            <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 8px;">
-                <span aria-hidden="true">🎯</span> Intervalle cible : <strong>{{ next_cig_target.avg_interval|round(0, 'floor') }} min</strong>
-            </div>
             <div id="points-display"
                  data-wake-minutes="{{ next_cig_target.wake_minutes }}"
                  data-target-minutes="{{ next_cig_target.target_minutes }}"
-                 data-avg-interval="{{ next_cig_target.avg_interval }}">
-                <div id="current-points-msg">Chargement...</div>
-                <div id="next-tier-info" style="margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--bg-lighter); display: none;">
-                    <div id="next-tier-msg" style="color: var(--warning); font-size: 0.85rem;"></div>
-                    <div id="countdown" style="font-size: 1.5rem; font-weight: 700; color: var(--warning); margin-top: 5px;"></div>
+                 data-avg-interval="{{ next_cig_target.avg_interval }}"
+                 style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px;">
+                <div id="current-points-msg" style="font-size: 0.95rem;">Chargement...</div>
+                <div id="next-tier-info" style="display: none; text-align: right;">
+                    <div id="countdown" style="font-size: 1.1rem; font-weight: 700; color: var(--warning);"></div>
+                    <div id="next-tier-msg" style="color: var(--text-secondary); font-size: 0.7rem;"></div>
                 </div>
             </div>
         {% elseif next_cig_target.status == 'no_wakeup' %}
-            <div style="color: var(--warning); font-size: 0.9rem;">
+            <div style="color: var(--warning); font-size: 0.85rem;">
                 <span aria-hidden="true">⏰</span> {{ next_cig_target.message }}
             </div>
         {% elseif next_cig_target.status == 'first_day' %}
-            <div style="color: var(--text-secondary); font-size: 0.9rem;">
+            <div style="color: var(--text-secondary); font-size: 0.85rem;">
                 <span aria-hidden="true">📊</span> {{ next_cig_target.message }}
             </div>
         {% endif %}
@@ -444,7 +420,7 @@
 
             // Calcul du prochain palier
             var pointStep = avgInterval / 20; // minutes pour gagner 1 pt de plus
-            var minutesToNext, nextPoints, nextLabel;
+            var minutesToNext, nextPoints;
 
             if (currentPoints < 1) {
                 // En négatif : afficher L'HEURE cible (diff = 0, moment "autorisé")
@@ -458,15 +434,15 @@
                 var targetMin = targetTime.getMinutes().toString().padStart(2, '0');
 
                 if (minutesToNext > 0) {
-                    nextMsg.innerHTML = 'Prochaine clope à <strong>' + targetHour + ':' + targetMin + '</strong>';
                     countdown.textContent = targetHour + ':' + targetMin;
                     countdown.style.color = 'var(--warning)';
+                    nextMsg.textContent = 'cible';
                     nextInfo.style.display = 'block';
                 } else {
                     // On est pile à l'heure ou après
-                    nextMsg.innerHTML = 'Tu peux fumer maintenant (0 pt)';
                     countdown.textContent = '✓';
                     countdown.style.color = 'var(--success)';
+                    nextMsg.textContent = 'OK';
                     nextInfo.style.display = 'block';
                 }
             } else {
@@ -477,19 +453,17 @@
                     minutesToNext = Math.ceil(pointStep - ((diff - nextPointDiff) % pointStep));
                 }
                 nextPoints = currentPoints + 1;
-                nextLabel = 'Prochain palier dans';
 
                 if (minutesToNext > 0 && minutesToNext < 180) { // Max 3h affichées
-                    nextMsg.innerHTML = nextLabel + ' <strong>' + minutesToNext + ' min</strong> → +' + nextPoints + ' pts';
-
                     if (minutesToNext >= 60) {
                         var h = Math.floor(minutesToNext / 60);
                         var m = minutesToNext % 60;
                         countdown.textContent = h + 'h' + m.toString().padStart(2, '0');
                     } else {
-                        countdown.textContent = minutesToNext + ' min';
+                        countdown.textContent = minutesToNext + 'min';
                     }
                     countdown.style.color = 'var(--success)';
+                    nextMsg.textContent = '→ +' + nextPoints + 'pts';
                     nextInfo.style.display = 'block';
                 } else {
                     nextInfo.style.display = 'none';
