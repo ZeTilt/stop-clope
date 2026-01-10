@@ -577,7 +577,7 @@
                     icon: icon,
                     action: undoCigarette,
                     actionLabel: 'Annuler',
-                    duration: 8000
+                    duration: 3000
                 });
 
                 // Afficher les nouveaux badges obtenus
@@ -602,12 +602,12 @@
                 // Animation du bouton
                 btn.classList.add('feedback-' + type);
 
-                // Recharger la page après 8s si pas annulé
+                // Recharger la page après 3s si pas annulé
                 reloadTimeout = setTimeout(function() {
                     if (shouldReload) {
                         window.location.reload();
                     }
-                }, 8000);
+                }, 3000);
             } else if (data.error) {
                 showToast(data.error, { type: 'error', icon: '❌' });
             }
@@ -707,9 +707,19 @@
         }, 8000);
     }
 
+    // Formate une date en format datetime-local (YYYY-MM-DDTHH:MM) en heure LOCALE
+    // IMPORTANT: Ne pas utiliser toISOString() car il convertit en UTC
+    function formatLocalDateTime(date) {
+        return date.getFullYear() + '-' +
+            String(date.getMonth() + 1).padStart(2, '0') + '-' +
+            String(date.getDate()).padStart(2, '0') + 'T' +
+            String(date.getHours()).padStart(2, '0') + ':' +
+            String(date.getMinutes()).padStart(2, '0');
+    }
+
     function openModal() {
         document.getElementById('retroModal').classList.add('active');
-        document.getElementById('customTime').value = new Date().toISOString().slice(0, 16);
+        document.getElementById('customTime').value = formatLocalDateTime(new Date());
     }
 
     function closeModal() {
@@ -719,7 +729,7 @@
     function setQuickTime(minutesAgo) {
         var date = new Date();
         date.setMinutes(date.getMinutes() - minutesAgo);
-        document.getElementById('customTime').value = date.toISOString().slice(0, 16);
+        document.getElementById('customTime').value = formatLocalDateTime(date);
         // Soumettre directement
         logRetroactive();
     }

@@ -45,11 +45,19 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
     #[ORM\OneToMany(targetEntity: Settings::class, mappedBy: 'user', orphanRemoval: true)]
     private Collection $settings;
 
+    #[ORM\OneToOne(mappedBy: 'user', targetEntity: UserState::class, cascade: ['persist', 'remove'])]
+    private ?UserState $userState = null;
+
+    /** @var Collection<int, ActiveBonus> */
+    #[ORM\OneToMany(targetEntity: ActiveBonus::class, mappedBy: 'user', orphanRemoval: true)]
+    private Collection $activeBonuses;
+
     public function __construct()
     {
         $this->createdAt = new \DateTime();
         $this->cigarettes = new ArrayCollection();
         $this->settings = new ArrayCollection();
+        $this->activeBonuses = new ArrayCollection();
     }
 
     public function getId(): ?int
@@ -183,6 +191,52 @@ class User implements UserInterface, PasswordAuthenticatedUserInterface
         if ($this->settings->removeElement($setting)) {
             if ($setting->getUser() === $this) {
                 $setting->setUser(null);
+            }
+        }
+        return $this;
+    }
+
+    public function getUserState(): ?UserState
+    {
+        return $this->userState;
+    }
+
+    public function setUserState(?UserState $userState): static
+    {
+        // unset the owning side of the relation if necessary
+        if ($userState === null && $this->userState !== null) {
+            $this->userState->setUser(null);
+        }
+
+        // set the owning side of the relation if necessary
+        if ($userState !== null && $userState->getUser() !== $this) {
+            $userState->setUser($this);
+        }
+
+        $this->userState = $userState;
+        return $this;
+    }
+
+    /** @return Collection<int, ActiveBonus> */
+    public function getActiveBonuses(): Collection
+    {
+        return $this->activeBonuses;
+    }
+
+    public function addActiveBonus(ActiveBonus $activeBonus): static
+    {
+        if (!$this->activeBonuses->contains($activeBonus)) {
+            $this->activeBonuses->add($activeBonus);
+            $activeBonus->setUser($this);
+        }
+        return $this;
+    }
+
+    public function removeActiveBonus(ActiveBonus $activeBonus): static
+    {
+        if ($this->activeBonuses->removeElement($activeBonus)) {
+            if ($activeBonus->getUser() === $this) {
+                $activeBonus->setUser(null);
             }
         }
         return $this;

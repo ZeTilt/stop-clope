@@ -10,6 +10,7 @@ use App\Repository\DailyScoreRepository;
 use App\Repository\SettingsRepository;
 use App\Repository\WakeUpRepository;
 use App\Service\IntervalCalculator;
+use App\Service\MultiplierCalculator;
 use App\Service\RankService;
 use App\Service\ScoringService;
 use App\Service\StreakService;
@@ -27,6 +28,7 @@ class ScoringServiceTest extends TestCase
     private IntervalCalculator $intervalCalculator;
     private StreakService $streakService;
     private RankService $rankService;
+    private MultiplierCalculator $multiplierCalculator;
 
     protected function setUp(): void
     {
@@ -38,6 +40,7 @@ class ScoringServiceTest extends TestCase
         $this->intervalCalculator = $this->createMock(IntervalCalculator::class);
         $this->streakService = $this->createMock(StreakService::class);
         $this->rankService = $this->createMock(RankService::class);
+        $this->multiplierCalculator = $this->createMock(MultiplierCalculator::class);
 
         $this->scoringService = new ScoringService(
             $this->cigaretteRepository,
@@ -47,7 +50,8 @@ class ScoringServiceTest extends TestCase
             $this->security,
             $this->intervalCalculator,
             $this->streakService,
-            $this->rankService
+            $this->rankService,
+            $this->multiplierCalculator
         );
     }
 
@@ -122,9 +126,23 @@ class ScoringServiceTest extends TestCase
                 return (int)$time->format('H') * 60 + (int)$time->format('i');
             });
 
-        $this->intervalCalculator
-            ->method('getPointsForDiff')
+        // Mock MultiplierCalculator v2.0
+        $this->multiplierCalculator
+            ->method('calculatePoints')
             ->willReturn(10); // Simule des points positifs
+
+        $this->multiplierCalculator
+            ->method('getZoneMultiplier')
+            ->willReturn(1.0);
+
+        $this->multiplierCalculator
+            ->method('getTotalMultiplier')
+            ->willReturn(1.0);
+
+        // Mock user for the calculation
+        $this->security
+            ->method('getUser')
+            ->willReturn($user);
 
         $result = $this->scoringService->calculateDailyScore($date);
 
@@ -135,6 +153,9 @@ class ScoringServiceTest extends TestCase
         $this->assertEquals(20, $result['total_score']);
         // Potential reduction bonus: 3 - 2 = 1 cig less x 5 pts = 5
         $this->assertEquals(5, $result['potential_reduction_bonus']);
+        // Check v2.0 details are included
+        $this->assertEquals(1.0, $result['details']['comparisons'][0]['zone_multiplier']);
+        $this->assertEquals(1.0, $result['details']['comparisons'][0]['total_multiplier']);
     }
 
     public function testGetTotalScoreOptimizedDelegatesToRepository(): void

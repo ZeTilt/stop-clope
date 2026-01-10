@@ -41,6 +41,16 @@ class DailyScoreRepository extends ServiceEntityRepository
         ]);
     }
 
+    public function findByUserAndDate(User $user, \DateTimeInterface $date): ?DailyScore
+    {
+        $dateOnly = (clone $date)->setTime(0, 0, 0);
+
+        return $this->findOneBy([
+            'user' => $user,
+            'date' => $dateOnly,
+        ]);
+    }
+
     public function getTotalScore(): int
     {
         $user = $this->getCurrentUser();
@@ -136,11 +146,59 @@ class DailyScoreRepository extends ServiceEntityRepository
             $existing->setCigaretteCount($dailyScore->getCigaretteCount());
             $existing->setStreak($dailyScore->getStreak());
             $existing->setAverageInterval($dailyScore->getAverageInterval());
+            $existing->setIsMaintenanceDay($dailyScore->isMaintenanceDay());
             $existing->setCalculatedAt(new \DateTime());
         } else {
             $this->getEntityManager()->persist($dailyScore);
         }
 
         $this->getEntityManager()->flush();
+    }
+
+    /**
+     * Vérifie si un jour maintenance existe dans une plage de dates
+     */
+    public function hasMaintenanceDayInRange(
+        User $user,
+        \DateTimeInterface $startDate,
+        \DateTimeInterface $endDate
+    ): bool {
+        $count = $this->createQueryBuilder('d')
+            ->select('COUNT(d.id)')
+            ->where('d.user = :user')
+            ->andWhere('d.date >= :start')
+            ->andWhere('d.date <= :end')
+            ->andWhere('d.isMaintenanceDay = true')
+            ->setParameter('user', $user)
+            ->setParameter('start', $startDate)
+            ->setParameter('end', $endDate)
+            ->getQuery()
+            ->getSingleScalarResult();
+
+        return $count > 0;
+    }
+
+    /**
+     * Récupère la date du jour maintenance dans une plage
+     */
+    public function getMaintenanceDayInRange(
+        User $user,
+        \DateTimeInterface $startDate,
+        \DateTimeInterface $endDate
+    ): ?\DateTimeInterface {
+        $result = $this->createQueryBuilder('d')
+            ->select('d.date')
+            ->where('d.user = :user')
+            ->andWhere('d.date >= :start')
+            ->andWhere('d.date <= :end')
+            ->andWhere('d.isMaintenanceDay = true')
+            ->setParameter('user', $user)
+            ->setParameter('start', $startDate)
+            ->setParameter('end', $endDate)
+            ->setMaxResults(1)
+            ->getQuery()
+            ->getOneOrNullResult();
+
+        return $result['date'] ?? null;
     }
 }

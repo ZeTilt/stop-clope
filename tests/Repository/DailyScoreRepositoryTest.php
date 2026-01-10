@@ -110,6 +110,19 @@ class DailyScoreRepositoryTest extends KernelTestCase
         $calcAt = new \DateTime();
         $dailyScore->setCalculatedAt($calcAt);
         $this->assertEquals($calcAt, $dailyScore->getCalculatedAt());
+
+        // v2.0 fields
+        $dailyScore->setIsMaintenanceDay(true);
+        $this->assertTrue($dailyScore->isMaintenanceDay());
+
+        $dailyScore->setIsMaintenanceDay(false);
+        $this->assertFalse($dailyScore->isMaintenanceDay());
+
+        $dailyScore->setMultiplierApplied(1.5);
+        $this->assertEquals(1.5, $dailyScore->getMultiplierApplied());
+
+        $dailyScore->setMultiplierApplied(null);
+        $this->assertNull($dailyScore->getMultiplierApplied());
     }
 
     public function testUpsertCreatesNewRecord(): void

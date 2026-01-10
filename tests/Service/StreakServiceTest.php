@@ -183,4 +183,154 @@ class StreakServiceTest extends TestCase
             $this->assertArrayHasKey('achieved', $milestone);
         }
     }
+
+    // ========================================
+    // Tests getStreakBonus v2.0
+    // ========================================
+
+    public function testGetStreakBonusZero(): void
+    {
+        $result = $this->streakService->getStreakBonus(0);
+        $this->assertEquals(0.0, $result);
+    }
+
+    public function testGetStreakBonusUnder3Days(): void
+    {
+        $result = $this->streakService->getStreakBonus(2);
+        $this->assertEquals(0.0, $result);
+    }
+
+    public function testGetStreakBonus3Days(): void
+    {
+        $result = $this->streakService->getStreakBonus(3);
+        $this->assertEquals(0.05, $result);
+    }
+
+    public function testGetStreakBonus5Days(): void
+    {
+        $result = $this->streakService->getStreakBonus(5);
+        $this->assertEquals(0.05, $result);
+    }
+
+    public function testGetStreakBonus7Days(): void
+    {
+        $result = $this->streakService->getStreakBonus(7);
+        $this->assertEquals(0.10, $result);
+    }
+
+    public function testGetStreakBonus10Days(): void
+    {
+        $result = $this->streakService->getStreakBonus(10);
+        $this->assertEquals(0.10, $result);
+    }
+
+    public function testGetStreakBonus14Days(): void
+    {
+        $result = $this->streakService->getStreakBonus(14);
+        $this->assertEquals(0.15, $result);
+    }
+
+    public function testGetStreakBonus30Days(): void
+    {
+        $result = $this->streakService->getStreakBonus(30);
+        $this->assertEquals(0.15, $result);
+    }
+
+    // ========================================
+    // Tests getNextBonusTier v2.0
+    // ========================================
+
+    public function testGetNextBonusTierFrom0(): void
+    {
+        $result = $this->streakService->getNextBonusTier(0);
+
+        $this->assertNotNull($result);
+        $this->assertEquals(3, $result['days_needed']);
+        $this->assertEquals(3, $result['days_remaining']);
+        $this->assertEquals(0.05, $result['bonus']);
+        $this->assertEquals(5, $result['bonus_percentage']);
+    }
+
+    public function testGetNextBonusTierFrom5(): void
+    {
+        $result = $this->streakService->getNextBonusTier(5);
+
+        $this->assertNotNull($result);
+        $this->assertEquals(7, $result['days_needed']);
+        $this->assertEquals(2, $result['days_remaining']);
+        $this->assertEquals(0.10, $result['bonus']);
+    }
+
+    public function testGetNextBonusTierFrom10(): void
+    {
+        $result = $this->streakService->getNextBonusTier(10);
+
+        $this->assertNotNull($result);
+        $this->assertEquals(14, $result['days_needed']);
+        $this->assertEquals(4, $result['days_remaining']);
+    }
+
+    public function testGetNextBonusTierMaxReached(): void
+    {
+        $result = $this->streakService->getNextBonusTier(14);
+
+        $this->assertNull($result);
+    }
+
+    // ========================================
+    // Tests getStreakInfo v2.0
+    // ========================================
+
+    public function testGetStreakInfoBasic(): void
+    {
+        $this->dailyScoreRepository->method('getCurrentStreak')->willReturn(5);
+        $this->dailyScoreRepository->method('getBestStreak')->willReturn(10);
+        $this->dailyScoreRepository->method('findByDate')->willReturn(null);
+
+        $result = $this->streakService->getStreakInfo();
+
+        $this->assertEquals(5, $result['current']);
+        $this->assertEquals(10, $result['best']);
+        $this->assertEquals(0.05, $result['bonus_multiplier']);
+        $this->assertEquals(5, $result['bonus_percentage']);
+        $this->assertNotNull($result['next_bonus_tier']);
+        $this->assertNotNull($result['next_milestone']);
+    }
+
+    // ========================================
+    // Tests isStreakProtected v2.0
+    // ========================================
+
+    public function testIsStreakProtectedNoScore(): void
+    {
+        $this->dailyScoreRepository->method('findByDate')->willReturn(null);
+
+        $result = $this->streakService->isStreakProtected(new \DateTime());
+
+        $this->assertFalse($result);
+    }
+
+    public function testIsStreakProtectedMaintenanceDay(): void
+    {
+        $dailyScore = $this->createMock(\App\Entity\DailyScore::class);
+        $dailyScore->method('isMaintenanceDay')->willReturn(true);
+
+        $this->dailyScoreRepository->method('findByDate')->willReturn($dailyScore);
+
+        $result = $this->streakService->isStreakProtected(new \DateTime());
+
+        $this->assertTrue($result);
+    }
+
+    public function testIsStreakProtectedNormalDay(): void
+    {
+        $dailyScore = $this->createMock(\App\Entity\DailyScore::class);
+        $dailyScore->method('isMaintenanceDay')->willReturn(false);
+
+        $this->dailyScoreRepository->method('findByDate')->willReturn($dailyScore);
+
+        $result = $this->streakService->isStreakProtected(new \DateTime());
+
+        $this->assertFalse($result);
+    }
 }

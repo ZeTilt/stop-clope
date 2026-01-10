@@ -8,7 +8,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 #[ORM\Entity(repositoryClass: WakeUpRepository::class)]
 #[ORM\Index(columns: ['date'], name: 'idx_wakeup_date')]
-#[ORM\UniqueConstraint(name: 'unique_user_date', columns: ['user_id', 'date'])]
+#[ORM\UniqueConstraint(name: 'unique_wakeup_user_date', columns: ['user_id', 'date'])]
 class WakeUp
 {
     #[ORM\Id]

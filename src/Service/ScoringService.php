@@ -11,11 +11,12 @@ use App\Repository\WakeUpRepository;
 use Symfony\Bundle\SecurityBundle\Security;
 
 /**
- * Service principal de scoring
+ * Service principal de scoring v2.0
  * Délègue les calculs spécifiques aux services dédiés :
  * - IntervalCalculator : calculs d'intervalles
  * - StreakService : gestion des streaks
  * - RankService : calcul des rangs
+ * - MultiplierCalculator : multiplicateurs de zone et bonus (v2.0)
  */
 class ScoringService
 {
@@ -27,7 +28,8 @@ class ScoringService
         private Security $security,
         private IntervalCalculator $intervalCalculator,
         private StreakService $streakService,
-        private RankService $rankService
+        private RankService $rankService,
+        private MultiplierCalculator $multiplierCalculator
     ) {}
 
     private function getCurrentUser(): ?User
@@ -98,6 +100,7 @@ class ScoringService
 
     /**
      * Persiste le score du jour dans DailyScore (optimisation performance)
+     * Persiste aussi le score de la veille pour finaliser ses bonus (fix bug "bonus veille")
      */
     public function persistDailyScore(\DateTimeInterface $date): void
     {
@@ -106,9 +109,29 @@ class ScoringService
             return;
         }
 
+        // 1. Persister le score de la veille (finalise ses bonus potentiels)
+        $yesterday = (clone $date)->modify('-1 day');
+        $this->persistDailyScoreForDate($yesterday, $user);
+
+        // 2. Persister le score d'aujourd'hui
+        $this->persistDailyScoreForDate($date, $user);
+    }
+
+    /**
+     * Persiste le score pour une date spécifique
+     * Méthode interne utilisée par persistDailyScore()
+     */
+    private function persistDailyScoreForDate(\DateTimeInterface $date, User $user): void
+    {
+        $cigs = $this->cigaretteRepository->findByDate($date);
+
+        // Ne rien faire s'il n'y a pas de cigarettes ce jour-là
+        if (empty($cigs)) {
+            return;
+        }
+
         $dateOnly = (clone $date)->setTime(0, 0, 0);
         $dailyScoreData = $this->calculateDailyScore($date);
-        $cigs = $this->cigaretteRepository->findByDate($date);
 
         // Calculer l'intervalle moyen
         $avgInterval = null;
@@ -202,10 +225,11 @@ class ScoringService
     }
 
     /**
-     * Calcule le score du jour
+     * Calcule le score du jour (v2.0 avec multiplicateurs de zone)
      */
     public function calculateDailyScore(\DateTimeInterface $date): array
     {
+        $user = $this->getCurrentUser();
         $todayCigs = $this->cigaretteRepository->findByDate($date);
         $todayWakeUp = $this->wakeUpRepository->findByDate($date);
 
@@ -224,7 +248,7 @@ class ScoringService
         $yesterdayCigs = $this->cigaretteRepository->findByDate($yesterday);
         $yesterdayCount = count($yesterdayCigs);
 
-        // Intervalle moyen lissé (pour calcul des points)
+        // Intervalle moyen lissé (pour calcul des cibles)
         $avgInterval = $this->getSmoothedAverageInterval($date);
 
         $totalScore = 0;
@@ -244,7 +268,18 @@ class ScoringService
             }
 
             $diff = $actualMinutes - $targetMinutes;
-            $points = $this->intervalCalculator->getPointsForDiff($diff, $avgInterval);
+
+            // Scoring v2.0 : zone multiplier × user multiplier
+            if ($user) {
+                $points = $this->multiplierCalculator->calculatePoints($user, $diff);
+                $zoneMultiplier = $this->multiplierCalculator->getZoneMultiplier($diff);
+                $totalMultiplier = $this->multiplierCalculator->getTotalMultiplier($user, $diff);
+            } else {
+                // Fallback si pas d'utilisateur (ne devrait pas arriver)
+                $points = (int) round($diff);
+                $zoneMultiplier = 1.0;
+                $totalMultiplier = 1.0;
+            }
 
             $totalScore += $points;
             $comparisons[] = [
@@ -253,6 +288,8 @@ class ScoringService
                 'actual' => round($actualMinutes),
                 'diff' => round($diff),
                 'points' => $points,
+                'zone_multiplier' => $zoneMultiplier,
+                'total_multiplier' => round($totalMultiplier, 2),
                 'exceeded' => $yesterdayCount > 0 && $index >= $yesterdayCount,
             ];
         }

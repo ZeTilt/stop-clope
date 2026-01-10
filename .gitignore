@@ -31,3 +31,12 @@
 .claude/
 ###< project ###
 /ROADMAP.md
+
+###> bmad workflow ###
+/_bmad/
+/_bmad-output/
+###< bmad workflow ###
+
+###> mcp config ###
+.mcp.json
+###< mcp config ###

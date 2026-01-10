@@ -38,6 +38,15 @@ class DailyScore
     #[ORM\Column(type: Types::DATETIME_MUTABLE)]
     private ?\DateTimeInterface $calculatedAt = null;
 
+    #[ORM\Column(type: Types::BOOLEAN)]
+    private bool $isMaintenanceDay = false;
+
+    #[ORM\Column(type: Types::FLOAT, nullable: true)]
+    private ?float $multiplierApplied = null;
+
+    #[ORM\Column(type: Types::FLOAT, nullable: true)]
+    private ?float $targetInterval = null;
+
     public function __construct()
     {
         $this->calculatedAt = new \DateTime();
@@ -122,6 +131,39 @@ class DailyScore
     public function setCalculatedAt(\DateTimeInterface $calculatedAt): static
     {
         $this->calculatedAt = $calculatedAt;
+        return $this;
+    }
+
+    public function isMaintenanceDay(): bool
+    {
+        return $this->isMaintenanceDay;
+    }
+
+    public function setIsMaintenanceDay(bool $isMaintenanceDay): static
+    {
+        $this->isMaintenanceDay = $isMaintenanceDay;
+        return $this;
+    }
+
+    public function getMultiplierApplied(): ?float
+    {
+        return $this->multiplierApplied;
+    }
+
+    public function setMultiplierApplied(?float $multiplierApplied): static
+    {
+        $this->multiplierApplied = $multiplierApplied;
+        return $this;
+    }
+
+    public function getTargetInterval(): ?float
+    {
+        return $this->targetInterval;
+    }
+
+    public function setTargetInterval(?float $targetInterval): static
+    {
+        $this->targetInterval = $targetInterval;
         return $this;
     }
 }

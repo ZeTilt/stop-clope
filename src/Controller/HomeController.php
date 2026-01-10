@@ -13,8 +13,12 @@ use App\Service\BadgeService;
 use App\Service\CigaretteService;
 use App\Service\GoalService;
 use App\Service\IntervalCalculator;
+use App\Service\MaintenanceService;
 use App\Service\MessageService;
+use App\Service\RankProgressionService;
+use App\Service\ResetService;
 use App\Service\ScoringService;
+use App\Service\ShieldService;
 use App\Service\StatsService;
 use App\Service\StreakService;
 use Doctrine\ORM\EntityManagerInterface;
@@ -46,7 +50,11 @@ class HomeController extends AbstractController
         private IntervalCalculator $intervalCalculator,
         private CigaretteService $cigaretteService,
         private CsrfTokenManagerInterface $csrfTokenManager,
-        private LoggerInterface $logger
+        private LoggerInterface $logger,
+        private RankProgressionService $rankProgressionService,
+        private MaintenanceService $maintenanceService,
+        private ShieldService $shieldService,
+        private ResetService $resetService
     ) {}
 
     private function validateCsrfToken(Request $request): bool
@@ -74,7 +82,19 @@ class HomeController extends AbstractController
         $dailyScore = $this->scoringService->calculateDailyScore($today);
         $rank = $this->scoringService->getCurrentRank();
         $stats = $this->cigaretteRepository->getDailyStats(7);
-        $streak = $this->scoringService->getStreak();
+        $streak = $this->streakService->getStreakInfo(); // v2.0: infos complètes
+
+        /** @var \App\Entity\User|null $user */
+        $user = $this->getUser();
+
+        // v2.0: Info de progression de rang
+        $progressionInfo = $user ? $this->rankProgressionService->getProgressionInfo($user) : null;
+
+        // v2.0: Info jour maintenance
+        $maintenanceInfo = $this->maintenanceService->getWeeklyMaintenanceInfo($today);
+
+        // v2.0: Info boucliers
+        $shieldInfo = $user ? $this->shieldService->getShieldInfo($user) : null;
 
         // Calculer le compte à rebours pour la prochaine clope (via ScoringService)
         $nextCigTarget = $this->scoringService->getNextCigaretteInfo($today);
@@ -111,6 +131,9 @@ class HomeController extends AbstractController
             'goal_progress' => $goalProgress,
             'tier_achievement' => $tierAchievement,
             'first_day_success' => $firstDaySuccess,
+            'progression_info' => $progressionInfo,
+            'maintenance_info' => $maintenanceInfo,
+            'shield_info' => $shieldInfo,
         ]);
     }
 
@@ -271,6 +294,9 @@ class HomeController extends AbstractController
     #[Route('/stats', name: 'app_stats')]
     public function stats(): Response
     {
+        // v2.0: Incrémenter le compteur de vues (pour badge Analyste)
+        $this->badgeService->incrementStatsViews();
+
         // Utiliser le StatsService pour récupérer toutes les stats
         $fullStats = $this->statsService->getFullStats();
         $rank = $this->scoringService->getCurrentRank();
@@ -278,6 +304,14 @@ class HomeController extends AbstractController
         // Vérifier et attribuer les nouveaux badges
         $this->badgeService->checkAndAwardBadges();
         $badges = $this->badgeService->getAllBadgesWithStatus();
+
+        // v2.0: Récupérer infos bonus et boucliers
+        /** @var \App\Entity\User|null $user */
+        $user = $this->getUser();
+
+        $shieldInfo = $user ? $this->shieldService->getShieldInfo($user) : null;
+        $activeBonuses = $this->badgeService->getActiveBonuses();
+        $permanentMultiplier = $this->badgeService->getPermanentMultiplier();
 
         return $this->render('home/stats.html.twig', [
             'monthly_stats' => $fullStats['monthly_stats'],
@@ -290,6 +324,10 @@ class HomeController extends AbstractController
             'savings' => $fullStats['savings'],
             'first_date' => $fullStats['first_date'],
             'badges' => $badges,
+            'badges_by_category' => $this->badgeService->getBadgesByCategory(),
+            'shield_info' => $shieldInfo,
+            'active_bonuses' => $activeBonuses,
+            'permanent_multiplier' => $permanentMultiplier,
         ]);
     }
 
@@ -343,6 +381,62 @@ class HomeController extends AbstractController
         }
 
         return new JsonResponse(['success' => true]);
+    }
+
+    #[Route('/settings/reset', name: 'app_settings_reset', methods: ['POST'])]
+    public function resetAccount(Request $request): JsonResponse
+    {
+        // Validate CSRF token
+        if (!$this->validateCsrfToken($request)) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid CSRF token'], 403);
+        }
+
+        // Validate confirmation code
+        $confirmationCode = $request->request->get('confirmation_code');
+        if ($confirmationCode !== 'RESET') {
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Code de confirmation incorrect. Tapez RESET pour confirmer.',
+            ], 400);
+        }
+
+        /** @var User $user */
+        $user = $this->getUser();
+
+        try {
+            $result = $this->resetService->executeReset($user);
+
+            // Invalider les caches
+            $this->scoringService->invalidateCache();
+            $this->statsService->invalidateCache();
+
+            return new JsonResponse($result);
+        } catch (\Exception $e) {
+            $this->logger->error('Reset failed', ['error' => $e->getMessage()]);
+            return new JsonResponse([
+                'success' => false,
+                'error' => 'Erreur lors de la réinitialisation',
+            ], 500);
+        }
+    }
+
+    #[Route('/settings/reset-info', name: 'app_settings_reset_info', methods: ['GET'])]
+    public function resetInfo(): JsonResponse
+    {
+        /** @var User|null $user */
+        $user = $this->getUser();
+
+        if (!$user) {
+            return new JsonResponse(['success' => false], 401);
+        }
+
+        return new JsonResponse([
+            'success' => true,
+            'reset_count' => $this->resetService->getResetCount(),
+            'has_history' => $this->resetService->hasResetHistory(),
+            'last_reset' => $this->resetService->getLastReset(),
+            'pre_reset_stats' => $this->resetService->getPreResetStats($user),
+        ]);
     }
 
     #[Route('/onboarding', name: 'app_onboarding')]

@@ -1,0 +1,457 @@
+# Configuration des badges v2.0
+# 35 badges répartis en 7 catégories
+
+parameters:
+  badges:
+    # ==========================================
+    # DISCIPLINE (7) - Jours sans zone négative
+    # ==========================================
+    zen_beginner:
+      name: 'Zen Débutant'
+      description: '3 jours sans zone négative'
+      icon: '🧘'
+      category: 'discipline'
+      condition:
+        type: 'days_no_negative'
+        value: 3
+      bonus:
+        type: 'score_percent'
+        value: 5
+        duration: 1440  # 24h en minutes
+
+    zen_confirmed:
+      name: 'Zen Confirmé'
+      description: '7 jours sans zone négative'
+      icon: '🧘‍♂️'
+      category: 'discipline'
+      condition:
+        type: 'days_no_negative'
+        value: 7
+      bonus:
+        type: 'score_percent'
+        value: 5
+        duration: 2880  # 48h
+
+    zen_expert:
+      name: 'Zen Expert'
+      description: '14 jours sans zone négative'
+      icon: '🌸'
+      category: 'discipline'
+      condition:
+        type: 'days_no_negative'
+        value: 14
+      bonus:
+        type: 'multiplier'
+        value: 0.02
+
+    zen_master:
+      name: 'Zen Maître'
+      description: '21 jours sans zone négative'
+      icon: '☯️'
+      category: 'discipline'
+      condition:
+        type: 'days_no_negative'
+        value: 21
+      bonus:
+        type: 'shield'
+        value: 1
+
+    zen_sage:
+      name: 'Zen Sage'
+      description: '30 jours sans zone négative'
+      icon: '🕉️'
+      category: 'discipline'
+      condition:
+        type: 'days_no_negative'
+        value: 30
+      bonus:
+        type: 'multiplier'
+        value: 0.03
+
+    zen_guru:
+      name: 'Zen Guru'
+      description: '60 jours sans zone négative'
+      icon: '🔮'
+      category: 'discipline'
+      condition:
+        type: 'days_no_negative'
+        value: 60
+      bonus:
+        type: 'multiplier'
+        value: 0.05
+
+    zen_legend:
+      name: 'Zen Légende'
+      description: '90 jours sans zone négative'
+      icon: '🏛️'
+      category: 'discipline'
+      condition:
+        type: 'days_no_negative'
+        value: 90
+      bonus:
+        type: 'shield'
+        value: 2
+
+    # ==========================================
+    # SEQUENCE (6) - Jours consécutifs positifs
+    # ==========================================
+    streak_3:
+      name: 'Premier pas'
+      description: '3 jours consécutifs positifs'
+      icon: '👣'
+      category: 'sequence'
+      condition:
+        type: 'streak_days'
+        value: 3
+      bonus:
+        type: 'score_percent'
+        value: 5
+        duration: 1440
+
+    streak_7:
+      name: 'Une semaine'
+      description: '7 jours consécutifs positifs'
+      icon: '🔥'
+      category: 'sequence'
+      condition:
+        type: 'streak_days'
+        value: 7
+      bonus:
+        type: 'score_percent'
+        value: 10
+        duration: 1440
+
+    streak_14:
+      name: 'Deux semaines'
+      description: '14 jours consécutifs positifs'
+      icon: '🌟'
+      category: 'sequence'
+      condition:
+        type: 'streak_days'
+        value: 14
+      bonus:
+        type: 'multiplier'
+        value: 0.02
+
+    streak_30:
+      name: 'Marathonien'
+      description: '30 jours consécutifs positifs'
+      icon: '🏃'
+      category: 'sequence'
+      condition:
+        type: 'streak_days'
+        value: 30
+      bonus:
+        type: 'shield'
+        value: 1
+
+    streak_60:
+      name: 'Ultra Runner'
+      description: '60 jours consécutifs positifs'
+      icon: '🏅'
+      category: 'sequence'
+      condition:
+        type: 'streak_days'
+        value: 60
+      bonus:
+        type: 'multiplier'
+        value: 0.03
+
+    streak_90:
+      name: 'Ironman'
+      description: '90 jours consécutifs positifs'
+      icon: '🏆'
+      category: 'sequence'
+      condition:
+        type: 'streak_days'
+        value: 90
+      bonus:
+        type: 'multiplier'
+        value: 0.05
+
+    # ==========================================
+    # REDUCTION (6) - Pourcentage de réduction
+    # ==========================================
+    reducer_10:
+      name: 'En Route'
+      description: '-10% vs consommation initiale'
+      icon: '📊'
+      category: 'reduction'
+      condition:
+        type: 'reduction_percent'
+        value: 10
+      bonus:
+        type: 'score_percent'
+        value: 5
+        duration: 1440
+
+    reducer_25:
+      name: 'En Progrès'
+      description: '-25% vs consommation initiale'
+      icon: '📉'
+      category: 'reduction'
+      condition:
+        type: 'reduction_percent'
+        value: 25
+      bonus:
+        type: 'score_percent'
+        value: 10
+        duration: 1440
+
+    reducer_50:
+      name: 'Réducteur'
+      description: '-50% vs consommation initiale'
+      icon: '🎯'
+      category: 'reduction'
+      condition:
+        type: 'reduction_percent'
+        value: 50
+      bonus:
+        type: 'multiplier'
+        value: 0.03
+
+    reducer_75:
+      name: 'Presque Libre'
+      description: '-75% vs consommation initiale'
+      icon: '🦅'
+      category: 'reduction'
+      condition:
+        type: 'reduction_percent'
+        value: 75
+      bonus:
+        type: 'multiplier'
+        value: 0.05
+
+    reducer_90:
+      name: 'Quasi Libéré'
+      description: '-90% vs consommation initiale'
+      icon: '🕊️'
+      category: 'reduction'
+      condition:
+        type: 'reduction_percent'
+        value: 90
+      bonus:
+        type: 'shield'
+        value: 2
+
+    zero_day:
+      name: 'Jour Parfait'
+      description: 'Une journée sans fumer'
+      icon: '⭐'
+      category: 'reduction'
+      condition:
+        type: 'zero_day'
+        value: 1
+      bonus:
+        type: 'score_percent'
+        value: 10
+        duration: 2880
+
+    # ==========================================
+    # INTERVALLE (5) - Paliers d'intervalle
+    # ==========================================
+    interval_60:
+      name: 'Patient'
+      description: 'Intervalle cible de 60 minutes'
+      icon: '⏱️'
+      category: 'interval'
+      condition:
+        type: 'target_interval'
+        value: 60
+      bonus:
+        type: 'score_percent'
+        value: 5
+        duration: 1440
+
+    interval_90:
+      name: 'Endurant'
+      description: 'Intervalle cible de 90 minutes'
+      icon: '⏰'
+      category: 'interval'
+      condition:
+        type: 'target_interval'
+        value: 90
+      bonus:
+        type: 'multiplier'
+        value: 0.02
+
+    interval_120:
+      name: 'Résistant'
+      description: 'Intervalle cible de 120 minutes'
+      icon: '🕐'
+      category: 'interval'
+      condition:
+        type: 'target_interval'
+        value: 120
+      bonus:
+        type: 'shield'
+        value: 1
+
+    interval_180:
+      name: 'Stoïque'
+      description: 'Intervalle cible de 180 minutes'
+      icon: '🕰️'
+      category: 'interval'
+      condition:
+        type: 'target_interval'
+        value: 180
+      bonus:
+        type: 'multiplier'
+        value: 0.03
+
+    interval_240:
+      name: 'Maître du Temps'
+      description: 'Intervalle cible de 240 minutes'
+      icon: '⌛'
+      category: 'interval'
+      condition:
+        type: 'target_interval'
+        value: 240
+      bonus:
+        type: 'multiplier'
+        value: 0.05
+
+    # ==========================================
+    # ECONOMIES (5) - Argent économisé
+    # ==========================================
+    saver_10:
+      name: 'Économe'
+      description: '10€ économisés'
+      icon: '💰'
+      category: 'savings'
+      condition:
+        type: 'savings'
+        value: 10
+      bonus:
+        type: 'score_percent'
+        value: 5
+        duration: 1440
+
+    saver_50:
+      name: 'Épargnant'
+      description: '50€ économisés'
+      icon: '💎'
+      category: 'savings'
+      condition:
+        type: 'savings'
+        value: 50
+      bonus:
+        type: 'multiplier'
+        value: 0.02
+
+    saver_100:
+      name: 'Riche'
+      description: '100€ économisés'
+      icon: '🏦'
+      category: 'savings'
+      condition:
+        type: 'savings'
+        value: 100
+      bonus:
+        type: 'shield'
+        value: 1
+
+    saver_250:
+      name: 'Fortuné'
+      description: '250€ économisés'
+      icon: '💵'
+      category: 'savings'
+      condition:
+        type: 'savings'
+        value: 250
+      bonus:
+        type: 'multiplier'
+        value: 0.03
+
+    saver_500:
+      name: 'Millionnaire'
+      description: '500€ économisés'
+      icon: '🤑'
+      category: 'savings'
+      condition:
+        type: 'savings'
+        value: 500
+      bonus:
+        type: 'multiplier'
+        value: 0.05
+
+    # ==========================================
+    # RESILIENCE (4) - Comeback et utilisation bouclier
+    # ==========================================
+    comeback:
+      name: 'Rebond'
+      description: 'Score positif après 3 jours négatifs'
+      icon: '🔄'
+      category: 'resilience'
+      condition:
+        type: 'comeback'
+        value: 3
+      bonus:
+        type: 'score_percent'
+        value: 10
+        duration: 1440
+
+    phoenix:
+      name: 'Phoenix'
+      description: '1000 points après un reset'
+      icon: '🦅'
+      category: 'resilience'
+      condition:
+        type: 'phoenix'
+        value: 1000
+      bonus:
+        type: 'shield'
+        value: 1
+
+    shield_user:
+      name: 'Protecteur'
+      description: 'Première utilisation de bouclier'
+      icon: '🛡️'
+      category: 'resilience'
+      condition:
+        type: 'shield_used'
+        value: 1
+      bonus:
+        type: 'score_percent'
+        value: 5
+        duration: 1440
+
+    shield_master:
+      name: 'Maître Bouclier'
+      description: '5 boucliers utilisés'
+      icon: '⚔️'
+      category: 'resilience'
+      condition:
+        type: 'shield_used'
+        value: 5
+      bonus:
+        type: 'multiplier'
+        value: 0.02
+
+    # ==========================================
+    # SPECIALE (2) - Badges uniques
+    # ==========================================
+    founder:
+      name: 'Fondateur'
+      description: 'Utilisateur depuis le premier jour'
+      icon: '🏛️'
+      category: 'special'
+      condition:
+        type: 'founder'
+        value: 1
+      bonus:
+        type: 'multiplier'
+        value: 0.05
+
+    analyst:
+      name: 'Analyste'
+      description: '30 consultations de statistiques'
+      icon: '📈'
+      category: 'special'
+      condition:
+        type: 'stats_views'
+        value: 30
+      bonus:
+        type: 'score_percent'
+        value: 5
+        duration: 2880

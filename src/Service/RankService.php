@@ -5,37 +5,46 @@ namespace App\Service;
 use App\Repository\DailyScoreRepository;
 
 /**
- * Service dédié au calcul des rangs utilisateur
- * Extrait de ScoringService pour une meilleure maintenabilité
+ * Service dédié au calcul des rangs utilisateur v2.0
+ * 12 rangs avec multiplicateurs et avantages progressifs
  */
 class RankService
 {
     /**
-     * Définition des rangs avec leurs seuils de points
+     * Définition des rangs v2.0 avec seuils, multiplicateurs et avantages
+     * Format: score => ['name' => ..., 'multiplier' => ..., 'advantages' => [...]]
      */
     private const RANKS = [
-        0 => 'Débutant',
-        101 => 'Apprenti',
-        301 => 'Résistant',
-        601 => 'Guerrier',
-        1001 => 'Champion',
-        1501 => 'Héros',
-        2501 => 'Légende',
-        4001 => 'Maître du souffle',
+        0 => ['name' => 'Fumeur', 'multiplier' => 0.0, 'advantages' => []],
+        100 => ['name' => 'Curieux', 'multiplier' => 0.0, 'advantages' => ['history_access']],
+        500 => ['name' => 'Débutant', 'multiplier' => 0.0, 'advantages' => ['basic_stats']],
+        1500 => ['name' => 'Apprenti', 'multiplier' => 0.02, 'advantages' => []],
+        3500 => ['name' => 'Initié', 'multiplier' => 0.0, 'advantages' => ['week_stats']],
+        7500 => ['name' => 'Confirmé', 'multiplier' => 0.05, 'advantages' => []],
+        15000 => ['name' => 'Avancé', 'multiplier' => 0.0, 'advantages' => ['extra_maintenance']],
+        30000 => ['name' => 'Expert', 'multiplier' => 0.08, 'advantages' => []],
+        60000 => ['name' => 'Maître', 'multiplier' => 0.0, 'advantages' => ['advanced_stats']],
+        120000 => ['name' => 'Grand Maître', 'multiplier' => 0.12, 'advantages' => []],
+        200000 => ['name' => 'Sage', 'multiplier' => 0.0, 'advantages' => ['monthly_shield']],
+        350000 => ['name' => 'Légende', 'multiplier' => 0.0, 'advantages' => ['exclusive_theme']],
     ];
 
     /**
      * Emojis associés aux rangs
      */
     private const RANK_EMOJIS = [
+        'Fumeur' => '🚬',
+        'Curieux' => '🔍',
         'Débutant' => '🌱',
         'Apprenti' => '📚',
-        'Résistant' => '💪',
-        'Guerrier' => '⚔️',
-        'Champion' => '🏆',
-        'Héros' => '🦸',
+        'Initié' => '🎯',
+        'Confirmé' => '💪',
+        'Avancé' => '⚔️',
+        'Expert' => '🏆',
+        'Maître' => '🦸',
+        'Grand Maître' => '👑',
+        'Sage' => '🧘',
         'Légende' => '⭐',
-        'Maître du souffle' => '🧘',
     ];
 
     public function __construct(
@@ -51,24 +60,24 @@ class RankService
             $totalScore = $this->dailyScoreRepository->getTotalScore();
         }
 
-        $currentRank = 'Débutant';
-        $nextRankThreshold = 101;
+        $currentRankData = self::RANKS[0];
         $currentThreshold = 0;
+        $nextRankThreshold = null;
 
-        foreach (self::RANKS as $threshold => $rank) {
+        $thresholds = array_keys(self::RANKS);
+        foreach ($thresholds as $i => $threshold) {
             if ($totalScore >= $threshold) {
-                $currentRank = $rank;
+                $currentRankData = self::RANKS[$threshold];
                 $currentThreshold = $threshold;
+                // Prochain seuil
+                $nextRankThreshold = $thresholds[$i + 1] ?? null;
             } else {
                 $nextRankThreshold = $threshold;
                 break;
             }
         }
 
-        // Si on a atteint le dernier rang
-        if ($currentRank === 'Maître du souffle') {
-            $nextRankThreshold = null;
-        }
+        $currentRank = $currentRankData['name'];
 
         $progress = 0;
         if ($nextRankThreshold !== null && $nextRankThreshold > $currentThreshold) {
@@ -80,13 +89,15 @@ class RankService
 
         return [
             'rank' => $currentRank,
-            'emoji' => self::RANK_EMOJIS[$currentRank] ?? '🌱',
+            'emoji' => self::RANK_EMOJIS[$currentRank] ?? '🚬',
             'total_score' => $totalScore,
             'current_threshold' => $currentThreshold,
             'next_rank_threshold' => $nextRankThreshold,
             'next_rank' => $this->getNextRank($currentRank),
             'progress' => round($progress),
             'points_to_next' => $nextRankThreshold !== null ? $nextRankThreshold - $totalScore : 0,
+            'multiplier_bonus' => $currentRankData['multiplier'],
+            'advantages' => $currentRankData['advantages'],
         ];
     }
 
@@ -95,27 +106,29 @@ class RankService
      */
     public function getNextRank(string $currentRank): ?string
     {
-        $ranks = array_values(self::RANKS);
-        $currentIndex = array_search($currentRank, $ranks);
+        $rankNames = array_values(array_map(fn($r) => $r['name'], self::RANKS));
+        $currentIndex = array_search($currentRank, $rankNames);
 
-        if ($currentIndex === false || $currentIndex >= count($ranks) - 1) {
+        if ($currentIndex === false || $currentIndex >= count($rankNames) - 1) {
             return null; // Déjà au rang maximum
         }
 
-        return $ranks[$currentIndex + 1];
+        return $rankNames[$currentIndex + 1];
     }
 
     /**
-     * Retourne tous les rangs avec leurs seuils
+     * Retourne tous les rangs avec leurs seuils et propriétés
      */
     public function getAllRanks(): array
     {
         $result = [];
-        foreach (self::RANKS as $threshold => $rank) {
+        foreach (self::RANKS as $threshold => $rankData) {
             $result[] = [
-                'rank' => $rank,
-                'emoji' => self::RANK_EMOJIS[$rank] ?? '🌱',
+                'rank' => $rankData['name'],
+                'emoji' => self::RANK_EMOJIS[$rankData['name']] ?? '🚬',
                 'threshold' => $threshold,
+                'multiplier' => $rankData['multiplier'],
+                'advantages' => $rankData['advantages'],
             ];
         }
         return $result;
@@ -126,16 +139,19 @@ class RankService
      */
     public function checkRankUp(int $previousScore, int $newScore): ?array
     {
-        $previousRank = $this->getCurrentRank($previousScore)['rank'];
-        $newRank = $this->getCurrentRank($newScore)['rank'];
+        $previousRankInfo = $this->getCurrentRank($previousScore);
+        $newRankInfo = $this->getCurrentRank($newScore);
 
-        if ($previousRank !== $newRank) {
+        if ($previousRankInfo['rank'] !== $newRankInfo['rank']) {
+            $rankNames = array_values(array_map(fn($r) => $r['name'], self::RANKS));
             return [
-                'previous_rank' => $previousRank,
-                'new_rank' => $newRank,
-                'new_emoji' => self::RANK_EMOJIS[$newRank] ?? '🌱',
-                'is_rank_up' => array_search($newRank, array_values(self::RANKS)) >
-                               array_search($previousRank, array_values(self::RANKS)),
+                'previous_rank' => $previousRankInfo['rank'],
+                'new_rank' => $newRankInfo['rank'],
+                'new_emoji' => self::RANK_EMOJIS[$newRankInfo['rank']] ?? '🚬',
+                'is_rank_up' => array_search($newRankInfo['rank'], $rankNames) >
+                               array_search($previousRankInfo['rank'], $rankNames),
+                'new_multiplier' => $newRankInfo['multiplier_bonus'],
+                'new_advantages' => $newRankInfo['advantages'],
             ];
         }
 
@@ -147,7 +163,36 @@ class RankService
      */
     public function getScoreForRank(string $rank): ?int
     {
-        $flippedRanks = array_flip(self::RANKS);
-        return $flippedRanks[$rank] ?? null;
+        foreach (self::RANKS as $threshold => $rankData) {
+            if ($rankData['name'] === $rank) {
+                return $threshold;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Vérifie si l'utilisateur a un avantage spécifique
+     */
+    public function hasAdvantage(int $totalScore, string $advantage): bool
+    {
+        $rankInfo = $this->getCurrentRank($totalScore);
+        return in_array($advantage, $rankInfo['advantages'], true);
+    }
+
+    /**
+     * Retourne le multiplicateur cumulé de tous les rangs jusqu'au rang actuel
+     */
+    public function getCumulativeMultiplier(int $totalScore): float
+    {
+        $cumulative = 0.0;
+        foreach (self::RANKS as $threshold => $rankData) {
+            if ($totalScore >= $threshold) {
+                $cumulative += $rankData['multiplier'];
+            } else {
+                break;
+            }
+        }
+        return $cumulative;
     }
 }

@@ -9,6 +9,8 @@ use App\Repository\WakeUpRepository;
 /**
  * Service dédié à la gestion des streaks (jours consécutifs positifs)
  * Extrait de ScoringService pour une meilleure maintenabilité
+ *
+ * v2.0: Ajoute bonus de séquence et préservation par maintenance/bouclier
  */
 class StreakService
 {
@@ -25,6 +27,16 @@ class StreakService
         90 => ['emoji' => '👑', 'message' => '3 mois légendaires !'],
         180 => ['emoji' => '🎖️', 'message' => '6 mois incroyables !'],
         365 => ['emoji' => '🏅', 'message' => 'Une année complète !'],
+    ];
+
+    /**
+     * Bonus de multiplicateur basé sur la séquence v2.0
+     * Paliers: 3 jours +5%, 7 jours +10%, 14+ jours +15%
+     */
+    private const STREAK_BONUS_TIERS = [
+        3 => 0.05,   // 3+ jours: +5%
+        7 => 0.10,   // 7+ jours: +10%
+        14 => 0.15,  // 14+ jours: +15%
     ];
 
     public function __construct(
@@ -165,4 +177,85 @@ class StreakService
         return $result;
     }
 
+    /**
+     * Calcule le bonus de multiplicateur basé sur la séquence v2.0
+     *
+     * @param int $streakDays Nombre de jours consécutifs
+     * @return float Bonus (0.0, 0.05, 0.10 ou 0.15)
+     */
+    public function getStreakBonus(int $streakDays): float
+    {
+        $bonus = 0.0;
+
+        foreach (self::STREAK_BONUS_TIERS as $days => $tierBonus) {
+            if ($streakDays >= $days) {
+                $bonus = $tierBonus;
+            }
+        }
+
+        return $bonus;
+    }
+
+    /**
+     * Récupère les infos complètes de séquence pour l'affichage v2.0
+     */
+    public function getStreakInfo(): array
+    {
+        $streak = $this->getStreakOptimized();
+        $bonus = $this->getStreakBonus($streak['current']);
+        $nextMilestone = $this->getNextMilestone($streak['current']);
+
+        return [
+            'current' => $streak['current'],
+            'best' => $streak['best'],
+            'today_positive' => $streak['today_positive'],
+            'bonus_multiplier' => $bonus,
+            'bonus_percentage' => (int) ($bonus * 100),
+            'next_milestone' => $nextMilestone,
+            'next_bonus_tier' => $this->getNextBonusTier($streak['current']),
+        ];
+    }
+
+    /**
+     * Retourne le prochain palier de bonus de séquence
+     */
+    public function getNextBonusTier(int $currentStreak): ?array
+    {
+        foreach (self::STREAK_BONUS_TIERS as $days => $bonus) {
+            if ($days > $currentStreak) {
+                return [
+                    'days_needed' => $days,
+                    'days_remaining' => $days - $currentStreak,
+                    'bonus' => $bonus,
+                    'bonus_percentage' => (int) ($bonus * 100),
+                ];
+            }
+        }
+        return null; // Max tier atteint
+    }
+
+    /**
+     * Détermine si un jour devrait préserver la séquence malgré un score négatif
+     *
+     * @param \DateTimeInterface $date La date à vérifier
+     * @return bool True si la séquence est protégée
+     */
+    public function isStreakProtected(\DateTimeInterface $date): bool
+    {
+        // Récupérer le DailyScore pour vérifier maintenance et bouclier
+        $dailyScore = $this->dailyScoreRepository->findByDate($date);
+
+        if (!$dailyScore) {
+            return false;
+        }
+
+        // Jour de maintenance = séquence préservée
+        if ($dailyScore->isMaintenanceDay()) {
+            return true;
+        }
+
+        // Si un bouclier a été utilisé (multiplierApplied différent = protection)
+        // Note: La logique bouclier sera implémentée dans Epic 4
+        return false;
+    }
 }
