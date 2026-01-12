@@ -144,6 +144,35 @@
             Comment ça marche ?
         </a>
     </div>
+
+    <div class="card" style="border: 2px solid var(--accent);">
+        <h3 style="margin-bottom: 15px; color: var(--accent);">⚠️ Zone de danger</h3>
+        <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 15px;">
+            Réinitialise ton compte pour recommencer à zéro. Toutes tes données seront supprimées (cigarettes, scores, badges).
+            Tes paramètres (prix paquet, etc.) seront conservés.
+        </p>
+        <div id="resetInfo" style="padding: 10px; background: var(--bg-secondary); border-radius: 8px; margin-bottom: 15px; font-size: 0.85rem; display: none;">
+            <span id="resetCount"></span>
+        </div>
+        <button class="secondary-button" id="resetBtn" style="width: 100%; background: transparent; border: 2px solid var(--accent); color: var(--accent);">
+            🔄 Réinitialiser mon compte
+        </button>
+    </div>
+
+    <!-- Modal Reset -->
+    <div id="resetModal" style="display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 1000; align-items: center; justify-content: center;">
+        <div style="background: var(--bg-primary); padding: 25px; border-radius: 16px; max-width: 320px; margin: 20px;">
+            <h3 style="color: var(--accent); margin-bottom: 15px;">⚠️ Confirmation</h3>
+            <p style="font-size: 0.9rem; margin-bottom: 20px;">
+                Cette action est <strong>irréversible</strong>. Tape <code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px;">RESET</code> pour confirmer.
+            </p>
+            <input type="text" id="resetConfirmInput" placeholder="Tape RESET" style="width: 100%; padding: 12px; border: 2px solid var(--bg-secondary); border-radius: 8px; background: var(--bg-secondary); color: var(--text-primary); font-size: 1rem; text-align: center; margin-bottom: 15px;">
+            <div style="display: flex; gap: 10px;">
+                <button id="cancelResetBtn" class="secondary-button" style="flex: 1;">Annuler</button>
+                <button id="confirmResetBtn" class="big-button" style="flex: 1; background: var(--accent);" disabled>Confirmer</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <style>
@@ -503,5 +532,88 @@
 
     // Bouton sauvegarder paramètres
     document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+
+    // ===== Reset compte =====
+    const resetBtn = document.getElementById('resetBtn');
+    const resetModal = document.getElementById('resetModal');
+    const resetConfirmInput = document.getElementById('resetConfirmInput');
+    const confirmResetBtn = document.getElementById('confirmResetBtn');
+    const cancelResetBtn = document.getElementById('cancelResetBtn');
+    const resetInfoDiv = document.getElementById('resetInfo');
+    const resetCountSpan = document.getElementById('resetCount');
+
+    // Charger les infos de reset
+    function loadResetInfo() {
+        fetch('{{ path('app_settings_reset_info') }}')
+            .then(r => r.json())
+            .then(data => {
+                if (data.reset_count > 0) {
+                    resetInfoDiv.style.display = 'block';
+                    resetCountSpan.textContent = `🔥 Tu as déjà reset ${data.reset_count} fois. Badge Phoenix disponible après le prochain reset !`;
+                }
+            })
+            .catch(() => {});
+    }
+
+    // Ouvrir le modal
+    resetBtn.addEventListener('click', () => {
+        resetModal.style.display = 'flex';
+        resetConfirmInput.value = '';
+        confirmResetBtn.disabled = true;
+        resetConfirmInput.focus();
+    });
+
+    // Fermer le modal
+    cancelResetBtn.addEventListener('click', () => {
+        resetModal.style.display = 'none';
+    });
+
+    resetModal.addEventListener('click', (e) => {
+        if (e.target === resetModal) {
+            resetModal.style.display = 'none';
+        }
+    });
+
+    // Activer le bouton si "RESET" est tapé
+    resetConfirmInput.addEventListener('input', () => {
+        confirmResetBtn.disabled = resetConfirmInput.value !== 'RESET';
+    });
+
+    // Confirmer le reset
+    confirmResetBtn.addEventListener('click', () => {
+        if (resetConfirmInput.value !== 'RESET') return;
+
+        confirmResetBtn.disabled = true;
+        confirmResetBtn.textContent = '...';
+
+        fetch('{{ path('app_settings_reset') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-Token': csrfToken
+            },
+            body: 'confirmation_code=RESET'
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast('Compte réinitialisé', { type: 'success', icon: '🔄' });
+                setTimeout(() => {
+                    window.location.href = '{{ path('app_onboarding') }}';
+                }, 1500);
+            } else {
+                showToast(data.error || 'Erreur', { type: 'error' });
+                confirmResetBtn.disabled = false;
+                confirmResetBtn.textContent = 'Confirmer';
+            }
+        })
+        .catch(() => {
+            showToast('Erreur réseau', { type: 'error' });
+            confirmResetBtn.disabled = false;
+            confirmResetBtn.textContent = 'Confirmer';
+        });
+    });
+
+    loadResetInfo();
 </script>
 {% endblock %}
