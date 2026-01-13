@@ -372,28 +372,36 @@
     }
     {% endif %}
 
-    // Calcul des points côté client (même logique que ScoringService - PAS DE TIMESTAMPS)
+    // Calcul des points côté client (v2.0 - multiplicateurs de zone, SANS PLAFOND)
     var pointsDisplay = document.getElementById('points-display');
     if (pointsDisplay && pointsDisplay.dataset.wakeMinutes && pointsDisplay.dataset.targetMinutes) {
         var wakeMinutes = parseInt(pointsDisplay.dataset.wakeMinutes);
         var targetMinutes = parseFloat(pointsDisplay.dataset.targetMinutes);
-        var avgInterval = parseFloat(pointsDisplay.dataset.avgInterval) || 60;
 
-        // Scoring proportionnel à l'intervalle, sans plafond
-        // diff = intervalle → 20 pts, diff = 2*intervalle → 40 pts, etc.
-        function getPointsForDiff(diff) {
-            if (avgInterval <= 0) avgInterval = 60;
-            var ratio = diff / avgInterval;
-
-            if (diff > 0) {
-                // Positif : 20 pts par intervalle, minimum 1
-                return Math.max(1, Math.round(ratio * 20));
-            } else if (diff === 0) {
-                return -1;
+        // Multiplicateurs de zone v2.0 (identiques à MultiplierCalculator.php)
+        // Zone négative (fumé AVANT la cible):
+        //   0-10 min: ×1.0, 10-20 min: ×1.5, 20+ min: ×2.0
+        // Zone positive (fumé APRÈS la cible):
+        //   0-30 min: ×1.0, 30-60 min: ×1.2, 60+ min: ×1.5
+        function getZoneMultiplier(diff) {
+            var absMinutes = Math.abs(diff);
+            if (diff < 0) {
+                // Zone négative
+                if (absMinutes <= 10) return 1.0;
+                if (absMinutes <= 20) return 1.5;
+                return 2.0;
             } else {
-                // Négatif : malus proportionnel, plafonné à -20
-                return Math.max(-20, Math.round(ratio * 20));
+                // Zone positive
+                if (absMinutes <= 30) return 1.0;
+                if (absMinutes <= 60) return 1.2;
+                return 1.5;
             }
+        }
+
+        // Points = diff × zoneMultiplier (SANS PLAFOND)
+        function getPointsForDiff(diff) {
+            var zoneMultiplier = getZoneMultiplier(diff);
+            return Math.round(diff * zoneMultiplier);
         }
 
         function updatePointsDisplay() {
@@ -418,16 +426,13 @@
                 currentMsg.innerHTML = '<span style="color: var(--accent); font-size: 1.1rem; font-weight: 600;">Tu perdrais ' + Math.abs(currentPoints) + ' pts</span>';
             }
 
-            // Calcul du prochain palier
-            var pointStep = avgInterval / 20; // minutes pour gagner 1 pt de plus
-            var minutesToNext, nextPoints;
+            // Affichage du prochain seuil de zone
+            var minutesToNext;
 
-            if (currentPoints < 1) {
-                // En négatif : afficher L'HEURE cible (diff = 0, moment "autorisé")
-                minutesToNext = Math.ceil(-diff); // diff est négatif, donc -diff = temps restant
-                if (minutesToNext < 0) minutesToNext = 0;
+            if (diff < 0) {
+                // En négatif : afficher L'HEURE cible (diff = 0)
+                minutesToNext = Math.ceil(-diff);
 
-                // Calculer l'heure cible (heure dernière clope + intervalle)
                 var targetTime = new Date();
                 targetTime.setMinutes(targetTime.getMinutes() + minutesToNext);
                 var targetHour = targetTime.getHours().toString().padStart(2, '0');
@@ -439,31 +444,32 @@
                     nextMsg.textContent = 'cible';
                     nextInfo.style.display = 'block';
                 } else {
-                    // On est pile à l'heure ou après
                     countdown.textContent = '✓';
                     countdown.style.color = 'var(--success)';
                     nextMsg.textContent = 'OK';
                     nextInfo.style.display = 'block';
                 }
             } else {
-                // Déjà en positif : afficher le temps avant prochain palier
-                var nextPointDiff = (currentPoints + 0.5) * avgInterval / 20;
-                minutesToNext = Math.ceil(nextPointDiff - diff);
-                if (minutesToNext <= 0) {
-                    minutesToNext = Math.ceil(pointStep - ((diff - nextPointDiff) % pointStep));
+                // En positif : afficher le prochain seuil de zone bonus
+                // Zones: 0-30 min ×1.0, 30-60 min ×1.2, 60+ min ×1.5
+                var nextThreshold, nextMultiplier;
+                if (diff < 30) {
+                    nextThreshold = 30;
+                    nextMultiplier = '×1.2';
+                } else if (diff < 60) {
+                    nextThreshold = 60;
+                    nextMultiplier = '×1.5';
+                } else {
+                    // Déjà au max, pas de prochain seuil
+                    nextInfo.style.display = 'none';
+                    return;
                 }
-                nextPoints = currentPoints + 1;
 
-                if (minutesToNext > 0 && minutesToNext < 180) { // Max 3h affichées
-                    if (minutesToNext >= 60) {
-                        var h = Math.floor(minutesToNext / 60);
-                        var m = minutesToNext % 60;
-                        countdown.textContent = h + 'h' + m.toString().padStart(2, '0');
-                    } else {
-                        countdown.textContent = minutesToNext + 'min';
-                    }
+                minutesToNext = Math.ceil(nextThreshold - diff);
+                if (minutesToNext > 0) {
+                    countdown.textContent = minutesToNext + 'min';
                     countdown.style.color = 'var(--success)';
-                    nextMsg.textContent = '→ +' + nextPoints + 'pts';
+                    nextMsg.textContent = '→ ' + nextMultiplier;
                     nextInfo.style.display = 'block';
                 } else {
                     nextInfo.style.display = 'none';
