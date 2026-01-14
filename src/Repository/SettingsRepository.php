@@ -61,4 +61,20 @@ class SettingsRepository extends ServiceEntityRepository
         $this->getEntityManager()->persist($setting);
         $this->getEntityManager()->flush();
     }
+
+    public function delete(string $name): void
+    {
+        $user = $this->getCurrentUser();
+        $criteria = ['name' => $name];
+
+        if ($user) {
+            $criteria['user'] = $user;
+        }
+
+        $setting = $this->findOneBy($criteria);
+        if ($setting) {
+            $this->getEntityManager()->remove($setting);
+            $this->getEntityManager()->flush();
+        }
+    }
 }

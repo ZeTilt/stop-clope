@@ -166,12 +166,18 @@ class ResetService
     }
 
     /**
-     * Réinitialise les compteurs (shields_used, stats_views)
+     * Réinitialise les compteurs et settings liés à la progression
      */
     private function resetCounters(): void
     {
+        // Compteurs
         $this->settingsRepository->set('shields_used', '0');
         $this->settingsRepository->set('stats_views', '0');
+
+        // Paliers / objectifs (GoalService)
+        $this->settingsRepository->delete('current_auto_tier');
+        $this->settingsRepository->delete('previous_displayed_tier');
+        $this->settingsRepository->delete('first_day_celebrated');
     }
 
     /**
