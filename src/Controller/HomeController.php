@@ -439,6 +439,28 @@ class HomeController extends AbstractController
         ]);
     }
 
+    #[Route('/settings/recalculate-goal', name: 'app_settings_recalculate_goal', methods: ['POST'])]
+    public function recalculateGoal(Request $request): JsonResponse
+    {
+        if (!$this->validateCsrfToken($request)) {
+            return new JsonResponse(['success' => false, 'error' => 'Invalid CSRF token'], 403);
+        }
+
+        // Supprimer les settings de palier pour forcer le recalcul
+        $this->settingsRepository->delete('current_auto_tier');
+        $this->settingsRepository->delete('previous_displayed_tier');
+        $this->settingsRepository->delete('first_day_celebrated');
+
+        // Récupérer le nouveau palier calculé
+        $goalInfo = $this->goalService->getProgressInfo();
+
+        return new JsonResponse([
+            'success' => true,
+            'message' => 'Objectif recalculé',
+            'new_tier' => $goalInfo['tier']['current_tier'],
+        ]);
+    }
+
     #[Route('/onboarding', name: 'app_onboarding')]
     public function onboarding(): Response
     {

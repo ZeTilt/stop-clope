@@ -46,6 +46,13 @@
         </div>
         {% endif %}
 
+        <button class="secondary-button" id="recalculateGoalBtn" style="width: 100%;">
+            🔄 Recalculer l'objectif
+        </button>
+        <p style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 8px;">
+            Remet le palier à sa valeur initiale (utile après un reset)
+        </p>
+
     </div>
 
     <div class="card">
@@ -532,6 +539,37 @@
 
     // Bouton sauvegarder paramètres
     document.getElementById('saveSettingsBtn').addEventListener('click', saveSettings);
+
+    // ===== Recalculer l'objectif =====
+    document.getElementById('recalculateGoalBtn').addEventListener('click', function() {
+        const btn = this;
+        btn.disabled = true;
+        btn.textContent = '...';
+
+        fetch('{{ path('app_settings_recalculate_goal') }}', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+                'X-CSRF-Token': csrfToken
+            }
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                showToast(`Objectif recalculé : ${data.new_tier} clopes/jour`, { type: 'success', icon: '🎯' });
+                setTimeout(() => window.location.reload(), 1000);
+            } else {
+                showToast(data.error || 'Erreur', { type: 'error' });
+            }
+        })
+        .catch(() => {
+            showToast('Erreur réseau', { type: 'error' });
+        })
+        .finally(() => {
+            btn.disabled = false;
+            btn.textContent = '🔄 Recalculer l\'objectif';
+        });
+    });
 
     // ===== Reset compte =====
     const resetBtn = document.getElementById('resetBtn');
