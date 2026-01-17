@@ -103,12 +103,28 @@
                 <div class="stat-label">Réveil</div>
             </div>
             <div class="stat-item">
-                {% if cigarettes|length > 0 %}
-                    <div class="stat-value">{{ cigarettes|first.smokedAt|date('H:i') }}</div>
+                {% if first_cig_info.actual is not null %}
+                    {% set fc_hours = (first_cig_info.actual / 60)|round(0, 'floor') %}
+                    {% set fc_mins = first_cig_info.actual % 60 %}
+                    <div class="stat-value" style="color: {{ first_cig_info.actual >= first_cig_info.target ? 'var(--success)' : 'var(--warning)' }}">
+                        {% if fc_hours > 0 %}{{ fc_hours }}h{% endif %}{{ '%02d'|format(fc_mins) }}
+                    </div>
                 {% else %}
                     <div class="stat-value">--</div>
                 {% endif %}
                 <div class="stat-label">1ère clope</div>
+            </div>
+            <div class="stat-item">
+                {% if first_cig_info.target > 0 %}
+                    {% set fct_hours = (first_cig_info.target / 60)|round(0, 'floor') %}
+                    {% set fct_mins = first_cig_info.target % 60 %}
+                    <div class="stat-value">
+                        {% if fct_hours > 0 %}{{ fct_hours }}h{% endif %}{{ '%02d'|format(fct_mins) }}
+                    </div>
+                {% else %}
+                    <div class="stat-value">--</div>
+                {% endif %}
+                <div class="stat-label">Cible 1ère</div>
             </div>
             <div class="stat-item">
                 {% if average_interval > 0 %}

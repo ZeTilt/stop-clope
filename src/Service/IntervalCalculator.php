@@ -283,6 +283,165 @@ class IntervalCalculator
     }
 
     /**
+     * Calcule le temps cible pour la 1ère clope (v2.0)
+     *
+     * Règles:
+     * - Moyenne des temps réels (réveil → 1ère clope) des X derniers jours (X = min(jours, 10))
+     * - Si calculé <= cible_veille, alors cible = cible_veille + 1 (progression obligatoire)
+     *
+     * @param \DateTimeInterface $date La date pour laquelle calculer
+     * @return array{target: float, actual: float|null, days_used: int}
+     */
+    public function getFirstCigTargetInfo(\DateTimeInterface $date): array
+    {
+        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
+
+        if (!$firstDate) {
+            return [
+                'target' => ScoringConstants::DEFAULT_FIRST_CIG_MINUTES,
+                'actual' => null,
+                'days_used' => 0,
+            ];
+        }
+
+        // Temps réel du jour
+        $cigs = $this->cigaretteRepository->findByDate($date);
+        $wakeUp = $this->wakeUpRepository->findByDate($date);
+        $actualTime = null;
+        if (!empty($cigs) && $wakeUp) {
+            $actualTime = $this->minutesSinceWakeUp($cigs[0]->getSmokedAt(), $wakeUp->getWakeTime());
+        }
+
+        // Nombre de jours d'utilisation de l'app
+        $daysUsed = (int) $firstDate->diff($date)->days;
+        $lookbackDays = min($daysUsed, 10);
+
+        if ($lookbackDays < 1) {
+            return [
+                'target' => ScoringConstants::DEFAULT_FIRST_CIG_MINUTES,
+                'actual' => $actualTime,
+                'days_used' => 0,
+            ];
+        }
+
+        // Calculer la moyenne des temps RÉELS des X derniers jours
+        $times = [];
+        for ($i = 1; $i <= $lookbackDays; $i++) {
+            $prevDate = (clone $date)->modify("-{$i} day");
+            $prevCigs = $this->cigaretteRepository->findByDate($prevDate);
+            $prevWakeUp = $this->wakeUpRepository->findByDate($prevDate);
+
+            if (!empty($prevCigs) && $prevWakeUp) {
+                $time = $this->minutesSinceWakeUp($prevCigs[0]->getSmokedAt(), $prevWakeUp->getWakeTime());
+                if ($time > 0) {
+                    $times[] = $time;
+                }
+            }
+        }
+
+        $calculatedTarget = !empty($times)
+            ? array_sum($times) / count($times)
+            : ScoringConstants::DEFAULT_FIRST_CIG_MINUTES;
+
+        // Récupérer la cible de la veille
+        $yesterday = (clone $date)->modify('-1 day');
+        $yesterdayTarget = $this->getYesterdayFirstCigTarget($yesterday, $firstDate);
+
+        // Règle de progression : si calculé <= veille, alors veille + 1
+        if ($calculatedTarget <= $yesterdayTarget) {
+            $target = $yesterdayTarget + 1;
+        } else {
+            $target = $calculatedTarget;
+        }
+
+        return [
+            'target' => round($target, 1),
+            'actual' => $actualTime !== null ? round($actualTime, 1) : null,
+            'days_used' => $lookbackDays,
+        ];
+    }
+
+    /**
+     * Récupère la cible 1ère clope de la veille (pour la règle de progression)
+     */
+    private function getYesterdayFirstCigTarget(\DateTimeInterface $date, \DateTimeInterface $firstDate): float
+    {
+        if ($date <= $firstDate) {
+            return ScoringConstants::DEFAULT_FIRST_CIG_MINUTES;
+        }
+
+        $daysUsed = (int) $firstDate->diff($date)->days;
+        $lookbackDays = min($daysUsed, 10);
+
+        if ($lookbackDays < 1) {
+            return ScoringConstants::DEFAULT_FIRST_CIG_MINUTES;
+        }
+
+        $times = [];
+        for ($i = 1; $i <= $lookbackDays; $i++) {
+            $prevDate = (clone $date)->modify("-{$i} day");
+            $prevCigs = $this->cigaretteRepository->findByDate($prevDate);
+            $prevWakeUp = $this->wakeUpRepository->findByDate($prevDate);
+
+            if (!empty($prevCigs) && $prevWakeUp) {
+                $time = $this->minutesSinceWakeUp($prevCigs[0]->getSmokedAt(), $prevWakeUp->getWakeTime());
+                if ($time > 0) {
+                    $times[] = $time;
+                }
+            }
+        }
+
+        $calculatedTarget = !empty($times)
+            ? array_sum($times) / count($times)
+            : ScoringConstants::DEFAULT_FIRST_CIG_MINUTES;
+
+        // Simplification : comparer avec J-2 sans récursion profonde
+        $twoDaysAgo = (clone $date)->modify('-1 day');
+        if ($twoDaysAgo <= $firstDate) {
+            return max($calculatedTarget, ScoringConstants::DEFAULT_FIRST_CIG_MINUTES);
+        }
+
+        $twoDaysAgoTarget = $this->getSimpleFirstCigTargetForDate($twoDaysAgo, $firstDate);
+
+        if ($calculatedTarget <= $twoDaysAgoTarget) {
+            return $twoDaysAgoTarget + 1;
+        }
+
+        return $calculatedTarget;
+    }
+
+    /**
+     * Calcul simplifié de la cible 1ère clope (sans récursion)
+     */
+    private function getSimpleFirstCigTargetForDate(\DateTimeInterface $date, \DateTimeInterface $firstDate): float
+    {
+        $daysUsed = (int) $firstDate->diff($date)->days;
+        $lookbackDays = min($daysUsed, 10);
+
+        if ($lookbackDays < 1) {
+            return ScoringConstants::DEFAULT_FIRST_CIG_MINUTES;
+        }
+
+        $times = [];
+        for ($i = 1; $i <= $lookbackDays; $i++) {
+            $prevDate = (clone $date)->modify("-{$i} day");
+            $prevCigs = $this->cigaretteRepository->findByDate($prevDate);
+            $prevWakeUp = $this->wakeUpRepository->findByDate($prevDate);
+
+            if (!empty($prevCigs) && $prevWakeUp) {
+                $time = $this->minutesSinceWakeUp($prevCigs[0]->getSmokedAt(), $prevWakeUp->getWakeTime());
+                if ($time > 0) {
+                    $times[] = $time;
+                }
+            }
+        }
+
+        return !empty($times)
+            ? array_sum($times) / count($times)
+            : ScoringConstants::DEFAULT_FIRST_CIG_MINUTES;
+    }
+
+    /**
      * Calcule le temps moyen de la 1ère clope (depuis réveil) sur les 7 derniers jours
      * Optimisé : utilise les données en cache (0 requête supplémentaire)
      */

@@ -519,6 +519,7 @@ class HomeController extends AbstractController
 
         // Calcul des intervalles (cible et réel)
         $intervalInfo = $this->intervalCalculator->getTargetIntervalInfo($selectedDate);
+        $firstCigInfo = $this->intervalCalculator->getFirstCigTargetInfo($selectedDate);
 
         return $this->render('home/history.html.twig', [
             'selected_date' => $selectedDate,
@@ -529,6 +530,7 @@ class HomeController extends AbstractController
             'average_interval' => $intervalInfo['actual'],
             'target_interval' => $intervalInfo['target'],
             'interval_info' => $intervalInfo,
+            'first_cig_info' => $firstCigInfo,
         ]);
     }
 }
