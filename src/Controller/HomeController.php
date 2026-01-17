@@ -517,8 +517,8 @@ class HomeController extends AbstractController
             }
         }
 
-        // Calcul de l'intervalle moyen du jour
-        $averageInterval = $this->intervalCalculator->getDayAverageInterval($cigarettes);
+        // Calcul des intervalles (cible et réel)
+        $intervalInfo = $this->intervalCalculator->getTargetIntervalInfo($selectedDate);
 
         return $this->render('home/history.html.twig', [
             'selected_date' => $selectedDate,
@@ -526,7 +526,9 @@ class HomeController extends AbstractController
             'wakeup' => $wakeUp,
             'daily_score' => $dailyScoreData,
             'first_date' => $firstDate,
-            'average_interval' => $averageInterval,
+            'average_interval' => $intervalInfo['actual'],
+            'target_interval' => $intervalInfo['target'],
+            'interval_info' => $intervalInfo,
         ]);
     }
 }

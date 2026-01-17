@@ -115,13 +115,26 @@
                     {% set total_minutes = average_interval|round(0, 'floor') %}
                     {% set hours = (total_minutes / 60)|round(0, 'floor') %}
                     {% set minutes = total_minutes % 60 %}
-                    <div class="stat-value">
+                    <div class="stat-value" style="color: {{ average_interval >= target_interval ? 'var(--success)' : 'var(--warning)' }}">
                         {% if hours > 0 %}{{ hours }}h{% endif %}{{ '%02d'|format(minutes) }}
                     </div>
                 {% else %}
                     <div class="stat-value">--</div>
                 {% endif %}
-                <div class="stat-label">Intervalle moy.</div>
+                <div class="stat-label">Intervalle réel</div>
+            </div>
+            <div class="stat-item">
+                {% if target_interval > 0 %}
+                    {% set target_total = target_interval|round(0, 'floor') %}
+                    {% set target_hours = (target_total / 60)|round(0, 'floor') %}
+                    {% set target_mins = target_total % 60 %}
+                    <div class="stat-value">
+                        {% if target_hours > 0 %}{{ target_hours }}h{% endif %}{{ '%02d'|format(target_mins) }}
+                    </div>
+                {% else %}
+                    <div class="stat-value">--</div>
+                {% endif %}
+                <div class="stat-label">Intervalle cible</div>
             </div>
         </div>
     </div>

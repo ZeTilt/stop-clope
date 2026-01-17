@@ -134,6 +134,155 @@ class IntervalCalculator
     }
 
     /**
+     * Calcule l'intervalle cible pour un jour donné (v2.0)
+     *
+     * Règles:
+     * - Moyenne des intervalles RÉELS des X derniers jours (X = min(jours_utilisation, 10))
+     * - Si calculé <= cible_veille, alors cible = cible_veille + 1 (progression obligatoire)
+     *
+     * @param \DateTimeInterface $date La date pour laquelle calculer
+     * @return array{target: float, actual: float, days_used: int}
+     */
+    public function getTargetIntervalInfo(\DateTimeInterface $date): array
+    {
+        $firstDate = $this->cigaretteRepository->getFirstCigaretteDate();
+
+        if (!$firstDate) {
+            return [
+                'target' => ScoringConstants::DEFAULT_INTERVAL_MINUTES,
+                'actual' => 0,
+                'days_used' => 0,
+            ];
+        }
+
+        // Nombre de jours d'utilisation de l'app
+        $daysUsed = (int) $firstDate->diff($date)->days;
+        $lookbackDays = min($daysUsed, 10);
+
+        if ($lookbackDays < 1) {
+            // Premier jour, pas de cible
+            $cigs = $this->cigaretteRepository->findByDate($date);
+            $actualInterval = $this->getDayAverageInterval($cigs);
+            return [
+                'target' => ScoringConstants::DEFAULT_INTERVAL_MINUTES,
+                'actual' => $actualInterval,
+                'days_used' => 0,
+            ];
+        }
+
+        // Calculer la moyenne des intervalles RÉELS des X derniers jours
+        $intervals = [];
+        for ($i = 1; $i <= $lookbackDays; $i++) {
+            $prevDate = (clone $date)->modify("-{$i} day");
+            $cigs = $this->cigaretteRepository->findByDate($prevDate);
+            $dayInterval = $this->getDayAverageInterval($cigs);
+            if ($dayInterval > 0) {
+                $intervals[] = $dayInterval;
+            }
+        }
+
+        $calculatedTarget = !empty($intervals)
+            ? array_sum($intervals) / count($intervals)
+            : ScoringConstants::DEFAULT_INTERVAL_MINUTES;
+
+        // Récupérer la cible de la veille (récursif mais avec limite)
+        $yesterday = (clone $date)->modify('-1 day');
+        $yesterdayTarget = $this->getYesterdayTarget($yesterday, $firstDate);
+
+        // Règle de progression : si calculé <= veille, alors veille + 1
+        if ($calculatedTarget <= $yesterdayTarget) {
+            $target = $yesterdayTarget + 1;
+        } else {
+            $target = $calculatedTarget;
+        }
+
+        // Intervalle réel du jour
+        $cigs = $this->cigaretteRepository->findByDate($date);
+        $actualInterval = $this->getDayAverageInterval($cigs);
+
+        return [
+            'target' => round($target, 1),
+            'actual' => round($actualInterval, 1),
+            'days_used' => $lookbackDays,
+        ];
+    }
+
+    /**
+     * Récupère la cible de la veille (pour la règle de progression)
+     */
+    private function getYesterdayTarget(\DateTimeInterface $date, \DateTimeInterface $firstDate): float
+    {
+        // Si on est au premier jour ou avant, retourner la valeur par défaut
+        if ($date <= $firstDate) {
+            return ScoringConstants::DEFAULT_INTERVAL_MINUTES;
+        }
+
+        $daysUsed = (int) $firstDate->diff($date)->days;
+        $lookbackDays = min($daysUsed, 10);
+
+        if ($lookbackDays < 1) {
+            return ScoringConstants::DEFAULT_INTERVAL_MINUTES;
+        }
+
+        // Calculer la moyenne des intervalles RÉELS des X derniers jours pour cette date
+        $intervals = [];
+        for ($i = 1; $i <= $lookbackDays; $i++) {
+            $prevDate = (clone $date)->modify("-{$i} day");
+            $cigs = $this->cigaretteRepository->findByDate($prevDate);
+            $dayInterval = $this->getDayAverageInterval($cigs);
+            if ($dayInterval > 0) {
+                $intervals[] = $dayInterval;
+            }
+        }
+
+        $calculatedTarget = !empty($intervals)
+            ? array_sum($intervals) / count($intervals)
+            : ScoringConstants::DEFAULT_INTERVAL_MINUTES;
+
+        // Pour la veille de la veille (éviter récursion infinie, on s'arrête à J-2)
+        $twoDaysAgo = (clone $date)->modify('-1 day');
+        if ($twoDaysAgo <= $firstDate) {
+            return max($calculatedTarget, ScoringConstants::DEFAULT_INTERVAL_MINUTES);
+        }
+
+        // Comparer avec J-2 (simplification pour éviter récursion profonde)
+        $twoDaysAgoInfo = $this->getSimpleTargetForDate($twoDaysAgo, $firstDate);
+
+        if ($calculatedTarget <= $twoDaysAgoInfo) {
+            return $twoDaysAgoInfo + 1;
+        }
+
+        return $calculatedTarget;
+    }
+
+    /**
+     * Calcul simplifié de la cible (sans récursion)
+     */
+    private function getSimpleTargetForDate(\DateTimeInterface $date, \DateTimeInterface $firstDate): float
+    {
+        $daysUsed = (int) $firstDate->diff($date)->days;
+        $lookbackDays = min($daysUsed, 10);
+
+        if ($lookbackDays < 1) {
+            return ScoringConstants::DEFAULT_INTERVAL_MINUTES;
+        }
+
+        $intervals = [];
+        for ($i = 1; $i <= $lookbackDays; $i++) {
+            $prevDate = (clone $date)->modify("-{$i} day");
+            $cigs = $this->cigaretteRepository->findByDate($prevDate);
+            $dayInterval = $this->getDayAverageInterval($cigs);
+            if ($dayInterval > 0) {
+                $intervals[] = $dayInterval;
+            }
+        }
+
+        return !empty($intervals)
+            ? array_sum($intervals) / count($intervals)
+            : ScoringConstants::DEFAULT_INTERVAL_MINUTES;
+    }
+
+    /**
      * Calcule le temps moyen de la 1ère clope (depuis réveil) sur les 7 derniers jours
      * Optimisé : utilise les données en cache (0 requête supplémentaire)
      */
