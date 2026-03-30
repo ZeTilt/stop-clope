@@ -33,10 +33,13 @@ class IntervalCalculator
 
     /**
      * Calcule les minutes depuis le réveil pour une heure donnée
+     * Gère le passage de minuit (clope après minuit = même journée effective)
      */
     public function minutesSinceWakeUp(\DateTimeInterface $time, \DateTimeInterface $wakeTime): int
     {
-        return $this->timeToMinutes($time) - $this->timeToMinutes($wakeTime);
+        $diff = $this->timeToMinutes($time) - $this->timeToMinutes($wakeTime);
+        // Si négatif, la clope est après minuit (lendemain calendaire, même journée effective)
+        return $diff < 0 ? $diff + 1440 : $diff;
     }
 
     /**
@@ -91,6 +94,7 @@ class IntervalCalculator
 
     /**
      * Calcule l'intervalle moyen d'une journée (en minutes)
+     * Utilise les timestamps pour supporter les clopes après minuit
      */
     public function getDayAverageInterval(array $cigs): float
     {
@@ -101,10 +105,10 @@ class IntervalCalculator
         $firstCig = $cigs[0];
         $lastCig = $cigs[count($cigs) - 1];
 
-        $firstMinutes = $this->timeToMinutes($firstCig->getSmokedAt());
-        $lastMinutes = $this->timeToMinutes($lastCig->getSmokedAt());
+        // Utiliser les timestamps réels pour gérer le passage de minuit
+        $diffSeconds = $lastCig->getSmokedAt()->getTimestamp() - $firstCig->getSmokedAt()->getTimestamp();
 
-        return ($lastMinutes - $firstMinutes) / (count($cigs) - 1);
+        return ($diffSeconds / 60) / (count($cigs) - 1);
     }
 
     /**

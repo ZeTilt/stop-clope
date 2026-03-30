@@ -38,6 +38,7 @@
             {% block body %}{% endblock %}
         </main>
 
+        {% if not ux_is_native() %}
         <nav class="nav-bottom" role="navigation" aria-label="Navigation principale">
             <a href="{{ path('app_home') }}" class="nav-item {{ app.request.attributes.get('_route') == 'app_home' ? 'active' : '' }}" {% if app.request.attributes.get('_route') == 'app_home' %}aria-current="page"{% endif %}>
                 <span class="nav-icon" aria-hidden="true">🏠</span>
@@ -56,6 +57,7 @@
                 <span>Réglages</span>
             </a>
         </nav>
+        {% endif %}
 
         <div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 

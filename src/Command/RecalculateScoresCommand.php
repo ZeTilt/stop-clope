@@ -7,6 +7,7 @@ use App\Entity\DailyScore;
 use App\Entity\User;
 use App\Repository\DailyScoreRepository;
 use App\Repository\UserRepository;
+use App\Service\DayBoundaryService;
 use App\Service\IntervalCalculator;
 use Doctrine\ORM\EntityManagerInterface;
 use Symfony\Component\Console\Attribute\AsCommand;
@@ -26,7 +27,8 @@ class RecalculateScoresCommand extends Command
         private UserRepository $userRepository,
         private DailyScoreRepository $dailyScoreRepository,
         private IntervalCalculator $intervalCalculator,
-        private EntityManagerInterface $entityManager
+        private EntityManagerInterface $entityManager,
+        private DayBoundaryService $dayBoundaryService
     ) {
         parent::__construct();
     }
@@ -36,6 +38,7 @@ class RecalculateScoresCommand extends Command
         $this
             ->addOption('user', 'u', InputOption::VALUE_OPTIONAL, 'ID utilisateur spécifique')
             ->addOption('days', 'd', InputOption::VALUE_OPTIONAL, 'Nombre de jours à recalculer', 365)
+            ->addOption('backfill-effective-dates', null, InputOption::VALUE_NONE, 'Recalcule les effective_date de toutes les cigarettes (migration réveil-à-réveil)')
         ;
     }
 
@@ -54,6 +57,17 @@ class RecalculateScoresCommand extends Command
             }
         } else {
             $users = $this->userRepository->findAll();
+        }
+
+        $backfill = $input->getOption('backfill-effective-dates');
+
+        if ($backfill) {
+            $io->title('Backfill des effective_date (migration réveil-à-réveil)');
+            foreach ($users as $user) {
+                $this->backfillEffectiveDates($user, $io);
+            }
+            $io->success('Backfill terminé !');
+            $io->newLine();
         }
 
         $io->title('Recalcul des scores quotidiens');
@@ -199,7 +213,10 @@ class RecalculateScoresCommand extends Command
 
         $indexed = [];
         foreach ($cigs as $cig) {
-            $dateStr = $cig->getSmokedAt()->format('Y-m-d');
+            // Utiliser effectiveDate si disponible, sinon fallback sur smokedAt
+            $dateStr = $cig->getEffectiveDate()
+                ? $cig->getEffectiveDate()->format('Y-m-d')
+                : $cig->getSmokedAt()->format('Y-m-d');
             if (!isset($indexed[$dateStr])) {
                 $indexed[$dateStr] = [];
             }
@@ -261,6 +278,48 @@ class RecalculateScoresCommand extends Command
         $bonus += $this->calculateWeeklyBonus($date, $allCigarettes);
 
         return $bonus;
+    }
+
+    /**
+     * Recalcule les effective_date de toutes les cigarettes d'un utilisateur
+     */
+    private function backfillEffectiveDates(User $user, SymfonyStyle $io): void
+    {
+        $io->section("Backfill effective_date: {$user->getEmail()}");
+
+        // Charger toutes les cigarettes
+        $cigs = $this->entityManager->createQueryBuilder()
+            ->select('c')
+            ->from('App\Entity\Cigarette', 'c')
+            ->where('c.user = :user')
+            ->setParameter('user', $user)
+            ->orderBy('c.smokedAt', 'ASC')
+            ->getQuery()
+            ->getResult();
+
+        if (empty($cigs)) {
+            $io->warning('Aucune cigarette trouvée');
+            return;
+        }
+
+        $io->progressStart(count($cigs));
+        $updated = 0;
+
+        foreach ($cigs as $i => $cig) {
+            $effectiveDate = $this->dayBoundaryService->resolveEffectiveDate($cig->getSmokedAt(), $user);
+            $cig->setEffectiveDate($effectiveDate);
+            $updated++;
+
+            // Flush par batch de 100
+            if ($updated % 100 === 0) {
+                $this->entityManager->flush();
+            }
+            $io->progressAdvance();
+        }
+
+        $this->entityManager->flush();
+        $io->progressFinish();
+        $io->success(sprintf('%d cigarettes mises à jour', $updated));
     }
 
     /**

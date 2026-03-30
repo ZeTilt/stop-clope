@@ -11,6 +11,7 @@ use App\Repository\SettingsRepository;
 use App\Repository\WakeUpRepository;
 use App\Service\BadgeService;
 use App\Service\CigaretteService;
+use App\Service\DayBoundaryService;
 use App\Service\GoalService;
 use App\Service\IntervalCalculator;
 use App\Service\MaintenanceService;
@@ -54,7 +55,8 @@ class HomeController extends AbstractController
         private RankProgressionService $rankProgressionService,
         private MaintenanceService $maintenanceService,
         private ShieldService $shieldService,
-        private ResetService $resetService
+        private ResetService $resetService,
+        private DayBoundaryService $dayBoundaryService
     ) {}
 
     private function validateCsrfToken(Request $request): bool
@@ -246,6 +248,9 @@ class HomeController extends AbstractController
             return new JsonResponse(['success' => false, 'error' => 'Database error'], 500);
         }
 
+        // Recalculer les effective_date des clopes du jour (attribution réveil-à-réveil)
+        $this->dayBoundaryService->recalculateForWakeUp($wakeUp);
+
         return new JsonResponse([
             'success' => true,
             'wake_time' => $wakeUp->getWakeTime()->format('H:i'),
@@ -288,6 +293,40 @@ class HomeController extends AbstractController
         return new JsonResponse([
             'success' => true,
             'today_count' => $todayCount,
+        ]);
+    }
+
+    #[Route('/api/widget', name: 'app_api_widget', methods: ['GET'])]
+    public function apiWidget(): JsonResponse
+    {
+        $today = new \DateTime();
+        $nextCigInfo = $this->scoringService->getNextCigaretteInfo($today);
+        $dailyScore = $this->scoringService->calculateDailyScore($today);
+        $streak = $this->streakService->getStreakInfo();
+        $goalProgress = $this->goalService->getDailyProgress();
+
+        // Calculer l'heure cible lisible
+        $nextCigTime = null;
+        if (($nextCigInfo['status'] === 'active' || $nextCigInfo['status'] === 'exceeded')
+            && isset($nextCigInfo['target_minutes'], $nextCigInfo['wake_minutes'])) {
+            $nowMinutes = (int) (new \DateTime())->format('H') * 60 + (int) (new \DateTime())->format('i');
+            $currentSinceWake = $nowMinutes - $nextCigInfo['wake_minutes'];
+            $diff = $currentSinceWake - $nextCigInfo['target_minutes'];
+            if ($diff < 0) {
+                $targetTime = new \DateTime();
+                $targetTime->modify('+' . (int) ceil(-$diff) . ' minutes');
+                $nextCigTime = $targetTime->format('H:i');
+            }
+        }
+
+        return new JsonResponse([
+            'next_cig_time' => $nextCigTime,
+            'today_count' => $nextCigInfo['today_count'] ?? $this->cigaretteRepository->countByDate($today),
+            'yesterday_count' => $nextCigInfo['yesterday_count'] ?? null,
+            'daily_score' => $dailyScore['total_score'],
+            'streak' => $streak['current'] ?? 0,
+            'status' => $nextCigInfo['status'],
+            'goal' => $goalProgress['target'] ?? null,
         ]);
     }
 

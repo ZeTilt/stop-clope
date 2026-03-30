@@ -33,12 +33,14 @@ class CigaretteRepository extends ServiceEntityRepository
 
     public function findByDate(\DateTimeInterface $date): array
     {
+        $dateOnly = (clone $date)->setTime(0, 0, 0);
+        // Fallback pour données sans effective_date (avant backfill)
         $start = (clone $date)->setTime(0, 0, 0);
         $end = (clone $date)->setTime(23, 59, 59);
 
         $qb = $this->createQueryBuilder('c')
-            ->where('c.smokedAt >= :start')
-            ->andWhere('c.smokedAt <= :end')
+            ->where('(c.effectiveDate = :date OR (c.effectiveDate IS NULL AND c.smokedAt >= :start AND c.smokedAt <= :end))')
+            ->setParameter('date', $dateOnly)
             ->setParameter('start', $start)
             ->setParameter('end', $end)
             ->orderBy('c.smokedAt', 'ASC');
@@ -63,13 +65,14 @@ class CigaretteRepository extends ServiceEntityRepository
 
     public function countByDate(\DateTimeInterface $date): int
     {
+        $dateOnly = (clone $date)->setTime(0, 0, 0);
         $start = (clone $date)->setTime(0, 0, 0);
         $end = (clone $date)->setTime(23, 59, 59);
 
         $qb = $this->createQueryBuilder('c')
             ->select('COUNT(c.id)')
-            ->where('c.smokedAt >= :start')
-            ->andWhere('c.smokedAt <= :end')
+            ->where('(c.effectiveDate = :date OR (c.effectiveDate IS NULL AND c.smokedAt >= :start AND c.smokedAt <= :end))')
+            ->setParameter('date', $dateOnly)
             ->setParameter('start', $start)
             ->setParameter('end', $end);
 
@@ -112,12 +115,12 @@ class CigaretteRepository extends ServiceEntityRepository
 
         // Compter les clopes par jour sur les X derniers jours (hors aujourd'hui)
         $sql = "
-            SELECT DATE(smoked_at) as date, COUNT(id) as count
+            SELECT COALESCE(effective_date, DATE(smoked_at)) as date, COUNT(id) as count
             FROM cigarette
-            WHERE DATE(smoked_at) >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
-              AND DATE(smoked_at) < CURDATE()
+            WHERE COALESCE(effective_date, DATE(smoked_at)) >= DATE_SUB(CURDATE(), INTERVAL :days DAY)
+              AND COALESCE(effective_date, DATE(smoked_at)) < CURDATE()
               {$userCondition}
-            GROUP BY DATE(smoked_at)
+            GROUP BY COALESCE(effective_date, DATE(smoked_at))
         ";
 
         $params = ['days' => $days];
@@ -153,16 +156,16 @@ class CigaretteRepository extends ServiceEntityRepository
 
         $conn = $this->getEntityManager()->getConnection();
         $sql = "
-            SELECT DATE(smoked_at) as date, COUNT(id) as count
+            SELECT COALESCE(effective_date, DATE(smoked_at)) as date, COUNT(id) as count
             FROM cigarette
-            WHERE smoked_at >= :start AND smoked_at <= :end {$userCondition}
-            GROUP BY DATE(smoked_at)
+            WHERE COALESCE(effective_date, DATE(smoked_at)) >= :start AND COALESCE(effective_date, DATE(smoked_at)) <= :end {$userCondition}
+            GROUP BY COALESCE(effective_date, DATE(smoked_at))
             ORDER BY date ASC
         ";
 
         $params = [
-            'start' => $startDate->format('Y-m-d H:i:s'),
-            'end' => $endDate->format('Y-m-d H:i:s'),
+            'start' => $startDate->format('Y-m-d'),
+            'end' => $endDate->format('Y-m-d'),
         ];
         if ($userId) {
             $params['user_id'] = $userId;
@@ -189,7 +192,7 @@ class CigaretteRepository extends ServiceEntityRepository
 
         // Récupérer la première date et calculer la période
         $firstDate = $conn->executeQuery(
-            "SELECT MIN(DATE(smoked_at)) FROM cigarette {$userConditionFirst}",
+            "SELECT MIN(COALESCE(effective_date, DATE(smoked_at))) FROM cigarette {$userConditionFirst}",
             $params
         )->fetchOne();
 
@@ -205,14 +208,14 @@ class CigaretteRepository extends ServiceEntityRepository
         $weekdayCounts = $this->countWeekdaysInPeriod($startDate, $endDate);
 
         // Exclure aujourd'hui pour ne pas fausser les stats
-        $endCondition = $excludeToday ? 'AND DATE(smoked_at) < CURDATE()' : '';
+        $endCondition = $excludeToday ? 'AND COALESCE(effective_date, DATE(smoked_at)) < CURDATE()' : '';
 
-        // Compter les clopes par jour de la semaine
+        // Compter les clopes par jour de la semaine (basé sur la date effective)
         $sql = "
-            SELECT DAYOFWEEK(smoked_at) as day_num, COUNT(id) as count
+            SELECT DAYOFWEEK(COALESCE(effective_date, DATE(smoked_at))) as day_num, COUNT(id) as count
             FROM cigarette
             WHERE 1=1 {$endCondition} {$userCondition}
-            GROUP BY DAYOFWEEK(smoked_at)
+            GROUP BY DAYOFWEEK(COALESCE(effective_date, DATE(smoked_at)))
             ORDER BY day_num
         ";
 
@@ -266,14 +269,14 @@ class CigaretteRepository extends ServiceEntityRepository
         $userId = $this->getUserId();
 
         // Exclure aujourd'hui pour ne pas fausser les stats
-        $baseCondition = $excludeToday ? 'DATE(smoked_at) < CURDATE()' : '1=1';
+        $baseCondition = $excludeToday ? 'COALESCE(effective_date, DATE(smoked_at)) < CURDATE()' : '1=1';
         $userCondition = $userId ? 'AND user_id = :user_id' : '';
         $params = $userId ? ['user_id' => $userId] : [];
 
         // Nombre de jours calendaires depuis le premier jour jusqu'à hier
         $userConditionFirst = $userId ? 'WHERE user_id = :user_id' : '';
         $totalDays = $conn->executeQuery(
-            "SELECT DATEDIFF(CURDATE(), MIN(DATE(smoked_at))) FROM cigarette {$userConditionFirst}",
+            "SELECT DATEDIFF(CURDATE(), MIN(COALESCE(effective_date, DATE(smoked_at)))) FROM cigarette {$userConditionFirst}",
             $params
         )->fetchOne();
         $totalDays = max(1, (int) $totalDays);
@@ -335,7 +338,7 @@ class CigaretteRepository extends ServiceEntityRepository
         $userId = $this->getUserId();
 
         // Exclure aujourd'hui pour ne pas fausser le record (journée incomplète)
-        $baseCondition = $excludeToday ? 'DATE(smoked_at) < CURDATE()' : '1=1';
+        $baseCondition = $excludeToday ? 'COALESCE(effective_date, DATE(smoked_at)) < CURDATE()' : '1=1';
         $userCondition = $userId ? 'AND user_id = :user_id' : '';
         $params = $userId ? ['user_id' => $userId] : [];
 
@@ -343,7 +346,7 @@ class CigaretteRepository extends ServiceEntityRepository
             SELECT COUNT(id) as count
             FROM cigarette
             WHERE {$baseCondition} {$userCondition}
-            GROUP BY DATE(smoked_at)
+            GROUP BY COALESCE(effective_date, DATE(smoked_at))
             ORDER BY count ASC
             LIMIT 1
         ";
@@ -403,15 +406,15 @@ class CigaretteRepository extends ServiceEntityRepository
         $firstDateStr = $firstDate->format('Y-m-d');
 
         // Exclure aujourd'hui pour ne pas fausser les stats
-        $endCondition = $excludeToday ? 'AND DATE(smoked_at) < CURDATE()' : '';
+        $endCondition = $excludeToday ? 'AND COALESCE(effective_date, DATE(smoked_at)) < CURDATE()' : '';
         $userCondition = $userId ? 'AND user_id = :user_id' : '';
 
         // Single query for both weeks
         $sql = "
-            SELECT DATE(smoked_at) as date, COUNT(id) as count
+            SELECT COALESCE(effective_date, DATE(smoked_at)) as date, COUNT(id) as count
             FROM cigarette
-            WHERE smoked_at >= :start {$endCondition} {$userCondition}
-            GROUP BY DATE(smoked_at)
+            WHERE COALESCE(effective_date, DATE(smoked_at)) >= :start {$endCondition} {$userCondition}
+            GROUP BY COALESCE(effective_date, DATE(smoked_at))
             ORDER BY date ASC
         ";
 
@@ -420,7 +423,7 @@ class CigaretteRepository extends ServiceEntityRepository
         $startDate = new \DateTime('-' . (13 + $offset) . ' days');
         $startDate->setTime(0, 0, 0);
 
-        $params = ['start' => $startDate->format('Y-m-d H:i:s')];
+        $params = ['start' => $startDate->format('Y-m-d')];
         if ($userId) {
             $params['user_id'] = $userId;
         }
@@ -535,12 +538,12 @@ class CigaretteRepository extends ServiceEntityRepository
         $userCondition = $userId ? 'AND user_id = :user_id' : '';
 
         // Récupérer toutes les données
-        $endCondition = $excludeToday ? 'AND DATE(smoked_at) < CURDATE()' : '';
+        $endCondition = $excludeToday ? 'AND COALESCE(effective_date, DATE(smoked_at)) < CURDATE()' : '';
         $sql = "
-            SELECT DATE(smoked_at) as date, COUNT(id) as count
+            SELECT COALESCE(effective_date, DATE(smoked_at)) as date, COUNT(id) as count
             FROM cigarette
-            WHERE DATE(smoked_at) >= :first_date {$endCondition} {$userCondition}
-            GROUP BY DATE(smoked_at)
+            WHERE COALESCE(effective_date, DATE(smoked_at)) >= :first_date {$endCondition} {$userCondition}
+            GROUP BY COALESCE(effective_date, DATE(smoked_at))
             ORDER BY date ASC
         ";
 
@@ -630,10 +633,10 @@ class CigaretteRepository extends ServiceEntityRepository
 
         // Obtenir tous les jours avec des cigarettes
         $sql = "
-            SELECT DISTINCT DATE(smoked_at) as date
+            SELECT DISTINCT COALESCE(effective_date, DATE(smoked_at)) as date
             FROM cigarette
-            WHERE DATE(smoked_at) >= :first_date
-              AND DATE(smoked_at) < CURDATE()
+            WHERE COALESCE(effective_date, DATE(smoked_at)) >= :first_date
+              AND COALESCE(effective_date, DATE(smoked_at)) < CURDATE()
               {$userCondition}
         ";
 
@@ -678,13 +681,13 @@ class CigaretteRepository extends ServiceEntityRepository
 
         // Obtenir le nombre de cigarettes par jour pour les 30 derniers jours (hors aujourd'hui)
         $sql = "
-            SELECT DATE(smoked_at) as date, COUNT(id) as count
+            SELECT COALESCE(effective_date, DATE(smoked_at)) as date, COUNT(id) as count
             FROM cigarette
-            WHERE DATE(smoked_at) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
-              AND DATE(smoked_at) < CURDATE()
-              AND DATE(smoked_at) >= :first_date
+            WHERE COALESCE(effective_date, DATE(smoked_at)) >= DATE_SUB(CURDATE(), INTERVAL 30 DAY)
+              AND COALESCE(effective_date, DATE(smoked_at)) < CURDATE()
+              AND COALESCE(effective_date, DATE(smoked_at)) >= :first_date
               {$userCondition}
-            GROUP BY DATE(smoked_at)
+            GROUP BY COALESCE(effective_date, DATE(smoked_at))
         ";
 
         $results = $conn->executeQuery($sql, $params)->fetchAllAssociative();
@@ -722,13 +725,14 @@ class CigaretteRepository extends ServiceEntityRepository
     public function findByDateRange(\DateTimeInterface $startDate, \DateTimeInterface $endDate): array
     {
         $start = (clone $startDate)->setTime(0, 0, 0);
-        $end = (clone $endDate)->setTime(23, 59, 59);
+        $end = (clone $endDate)->setTime(0, 0, 0);
 
         $qb = $this->createQueryBuilder('c')
-            ->where('c.smokedAt >= :start')
-            ->andWhere('c.smokedAt <= :end')
+            ->where('(c.effectiveDate >= :start AND c.effectiveDate <= :end) OR (c.effectiveDate IS NULL AND c.smokedAt >= :startFull AND c.smokedAt <= :endFull)')
             ->setParameter('start', $start)
             ->setParameter('end', $end)
+            ->setParameter('startFull', (clone $startDate)->setTime(0, 0, 0))
+            ->setParameter('endFull', (clone $endDate)->setTime(23, 59, 59))
             ->orderBy('c.smokedAt', 'ASC');
 
         $user = $this->getCurrentUser();
@@ -738,10 +742,12 @@ class CigaretteRepository extends ServiceEntityRepository
 
         $cigarettes = $qb->getQuery()->getResult();
 
-        // Group by date
+        // Group by effective date (or smoked_at date as fallback)
         $grouped = [];
         foreach ($cigarettes as $cig) {
-            $date = $cig->getSmokedAt()->format('Y-m-d');
+            $date = $cig->getEffectiveDate()
+                ? $cig->getEffectiveDate()->format('Y-m-d')
+                : $cig->getSmokedAt()->format('Y-m-d');
             if (!isset($grouped[$date])) {
                 $grouped[$date] = [];
             }

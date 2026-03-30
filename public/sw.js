@@ -1,4 +1,4 @@
-const CACHE_NAME = 'stopclope-v4';
+const CACHE_NAME = 'stopclope-v5';
 const urlsToCache = [
     '/',
     '/stats',
@@ -80,6 +80,66 @@ self.addEventListener('sync', event => {
     if (event.tag === 'sync-cigarettes') {
         event.waitUntil(syncOfflineCigarettes());
     }
+});
+
+// --- Notification prochaine clope ---
+let dismissTimer = null;
+
+self.addEventListener('message', event => {
+    const data = event.data;
+
+    if (data.type === 'SHOW_TARGET') {
+        // Annuler le timer précédent
+        if (dismissTimer) {
+            clearTimeout(dismissTimer);
+            dismissTimer = null;
+        }
+
+        // Afficher la notification persistante
+        self.registration.showNotification('Prochaine clope : ' + data.targetTime, {
+            tag: 'next-cig',
+            silent: true,
+            icon: '/icons/icon-192.png',
+            badge: '/icons/icon-192.png',
+            requireInteraction: false
+        });
+
+        // Programmer la fermeture automatique à l'heure cible
+        if (data.delayMs > 0) {
+            dismissTimer = setTimeout(() => {
+                self.registration.getNotifications({ tag: 'next-cig' }).then(notifications => {
+                    notifications.forEach(n => n.close());
+                });
+                dismissTimer = null;
+            }, data.delayMs);
+        }
+    }
+
+    if (data.type === 'DISMISS_TARGET') {
+        if (dismissTimer) {
+            clearTimeout(dismissTimer);
+            dismissTimer = null;
+        }
+        self.registration.getNotifications({ tag: 'next-cig' }).then(notifications => {
+            notifications.forEach(n => n.close());
+        });
+    }
+});
+
+// Clic sur la notification : ouvrir l'app
+self.addEventListener('notificationclick', event => {
+    event.notification.close();
+    event.waitUntil(
+        clients.matchAll({ type: 'window' }).then(windowClients => {
+            // Focus sur un onglet existant ou en ouvrir un nouveau
+            for (const client of windowClients) {
+                if (client.url.includes('/') && 'focus' in client) {
+                    return client.focus();
+                }
+            }
+            return clients.openWindow('/');
+        })
+    );
 });
 
 async function syncOfflineCigarettes() {

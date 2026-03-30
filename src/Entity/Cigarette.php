@@ -9,6 +9,7 @@ use Doctrine\ORM\Mapping as ORM;
 #[ORM\Entity(repositoryClass: CigaretteRepository::class)]
 #[ORM\Index(columns: ['smoked_at'], name: 'idx_smoked_at')]
 #[ORM\Index(columns: ['user_id'], name: 'idx_user_id')]
+#[ORM\Index(columns: ['effective_date', 'user_id'], name: 'idx_effective_date_user')]
 class Cigarette
 {
     #[ORM\Id]
@@ -24,6 +25,9 @@ class Cigarette
 
     #[ORM\Column(type: Types::BOOLEAN)]
     private bool $isRetroactive = false;
+
+    #[ORM\Column(type: Types::DATE_MUTABLE, nullable: true)]
+    private ?\DateTimeInterface $effectiveDate = null;
 
     #[ORM\ManyToOne(targetEntity: User::class, inversedBy: 'cigarettes')]
     #[ORM\JoinColumn(nullable: true)]
@@ -70,6 +74,17 @@ class Cigarette
     public function setIsRetroactive(bool $isRetroactive): static
     {
         $this->isRetroactive = $isRetroactive;
+        return $this;
+    }
+
+    public function getEffectiveDate(): ?\DateTimeInterface
+    {
+        return $this->effectiveDate;
+    }
+
+    public function setEffectiveDate(?\DateTimeInterface $effectiveDate): static
+    {
+        $this->effectiveDate = $effectiveDate;
         return $this;
     }
 

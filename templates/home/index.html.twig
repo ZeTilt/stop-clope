@@ -443,13 +443,20 @@
                     countdown.style.color = 'var(--warning)';
                     nextMsg.textContent = 'cible';
                     nextInfo.style.display = 'block';
+                    // Notification persistante avec l'heure cible
+                    if (Notification.permission === 'granted') {
+                        scheduleTargetNotification(targetHour + ':' + targetMin, minutesToNext * 60000);
+                    }
                 } else {
                     countdown.textContent = '✓';
                     countdown.style.color = 'var(--success)';
                     nextMsg.textContent = 'OK';
                     nextInfo.style.display = 'block';
+                    dismissTargetNotification();
                 }
             } else {
+                // Cible atteinte : fermer la notification
+                dismissTargetNotification();
                 // En positif : afficher le prochain seuil de zone bonus
                 // Zones: 0-30 min ×1.0, 30-60 min ×1.2, 60+ min ×1.5
                 var nextThreshold, nextMultiplier;
@@ -479,6 +486,29 @@
 
         updatePointsDisplay();
         setInterval(updatePointsDisplay, 60000);
+
+        // --- Notification système pour l'heure cible ---
+        function scheduleTargetNotification(targetTimeStr, delayMs) {
+            if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+            navigator.serviceWorker.controller.postMessage({
+                type: 'SHOW_TARGET',
+                targetTime: targetTimeStr,
+                delayMs: delayMs
+            });
+        }
+        function dismissTargetNotification() {
+            if (!('serviceWorker' in navigator) || !navigator.serviceWorker.controller) return;
+            navigator.serviceWorker.controller.postMessage({ type: 'DISMISS_TARGET' });
+        }
+
+        // Demander la permission notification (une seule fois)
+        if ('Notification' in window && Notification.permission === 'default') {
+            // Attendre une interaction utilisateur pour demander
+            document.getElementById('logBtn').addEventListener('click', function requestNotifPerm() {
+                Notification.requestPermission();
+                document.getElementById('logBtn').removeEventListener('click', requestNotifPerm);
+            }, { once: true });
+        }
     }
 
     // Fonction pour faire une requête avec retry automatique (utile après réveil de l'app)

@@ -18,7 +18,8 @@ class CigaretteService
         private CigaretteRepository $cigaretteRepository,
         private ScoringService $scoringService,
         private BadgeService $badgeService,
-        private StatsService $statsService
+        private StatsService $statsService,
+        private DayBoundaryService $dayBoundaryService
     ) {}
 
     /**
@@ -80,6 +81,7 @@ class CigaretteService
         $cigarette->setSmokedAt($smokedAt);
         $cigarette->setIsRetroactive($isRetroactive);
         $cigarette->setUser($user);
+        $cigarette->setEffectiveDate($this->dayBoundaryService->resolveEffectiveDate($smokedAt, $user));
 
         try {
             $this->entityManager->persist($cigarette);
@@ -92,9 +94,9 @@ class CigaretteService
         $this->scoringService->invalidateCache();
         $this->statsService->invalidateCache();
 
-        // Persister le score du jour (optimisation performance)
-        $today = new \DateTime();
-        $this->scoringService->persistDailyScore($today);
+        // Persister le score du jour effectif (optimisation performance)
+        $effectiveDate = $cigarette->getEffectiveDate() ?? new \DateTime();
+        $this->scoringService->persistDailyScore($effectiveDate);
 
         // Vérifier les nouveaux badges
         $newBadges = $this->badgeService->checkAndAwardBadges();
