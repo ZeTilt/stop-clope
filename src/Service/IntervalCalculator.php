@@ -153,7 +153,7 @@ class IntervalCalculator
 
         if (!$firstDate) {
             return [
-                'target' => ScoringConstants::DEFAULT_INTERVAL_MINUTES,
+                'target' => null,
                 'actual' => 0,
                 'days_used' => 0,
             ];
@@ -164,11 +164,11 @@ class IntervalCalculator
         $lookbackDays = min($daysUsed, 10);
 
         if ($lookbackDays < 1) {
-            // Premier jour, pas de cible
+            // Premier jour : pas de cible (pas encore de données historiques)
             $cigs = $this->cigaretteRepository->findByDate($date);
             $actualInterval = $this->getDayAverageInterval($cigs);
             return [
-                'target' => ScoringConstants::DEFAULT_INTERVAL_MINUTES,
+                'target' => null,
                 'actual' => $actualInterval,
                 'days_used' => 0,
             ];
@@ -302,7 +302,7 @@ class IntervalCalculator
 
         if (!$firstDate) {
             return [
-                'target' => ScoringConstants::DEFAULT_FIRST_CIG_MINUTES,
+                'target' => null,
                 'actual' => null,
                 'days_used' => 0,
             ];
@@ -321,8 +321,9 @@ class IntervalCalculator
         $lookbackDays = min($daysUsed, 10);
 
         if ($lookbackDays < 1) {
+            // Premier jour : pas de cible
             return [
-                'target' => ScoringConstants::DEFAULT_FIRST_CIG_MINUTES,
+                'target' => null,
                 'actual' => $actualTime,
                 'days_used' => 0,
             ];

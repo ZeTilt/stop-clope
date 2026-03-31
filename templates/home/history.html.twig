@@ -106,7 +106,7 @@
                 {% if first_cig_info.actual is not null %}
                     {% set fc_hours = (first_cig_info.actual / 60)|round(0, 'floor') %}
                     {% set fc_mins = first_cig_info.actual % 60 %}
-                    <div class="stat-value" style="color: {{ first_cig_info.actual >= first_cig_info.target ? 'var(--success)' : 'var(--warning)' }}">
+                    <div class="stat-value" style="color: {{ first_cig_info.target is not null and first_cig_info.actual >= first_cig_info.target ? 'var(--success)' : (first_cig_info.target is null ? 'var(--text-primary)' : 'var(--warning)') }}">
                         {% if fc_hours > 0 %}{{ fc_hours }}h{% endif %}{{ '%02d'|format(fc_mins) }}
                     </div>
                 {% else %}
@@ -131,7 +131,7 @@
                     {% set total_minutes = average_interval|round(0, 'floor') %}
                     {% set hours = (total_minutes / 60)|round(0, 'floor') %}
                     {% set minutes = total_minutes % 60 %}
-                    <div class="stat-value" style="color: {{ average_interval >= target_interval ? 'var(--success)' : 'var(--warning)' }}">
+                    <div class="stat-value" style="color: {{ target_interval is not null and average_interval >= target_interval ? 'var(--success)' : (target_interval is null ? 'var(--text-primary)' : 'var(--warning)') }}">
                         {% if hours > 0 %}{{ hours }}h{% endif %}{{ '%02d'|format(minutes) }}
                     </div>
                 {% else %}
